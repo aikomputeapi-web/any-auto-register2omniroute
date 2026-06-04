@@ -18,7 +18,7 @@ from core.browser_runtime import (
 )
 from core.config_store import ConfigStore, config_store
 from core.proxy_pool import ProxyPool, proxy_pool
-from core.proxy_utils import build_playwright_proxy_config, normalize_proxy_url
+from core.proxy_utils import build_playwright_proxy_config, normalize_proxy_url, resolve_us_profile
 
 
 DEFAULT_SDK_VERSION = "20260219f9f6"
@@ -329,9 +329,13 @@ class PlaywrightSentinelProvider(SentinelProvider):
             launch_kwargs["proxy"] = proxy_config
 
         self._browser = self._playwright.chromium.launch(**launch_kwargs)
+        us_loc = resolve_us_profile(self._config.proxy)
         self._context = self._browser.new_context(
             user_agent=self._config.user_agent,
-            locale="en-US",
+            locale=us_loc["locale"],
+            timezone_id=us_loc["timezone"],
+            geolocation={"latitude": us_loc["latitude"], "longitude": us_loc["longitude"]},
+            permissions=["geolocation"],
             viewport={"width": 1920, "height": 1080},
             ignore_https_errors=True,
         )

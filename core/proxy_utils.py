@@ -41,7 +41,7 @@ def is_authenticated_socks5_proxy(proxy_url: Optional[str]) -> bool:
 
 
 def normalize_proxy_url(proxy_url: Optional[str]) -> Optional[str]:
-    """将 socks5:// 规范化为 socks5h://，避免本地 DNS 泄漏。"""
+    """Will socks5:// normalized to socks5h://, avoid local DNS leakage."""
     if proxy_url is None:
         return None
 
@@ -74,7 +74,7 @@ def build_playwright_proxy_config(proxy_url: Optional[str]) -> Optional[dict[str
         server = value
         if server.startswith("socks5h://"):
             server = "socks5://" + server[len("socks5h://") :]
-        return {"server": server}
+        return {"server": server, "bypass": "localhost,127.0.0.1"}
 
     scheme = (parts.scheme or "").lower()
     if _is_auth_socks_proxy(scheme, parts.username or "", parts.password or ""):
@@ -82,9 +82,76 @@ def build_playwright_proxy_config(proxy_url: Optional[str]) -> Optional[dict[str
     if scheme == "socks5h":
         scheme = "socks5"
 
-    config = {"server": f"{scheme}://{parts.hostname}:{parts.port}"}
+    config = {
+        "server": f"{scheme}://{parts.hostname}:{parts.port}",
+        "bypass": "localhost,127.0.0.1"
+    }
     if parts.username:
         config["username"] = unquote(parts.username)
     if parts.password:
         config["password"] = unquote(parts.password)
     return config
+
+
+US_TIMEZONE_COORDS = {
+    "America/New_York": {"latitude": 40.7128, "longitude": -74.0060},
+    "America/Chicago": {"latitude": 41.8781, "longitude": -87.6298},
+    "America/Denver": {"latitude": 39.7392, "longitude": -104.9903},
+    "America/Los_Angeles": {"latitude": 37.7749, "longitude": -122.4194},
+    "America/Phoenix": {"latitude": 33.4484, "longitude": -112.0740},
+}
+
+
+def resolve_us_profile(proxy_url: Optional[str]) -> dict[str, any]:
+    """
+    Resolves a US location profile (locale, timezone, lat, lon).
+    If the proxy is located in the US, matches the proxy's timezone and coordinates.
+    Otherwise, falls back to a random US timezone and its default coordinates.
+    
+    Returns a dict with 'locale' (always 'en-US'), 'timezone', 'latitude', and 'longitude'.
+    """
+    import random
+    locale = "en-US"
+    timezone = None
+    latitude = None
+    longitude = None
+    
+    if proxy_url:
+        try:
+            import urllib.request
+            import json
+            
+            # Configure proxy handler
+            proxy_handler = urllib.request.ProxyHandler({'http': proxy_url, 'https': proxy_url})
+            opener = urllib.request.build_opener(proxy_handler)
+            opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')]
+            
+            # Query ip-api
+            with opener.open('http://ip-api.com/json/', timeout=4) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                if data.get('status') == 'success':
+                    country_code = data.get('countryCode', '').upper()
+                    tz = data.get('timezone')
+                    # We only match the proxy timezone/location if it is in the US
+                    if country_code == 'US' and tz:
+                        timezone = tz
+                        latitude = data.get('lat')
+                        longitude = data.get('lon')
+        except Exception:
+            pass
+            
+    if not timezone:
+        timezone = random.choice(list(US_TIMEZONE_COORDS.keys()))
+        
+    if latitude is None or longitude is None:
+        coords = US_TIMEZONE_COORDS.get(timezone, US_TIMEZONE_COORDS["America/New_York"])
+        latitude = coords["latitude"]
+        longitude = coords["longitude"]
+        
+    return {
+        "locale": locale,
+        "timezone": timezone,
+        "latitude": latitude,
+        "longitude": longitude
+    }
+

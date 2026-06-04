@@ -1,6 +1,6 @@
 """
-Kiro / AWS Builder ID 自动注册 v11 (Playwright 重构版)
-全面使用真实沙盒模拟，规避 AWS Builder ID 高级前台风控 (FWCIM / JWE / CSRF 跳板)。
+Kiro / AWS Builder ID Automatic registration v11 (Playwright Refactored version)
+Comprehensive use of real sandbox simulation to avoid AWS Builder ID Advanced front desk risk control (FWCIM / JWE / CSRF springboard).
 """
 
 import uuid
@@ -22,7 +22,7 @@ from core.browser_runtime import (
     resolve_browser_headless,
 )
 from urllib.request import Request, build_opener
-from core.proxy_utils import build_requests_proxy_config
+from core.proxy_utils import build_requests_proxy_config, build_playwright_proxy_config, resolve_us_profile
 
 try:
     from curl_cffi import requests as cffi_requests
@@ -36,7 +36,7 @@ try:
 except Exception:
     stealth_sync = None
 
-# 如果有全局的 turnstile_strategy，可借用，这里留个 stub
+# If there is a global turnstile_strategy, can be borrowed, leave one here stub
 
 KIRO_SIGNIN_URL = "https://app.kiro.dev/signin"
 KIRO_IDC_REGION = "us-east-1"
@@ -89,12 +89,38 @@ _VIEWPORT_PRESETS = [
     (1920, 1080),
 ]
 
+_FIRST_NAMES = [
+    "James", "John", "Robert", "Michael", "David",
+    "William", "Richard", "Joseph", "Thomas", "Christopher",
+    "Charles", "Daniel", "Matthew", "Anthony", "Mark",
+    "Steven", "Andrew", "Joshua", "Kenneth", "Kevin",
+    "Brian", "George", "Timothy", "Ronald", "Jason",
+    "Mary", "Patricia", "Jennifer", "Linda", "Barbara",
+    "Elizabeth", "Susan", "Jessica", "Sarah", "Karen",
+    "Lisa", "Nancy", "Amanda", "Emily", "Melissa",
+    "Stephanie", "Rebecca", "Laura", "Sharon", "Cynthia",
+    "Dorothy", "Amy", "Angela", "Michelle", "Donna",
+]
+
+_LAST_NAMES = [
+    "Smith", "Johnson", "Williams", "Brown", "Jones",
+    "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+    "Anderson", "Taylor", "Thomas", "Moore", "Jackson",
+    "Martin", "Lee", "Thompson", "White", "Harris",
+    "Clark", "Lewis", "Robinson", "Walker", "Young",
+    "Allen", "King", "Wright", "Scott", "Hill",
+    "Green", "Adams", "Baker", "Nelson", "Carter",
+    "Mitchell", "Roberts", "Turner", "Phillips", "Campbell",
+    "Parker", "Evans", "Edwards", "Collins", "Stewart",
+    "Morris", "Reed", "Cook", "Morgan", "Bell",
+]
+
 
 class _DesktopAuthCallbackServer:
     def __init__(self, expected_state: str):
         self.expected_state = expected_state
-        self.result = None
-        self.error = None
+        self.result: Optional[dict] = None
+        self.error: Optional[str] = None
         self._event = threading.Event()
         self._server = None
         self._thread = None
@@ -119,11 +145,11 @@ class _DesktopAuthCallbackServer:
                 if error:
                     outer.error = error_description or error
                 elif not state:
-                    outer.error = "桌面授权回调缺少 state"
+                    outer.error = "Desktop authorization callback missing state"
                 elif state != outer.expected_state:
-                    outer.error = "桌面授权回调 state 不匹配"
+                    outer.error = "Desktop authorization callback state no match"
                 elif not code:
-                    outer.error = "桌面授权回调缺少 code"
+                    outer.error = "Desktop authorization callback missing code"
                 else:
                     outer.result = {"code": code, "state": state}
 
@@ -145,17 +171,17 @@ class _DesktopAuthCallbackServer:
     @property
     def redirect_uri(self) -> str:
         if not self._server:
-            raise RuntimeError("桌面授权回调服务未启动")
+            raise RuntimeError("Desktop authorization callback service not started")
         port = self._server.server_address[1]
         return f"http://127.0.0.1:{port}/oauth/callback"
 
     def wait(self, timeout: int = 120):
         if not self._event.wait(timeout):
-            raise TimeoutError("等待桌面授权回调超时")
+            raise TimeoutError("Waiting for desktop authorization callback timed out")
         if self.error:
             raise RuntimeError(self.error)
         if not self.result:
-            raise RuntimeError("桌面授权回调未返回 code")
+            raise RuntimeError("Desktop authorization callback not returned code")
         return self.result
 
     def close(self):
@@ -178,13 +204,13 @@ class KiroRegister:
         self.browser = None
         self.context = None
 
-        # 保存捕获到的 Token API 响应
+        # Save captured Token API response
         self._captured_tokens = {}
         self._network_debug = []
 
     def _require_context(self):
         if self.context is None:
-            raise RuntimeError("浏览器上下文未初始化")
+            raise RuntimeError("Browser context not initialized")
         return self.context
 
     def log(self, msg):
@@ -194,11 +220,10 @@ class KiroRegister:
         time.sleep(random.uniform(min_seconds, max_seconds))
 
     def _randomize_name(self, base_name: str) -> str:
-        base = (base_name or "Kiro User").strip()
-        suffix = "".join(random.choices("abcdefghijklmnopqrstuvwxyz", k=3)) + str(
-            random.randint(10, 99)
-        )
-        return f"{base} {suffix}"
+        """Generate a realistic random American name from first/last name pools."""
+        first = random.choice(_FIRST_NAMES)
+        last = random.choice(_LAST_NAMES)
+        return f"{first} {last}"
 
     def _random_chrome_version(self) -> str:
         major = random.randint(130, 136)
@@ -245,34 +270,40 @@ class KiroRegister:
             ],
         }
         if self.proxy:
-            launch_opts["proxy"] = {"server": self.proxy}
+            proxy_cfg = build_playwright_proxy_config(self.proxy)
+            if proxy_cfg:
+                launch_opts["proxy"] = proxy_cfg
 
         self.browser = self.pw.chromium.launch(**launch_opts)
         profile = self._build_random_profile()
+        us_loc = resolve_us_profile(self.proxy)
 
         env_locale = os.getenv("KIRO_LOCALE", "").strip()
         env_timezone = os.getenv("KIRO_TIMEZONE", "").strip()
-        locale = env_locale or profile["locale"]
-        timezone_id = env_timezone or profile["timezone_id"]
+        locale = env_locale or us_loc["locale"]
+        timezone_id = env_timezone or us_loc["timezone"]
         viewport: dict[str, int] = dict(profile["viewport"])
 
-        self.log(f"浏览器模式: {'headless' if headless else 'headed'} ({reason})")
+        self.log(f"browser mode: {'headless' if headless else 'headed'} ({reason})")
         self.log(
-            f"浏览器画像: {profile['name']} / {locale} / {timezone_id} / "
+            f"Browser portrait: {profile['name']} / {locale} / {timezone_id} / "
             f"{viewport['width']}x{viewport['height']}"
         )
         context_opts: dict[str, Any] = {
             "user_agent": profile["user_agent"],
             "locale": locale,
             "timezone_id": timezone_id,
+            "geolocation": {"latitude": us_loc["latitude"], "longitude": us_loc["longitude"]},
+            "permissions": ["geolocation"],
             "viewport": viewport,
             "color_scheme": random.choice(["light", "dark"]),
             "reduced_motion": random.choice(["reduce", "no-preference"]),
         }
         self.context = self.browser.new_context(**context_opts)
+        self._captured_tokens["userAgent"] = profile["user_agent"]
         self.context.set_extra_http_headers({"Accept-Language": f"{locale},en;q=0.9"})
 
-        # 拦截 Kiro 登录成功相关的请求/响应，提取 Token
+        # intercept Kiro Requests related to successful login/response, extraction Token
         self.context.on("request", self._on_request)
         self.context.on("response", self._on_response)
 
@@ -344,7 +375,7 @@ class KiroRegister:
                 entry["json"] = json.dumps(body, ensure_ascii=False)[:2000]
                 if interesting:
                     self._captured_tokens.update(interesting)
-                    self.log(f"成功拦截到疑似 Token 响应: {url}")
+                    self.log(f"Successfully intercepted the suspected Token response: {url}")
 
             self._append_network_debug(entry)
         except Exception:
@@ -420,7 +451,7 @@ class KiroRegister:
                 btn = page.locator(sel).first
                 if btn.count() > 0 and btn.is_visible():
                     btn.click(timeout=2000)
-                    self.log("已处理 Cookie 横幅（Accept）")
+                    self.log("Processed Cookie banner (Accept)")
                     self._human_sleep(0.2, 0.45)
                     return
         except Exception:
@@ -456,6 +487,9 @@ class KiroRegister:
             # It's already a Locator, use its first match
             el = selector_or_locator.first
 
+        # Small random delay before interacting with the field (feels more natural)
+        self._human_sleep(0.3, 0.9)
+
         el.click(delay=random.randint(45, 160))
         if clear_first:
             try:
@@ -466,30 +500,36 @@ class KiroRegister:
                     page.keyboard.press("Backspace")
                 except Exception:
                     pass
+
+        # Brief pause after focusing / clearing before typing begins
+        self._human_sleep(0.15, 0.4)
+
         for idx, char in enumerate(text):
-            page.keyboard.type(char, delay=random.randint(45, 210))
-            if idx > 0 and random.random() < 0.12:
-                self._human_sleep(0.05, 0.2)
-        self._human_sleep(0.2, 0.55)
+            # Natural per-keystroke delay (~50-120ms base)
+            page.keyboard.type(char, delay=random.randint(38, 125))
+            # Occasional micro-pause between keystrokes to mimic real typing rhythm
+            if idx > 0 and random.random() < 0.15:
+                self._human_sleep(0.04, 0.18)
+        self._human_sleep(0.25, 0.65)
 
     def _solve_captcha_if_exists(self, page: Page):
         try:
-            # 如果遇到 CAPTCHA，此处可以对接外部打码
+            # If you encounter CAPTCHA, here you can connect to external coding
             if (
                 page.locator('iframe[src*="captcha"]').count() > 0
                 or page.locator(".awsui-captcha").count() > 0
             ):
-                self.log("⚠️ 发现潜在的 CAPTCHA 挑战，尝试等待或者需要挂件自动打码...")
+                self.log("⚠️ discover potential CAPTCHA Challenge, try to wait or need the pendant to automatically code...")
                 page.wait_for_timeout(5000)
         except Exception:
             pass
 
     def _click_primary_button(self, page: Page):
-        # 给予 React 状态同步时间，防止打字太快点击导致验证失效
+        # give React Status synchronization time to prevent verification failure caused by clicking too fast when typing
         self._human_sleep(0.45, 1.05)
 
         try:
-            # 依优先级测试页面上可能的提要按钮
+            # Test possible feed buttons on the page by priority
             selectors = [
                 'button[data-testid*="verify-button"]',
                 'button[data-testid*="next-button"]',
@@ -506,7 +546,7 @@ class KiroRegister:
                     self._human_sleep(0.22, 0.65)
                     return
 
-            # 最后的退路：查找未带有 awsccc（Cookie Consent）的可见 Submit 按钮
+            # The last resort: Find the missing awsccc(Cookie Consent) is visible Submit button
             fallback = page.locator(
                 'button[type="submit"]:not([data-id*="awsccc"]):visible'
             ).first
@@ -578,7 +618,7 @@ class KiroRegister:
 
             self._human_sleep(0.2, 0.6)
 
-        return False, "提交验证码后未进入密码设置页"
+        return False, "Did not enter the password setting page after submitting the verification code"
 
     def _wait_for_post_email_step(
         self, page: Page, timeout_ms: int = 30000
@@ -612,7 +652,7 @@ class KiroRegister:
 
             self._human_sleep(0.2, 0.6)
 
-        return "timeout", None, "等待姓名或 OTP 输入框超时"
+        return "timeout", None, "Waiting for name or OTP Input box timeout"
 
     def _wait_for_otp_step(
         self, page: Page, timeout_ms: int = 18000
@@ -638,7 +678,7 @@ class KiroRegister:
 
             self._human_sleep(0.2, 0.6)
 
-        return False, "等待 OTP 输入框超时", None
+        return False, "wait OTP Input box timeout", None
 
     def _fill_password_fields(self, page: Page, password: str):
         password_field = page.get_by_label("Password", exact=True)
@@ -661,7 +701,7 @@ class KiroRegister:
                 page.keyboard.press("Control+A")
                 page.keyboard.press("Backspace")
             if field.input_value() != password:
-                raise RuntimeError("密码输入框写入失败")
+                raise RuntimeError("Failed to write password input box")
 
     def _http_post_json(self, url: str, payload: dict) -> dict:
         headers = {
@@ -701,15 +741,49 @@ class KiroRegister:
                 "accessToken"
             ]
 
+        # Always capture portal cookies (view.awsapps.com) — do this before any early return
+        # so that even when webAccessToken/sessionToken are already known, we still save the portal session.
+        try:
+            all_cookies = self._require_context().cookies()
+            # Debug: log all unique domains to understand what's available
+            all_domains = sorted(set(c.get("domain", "") for c in all_cookies))
+            self.log(f"[Kiro] Cookie domains in context: {all_domains}")
+            self._captured_tokens["_debug_cookie_domains"] = all_domains
+            portal_cookies = []
+            for c in all_cookies:
+                domain = c.get("domain", "").lower()
+                if "aws" in domain or "amazon" in domain:
+                    cookie_dict = {
+                        "name": c.get("name"),
+                        "value": c.get("value"),
+                        "domain": c.get("domain", ""),
+                        "path": c.get("path", "/"),
+                        "secure": c.get("secure", True),
+                        "httpOnly": c.get("httpOnly", False),
+                        "sameSite": c.get("sameSite", "None")
+                    }
+                    if "expires" in c:
+                        cookie_dict["expires"] = c["expires"]
+                    portal_cookies.append(cookie_dict)
+            if portal_cookies:
+                self._captured_tokens["portalCookies"] = portal_cookies
+                self.log(f"[Kiro] Captured {len(portal_cookies)} portal cookies")
+            else:
+                self.log("[Kiro] No AWS portal cookies found in browser context")
+        except Exception as exc:
+            self.log(f"[Kiro] Portal cookie capture failed: {exc}")
+
+
         if self._captured_tokens.get("webAccessToken") and self._captured_tokens.get(
             "sessionToken"
         ):
             return
 
         try:
+            all_cookies = self._require_context().cookies()
             cookie_map = {
                 c.get("name", ""): c.get("value", "")
-                for c in self._require_context().cookies()
+                for c in all_cookies
                 if c.get("domain", "").endswith("app.kiro.dev")
             }
             if cookie_map.get("AccessToken"):
@@ -744,7 +818,7 @@ class KiroRegister:
                 pass
 
     def _register_desktop_client(self, region: str) -> dict:
-        self.log("开始注册桌面端 OIDC Client ...")
+        self.log("Start registering for desktop OIDC Client ...")
         response = self._http_post_json(
             f"https://oidc.{region}.amazonaws.com/client/register",
             {
@@ -760,7 +834,7 @@ class KiroRegister:
         client_secret = response.get("clientSecret", "")
         if not client_id or not client_secret:
             raise RuntimeError(
-                f"桌面端 OIDC Client 注册失败: {json.dumps(response, ensure_ascii=False)[:300]}"
+                f"Desktop OIDC Client Registration failed: {json.dumps(response, ensure_ascii=False)[:300]}"
             )
         return {
             "clientId": client_id,
@@ -782,7 +856,7 @@ class KiroRegister:
         code: str,
         code_verifier: str,
     ) -> dict:
-        self.log("开始交换桌面端 authorization_code ...")
+        self.log("Start exchanging desktop authorization_code ...")
         response = self._http_post_json(
             f"https://oidc.{region}.amazonaws.com/token",
             {
@@ -796,19 +870,19 @@ class KiroRegister:
         )
         if not response.get("accessToken") or not response.get("refreshToken"):
             raise RuntimeError(
-                f"桌面端 token 交换失败: {json.dumps(response, ensure_ascii=False)[:300]}"
+                f"Desktop token Exchange failed: {json.dumps(response, ensure_ascii=False)[:300]}"
             )
         return response
 
     def _handle_desktop_auth_page(self, page: Page, email: str = "", pwd: str = ""):
-        # 复用已有 AWS 会话时通常会自动跳转；只有在会话丢失时才需要人工补登录。
+        # Reuse existing AWS The session usually jumps automatically; only when the session is lost, manual login is required.
         try:
             if email:
                 email_input = page.locator(
                     'input[placeholder="username@example.com"], input[type="email"]'
                 ).first
                 if email_input.count() > 0 and email_input.is_visible():
-                    self.log("桌面授权页要求重新登录，正在填写 Email ...")
+                    self.log("Desktop authorization page requires re-login, filling in Email ...")
                     try:
                         email_input.fill("")
                     except Exception:
@@ -823,7 +897,7 @@ class KiroRegister:
             if pwd:
                 password_input = page.locator('input[type="password"]').first
                 if password_input.count() > 0 and password_input.is_visible():
-                    self.log("桌面授权页要求重新登录，正在填写密码 ...")
+                    self.log("The desktop authorization page requires re-login and the password is being filled in. ...")
                     try:
                         password_input.fill("")
                     except Exception:
@@ -838,7 +912,7 @@ class KiroRegister:
             try:
                 button = page.get_by_role("button", name=label).first
                 if button.count() > 0 and button.is_visible():
-                    self.log(f"桌面授权页点击 {label} ...")
+                    self.log(f"Click on desktop authorization page {label} ...")
                     button.click(timeout=2000)
                     self._human_sleep(0.6, 1.2)
                     break
@@ -881,7 +955,7 @@ class KiroRegister:
                 )
             )
 
-            self.log("开始桌面端授权跳转 ...")
+            self.log("Start desktop authorization jump ...")
             auth_page = self._require_context().new_page()
             auth_page.goto(authorize_url, wait_until="domcontentloaded", timeout=60000)
 
@@ -895,10 +969,10 @@ class KiroRegister:
                             'input[placeholder*="6-digit" i], input[name="code"], input[id*="code"]'
                         ).first
                         if otp_input.count() > 0 and otp_input.is_visible():
-                            self.log("桌面授权页要求邮箱验证码，正在取码 ...")
+                            self.log("The desktop authorization page requires an email verification code, and the code is being retrieved. ...")
                             otp_code = otp_callback()
                             if not otp_code:
-                                raise RuntimeError("未获取到桌面授权验证码")
+                                raise RuntimeError("Desktop authorization verification code not obtained")
                             otp_input.fill(str(otp_code))
                             self._click_primary_button(auth_page)
                             desktop_otp_used = True
@@ -906,7 +980,7 @@ class KiroRegister:
                             continue
                     except Exception as otp_error:
                         raise RuntimeError(
-                            f"桌面授权验证码处理失败: {otp_error}"
+                            f"Desktop authorization verification code processing failed: {otp_error}"
                         ) from otp_error
                 self._handle_desktop_auth_page(auth_page, email=email, pwd=pwd)
                 self._human_sleep(0.6, 1.3)
@@ -976,7 +1050,7 @@ class KiroRegister:
             pwd = f"Aa!1{uuid.uuid4().hex[:8]}"
         name = self._randomize_name(name)
 
-        self.log(f"开始 Playwright 流程, Email: {email}")
+        self.log(f"start Playwright process, Email: {email}")
         page = None
         try:
             self._init_browser()
@@ -985,7 +1059,7 @@ class KiroRegister:
             if stealth_sync:
                 stealth_sync(page)
 
-            self.log("加载 Kiro Login ...")
+            self.log("load Kiro Login ...")
             page.goto(KIRO_SIGNIN_URL, wait_until="domcontentloaded")
             self._human_sleep(1.9, 3.4)
 
@@ -1003,14 +1077,14 @@ class KiroRegister:
             elif page.locator('text="AWS Builder ID"').count() > 0:
                 page.locator('text="AWS Builder ID"').first.click()
 
-            self.log("等待跳转到 AWS SSO ...")
+            self.log("Waiting to jump to AWS SSO ...")
             page.wait_for_url(re.compile(r"signin\.aws"), timeout=30000)
             self._accept_cookie_banner_if_present(page)
             self._solve_captcha_if_exists(page)
 
-            # 1. 填写 Email
-            self.log("1. 填写 Email...")
-            # Debug: 打印出现的所有 input 了解真实属性
+            # 1. fill in Email
+            self.log("1. fill in Email...")
+            # Debug: Print all occurrences of input Understand true attributes
             try:
                 inputs_info = []
                 for field in page.locator("input").all():
@@ -1021,8 +1095,8 @@ class KiroRegister:
             except Exception:
                 pass
 
-            # 宽泛定位器，涵盖大量 aws SSO 可能出现的情况
-            # AWS 的极度变态之处：它不用 type="email" 也不用 name="email"，而是动态生成类似于 id="formField14-1774542604278-6990" 的 type="text"
+            # Broad locator covering a large number of aws SSO possible situations
+            # AWS The most perverse thing about type="email" No need name="email", but instead dynamically generate something like id="formField14-1774542604278-6990" of type="text"
             email_input = page.locator(
                 'input[placeholder="username@example.com"], input[type="email"]'
             ).first
@@ -1036,57 +1110,57 @@ class KiroRegister:
             self._human_sleep(1.1, 2.4)
             self._solve_captcha_if_exists(page)
 
-            # 2. 等待邮箱后的实际下一步（某些 AWS 页面会延迟很久才出现姓名输入框）
-            self.log("2. 等待姓名或 OTP 阶段...")
+            # 2. The actual next step after waiting for the mailbox (some AWS There will be a long delay before the name input box appears on the page)
+            self.log("2. Waiting for name or OTP stage...")
             stage, stage_input, stage_error = self._wait_for_post_email_step(
                 page, timeout_ms=30000
             )
             if stage == "error":
-                return False, {"error": f"Email 提交后 AWS 返回错误: {stage_error}"}
+                return False, {"error": f"Email After submission AWS return error: {stage_error}"}
             if stage == "timeout":
                 return False, {"error": stage_error}
 
             otp_input = stage_input if stage == "otp" else None
             if stage == "name":
-                self.log("2. 填写名字 (Your name)...")
+                self.log("2. Fill in the name (Your name)...")
                 if stage_input is None:
-                    return False, {"error": "未找到姓名输入框"}
+                    return False, {"error": "Name input box not found"}
                 self._type_like_human(page, stage_input, name)
                 self._click_primary_button(page)
                 self._human_sleep(1.1, 2.4)
 
-                self.log("3. 等待触发 OTP...")
+                self.log("3. Waiting for trigger OTP...")
                 otp_ready, otp_wait_error, otp_input = self._wait_for_otp_step(
                     page, timeout_ms=30000
                 )
             else:
-                self.log("2. 当前流程直接进入 OTP，跳过姓名填写")
+                self.log("2. Enter the current process directly OTP, skip filling in the name")
                 otp_ready, otp_wait_error = True, ""
 
             if not otp_ready:
-                return False, {"error": f"姓名提交后 AWS 返回错误: {otp_wait_error}"}
+                return False, {"error": f"After name submission AWS return error: {otp_wait_error}"}
 
             otp_code = None
             if otp_callback:
                 otp_code = otp_callback()
 
             if not otp_code:
-                return False, {"error": "未获取到邮箱验证码(OTP Timeout)"}
+                return False, {"error": "Email verification code not obtained(OTP Timeout)"}
 
-            self.log(f"获取到验证码: {otp_code}，正在填入...")
+            self.log(f"Get verification code: {otp_code}, filling in...")
             if otp_input is None:
-                return False, {"error": "未找到 OTP 输入框"}
+                return False, {"error": "not found OTP Input box"}
             self._type_like_human(page, otp_input, otp_code)
             self._click_primary_button(page)
             self._human_sleep(1.0, 2.2)
 
-            # 4. 设定与确认密码
-            self.log("4. 设定与确认密码...")
+            # 4. Set and confirm password
+            self.log("4. Set and confirm password...")
             password_ready, otp_error = self._wait_for_password_step(
                 page, timeout_ms=15000
             )
             if not password_ready:
-                return False, {"error": f"OTP 提交后未通过: {otp_error}"}
+                return False, {"error": f"OTP Failed after submission: {otp_error}"}
 
             self._fill_password_fields(page, pwd)
 
@@ -1103,18 +1177,18 @@ class KiroRegister:
                 ],
             )
             if password_error:
-                return False, {"error": f"密码设置未通过: {password_error}"}
+                return False, {"error": f"Password setting failed: {password_error}"}
 
-            # 5. 回调授权
+            # 5. callback authorization
             allow_btn = page.locator('text="Allow"')
             if allow_btn.count() > 0:
-                self.log("点击 Allow 授权应用...")
+                self.log("Click Allow Authorize application...")
                 allow_btn.click()
 
-            # 6. 等待返回 Kiro 拿 Token
-            self.log("等待回到 Kiro...")
+            # 6. Waiting for return Kiro take Token
+            self.log("waiting to return Kiro...")
             try:
-                # 至少等它请求完 CompleteLogin
+                # At least wait until it completes the request CompleteLogin
                 page.wait_for_url(re.compile(r"kiro\.dev"), timeout=30000)
                 self._human_sleep(3.0, 5.8)
             except TimeoutError:
@@ -1125,23 +1199,23 @@ class KiroRegister:
                 # try to extract some error
                 if page.locator(".awsui-alert-content").count() > 0:
                     err_text = page.locator(".awsui-alert-content").text_content()
-                self.log(f"未回到 Kiro，当前 URL: {page.url}")
+                self.log(f"Not returned Kiro,current URL: {page.url}")
                 try:
-                    self.log(f"当前页面标题: {page.title()}")
+                    self.log(f"Current page title: {page.title()}")
                 except Exception:
                     pass
                 try:
                     self.log(
-                        f"当前页面按钮: {page.locator('button').all_text_contents()}"
+                        f"Current page button: {page.locator('button').all_text_contents()}"
                     )
                 except Exception:
                     pass
                 try:
                     page.screenshot(path="kiro_return_error.png")
-                    self.log("回跳失败截图已保存为 kiro_return_error.png")
+                    self.log("The screenshot of failure to jump back has been saved as kiro_return_error.png")
                     with open("kiro_return_error.html", "w", encoding="utf-8") as f:
                         f.write(page.content())
-                    self.log("回跳失败 HTML 已保存为 kiro_return_error.html")
+                    self.log("Rebound failed HTML saved as kiro_return_error.html")
                 except Exception:
                     pass
 
@@ -1149,9 +1223,9 @@ class KiroRegister:
 
             self._capture_kiro_web_tokens(page)
 
-            # 为了后续刷新等，必须有 token
+            # For subsequent refreshes, etc., there must be token
             if not self._captured_tokens.get("webAccessToken"):
-                self.log(f"当前 URL: {page.url}")
+                self.log(f"current URL: {page.url}")
                 try:
                     self.log(
                         f"localStorage: {page.evaluate('() => JSON.stringify(window.localStorage)')[:2000]}"
@@ -1180,26 +1254,30 @@ class KiroRegister:
                     pass
                 if self._network_debug:
                     self.log(
-                        f"网络调试样本: {json.dumps(self._network_debug[-15:], ensure_ascii=False)}"
+                        f"Network debugging sample: {json.dumps(self._network_debug[-15:], ensure_ascii=False)}"
                     )
                 try:
                     page.screenshot(path="kiro_token_error.png")
-                    self.log("Token 提取失败截图已保存为 kiro_token_error.png")
+                    self.log("Token The screenshot of failed extraction has been saved as kiro_token_error.png")
                     with open("kiro_token_error.html", "w", encoding="utf-8") as f:
                         f.write(page.content())
-                    self.log("Token 提取失败 HTML 已保存为 kiro_token_error.html")
+                    self.log("Token Failed to extract HTML saved as kiro_token_error.html")
                 except Exception:
                     pass
                 return False, {
-                    "error": "注册看似完成，但未能提取出 OAuth Token。可能是网络拦截失败。"
+                    "error": "Registration appears to be complete, but cannot be extracted OAuth Token. It may be that the network interception failed."
                 }
 
             try:
                 desktop_tokens = self._complete_desktop_idc_flow(email=email, pwd=pwd)
                 self._captured_tokens.update(desktop_tokens)
-                self.log("桌面端 Builder ID Token 已补抓完成")
+                self.log("Desktop Builder ID Token The catch-up has been completed")
+                try:
+                    self._capture_kiro_web_tokens(page)
+                except Exception as capture_err:
+                    self.log(f"⚠️ Failed to recapture portal cookies: {capture_err}")
             except Exception as desktop_error:
-                self.log(f"⚠️ 桌面端 Builder ID Token 补抓失败: {desktop_error}")
+                self.log(f"⚠️ Desktop Builder ID Token Failed to catch up: {desktop_error}")
 
             return True, {
                 "email": email,
@@ -1214,19 +1292,21 @@ class KiroRegister:
                 "region": self._captured_tokens.get("region", KIRO_IDC_REGION),
                 "sessionToken": self._captured_tokens.get("sessionToken", ""),
                 "webAccessToken": self._captured_tokens.get("webAccessToken", ""),
+                "portalCookies": self._captured_tokens.get("portalCookies", []),
+                "userAgent": self._captured_tokens.get("userAgent", ""),
             }
 
         except Exception as e:
-            self.log(f"❌ Playwright 遇到异常: {e}")
-            # 保存一下截图方便排查
+            self.log(f"❌ Playwright encountered an exception: {e}")
+            # Save the screenshot for easy troubleshooting
             try:
                 if page:
                     page.screenshot(path="kiro_error.png")
-                    self.log("截图已保存为 kiro_error.png")
+                    self.log("Screenshot saved as kiro_error.png")
 
                     with open("kiro_error.html", "w", encoding="utf-8") as f:
                         f.write(page.content())
-                    self.log("HTML 已保存为 kiro_error.html")
+                    self.log("HTML saved as kiro_error.html")
             except Exception:
                 pass
             return False, {"error": str(e)}

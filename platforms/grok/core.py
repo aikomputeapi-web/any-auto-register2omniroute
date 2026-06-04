@@ -1,12 +1,12 @@
 """
-Grok (x.ai) 自动注册
+Grok (x.ai) Automatic registration
 
-当前链路改为浏览器辅助注册：
-1. 邮箱收码
-2. 浏览器推进到完成注册页
-3. 点击真实 Turnstile 复选框拿 token
-4. 完成注册并接受 ToS
-5. 提取 sso / sso-rw cookie
+The current link is changed to browser-assisted registration:
+1. Mailbox code collection
+2. The browser advances to the registration completion page
+3. click real Turnstile checkbox take token
+4. Complete registration and accept ToS
+5. extract sso / sso-rw cookie
 """
 
 import ctypes
@@ -19,6 +19,7 @@ from core.browser_runtime import (
     ensure_browser_display_available,
     resolve_browser_headless,
 )
+from core.proxy_utils import build_playwright_proxy_config, resolve_us_profile
 
 
 UA = (
@@ -62,7 +63,7 @@ class GrokRegister:
             if fn():
                 return
             time.sleep(interval)
-        raise TimeoutError(desc or "等待超时")
+        raise TimeoutError(desc or "Wait timeout")
 
     @staticmethod
     def _has_auth_cookies(cookies: list) -> bool:
@@ -76,13 +77,15 @@ class GrokRegister:
             self.headless, default_headless=False
         )
         ensure_browser_display_available(headless)
-        self.log(f"浏览器模式: {'headless' if headless else 'headed'} ({reason})")
+        self.log(f"browser mode: {'headless' if headless else 'headed'} ({reason})")
         launch_kwargs: dict[str, Any] = {
             "headless": headless,
             "channel": "msedge",
         }
         if self.proxy:
-            launch_kwargs["proxy"] = {"server": self.proxy}
+            proxy_cfg = build_playwright_proxy_config(self.proxy)
+            if proxy_cfg:
+                launch_kwargs["proxy"] = proxy_cfg
         try:
             browser = playwright.chromium.launch(**launch_kwargs)
         except Exception:
@@ -91,7 +94,7 @@ class GrokRegister:
         return playwright, browser
 
     def _goto_email_signup(self, page) -> None:
-        self.log("Step1: 打开 Grok 注册页...")
+        self.log("Step1: Open Grok Registration page...")
         page.goto("https://accounts.x.ai/sign-up", wait_until="domcontentloaded")
         page.wait_for_timeout(1500)
         if page.locator("input[type=email]").count() == 0:
@@ -99,7 +102,7 @@ class GrokRegister:
                 """() => {
                     const buttons = [...document.querySelectorAll('button')];
                     const target =
-                      buttons.find((b) => /邮箱|email/i.test((b.innerText || '').trim())) ||
+                      buttons.find((b) => /Mail|email/i.test((b.innerText || '').trim())) ||
                       buttons[1] ||
                       null;
                     if (target) {
@@ -110,12 +113,12 @@ class GrokRegister:
                 }"""
             )
             if not clicked:
-                raise RuntimeError("未找到邮箱注册入口按钮")
+                raise RuntimeError("Email registration entry button not found")
             page.wait_for_timeout(2000)
         page.locator("input[type=email]").wait_for(state="visible", timeout=10000)
 
     def _submit_email(self, page, email: str) -> None:
-        self.log(f"Step2: 提交邮箱 {email} ...")
+        self.log(f"Step2: Submit email {email} ...")
         page.locator("input[type=email]").fill(email)
         page.locator("button[type=submit]").click()
 
@@ -124,19 +127,19 @@ class GrokRegister:
 
         try:
             self._wait_until(
-                _email_verify_ready, timeout=15, desc="等待邮箱验证码页超时"
+                _email_verify_ready, timeout=15, desc="Timeout waiting for email verification code page"
             )
         except Exception:
             body = page.locator("body").inner_text()
             if any(
                 x in body
-                for x in ["域名", "已被拒绝", "其他邮箱地址", "disposable", "rejected"]
+                for x in ["domain name", "has been rejected", "Other email addresses", "disposable", "rejected"]
             ):
-                raise RuntimeError(f"邮箱域名被拒绝: {body[:200]}")
-            raise RuntimeError(f"邮箱提交失败: {body[:200]}")
+                raise RuntimeError(f"Email domain name was rejected: {body[:200]}")
+            raise RuntimeError(f"Email submission failed: {body[:200]}")
 
     def _submit_otp(self, page, code: str) -> None:
-        self.log(f"Step3: 提交邮箱验证码 {code} ...")
+        self.log(f"Step3: Submit email verification code {code} ...")
         otp_input = page.locator("input[name=code]")
         otp_input.click()
         try:
@@ -156,13 +159,13 @@ class GrokRegister:
         def _user_form_ready() -> bool:
             return page.locator("input[name=givenName]").count() > 0
 
-        self._wait_until(_user_form_ready, timeout=20, desc="等待完成注册页超时")
-        self.log("  已进入完成注册页")
+        self._wait_until(_user_form_ready, timeout=20, desc="Timeout waiting for registration page to complete")
+        self.log("  Already entered the registration completion page")
 
     def _fill_user_form(
         self, page, given_name: str, family_name: str, password: str
     ) -> None:
-        self.log(f"Step4: 填写用户信息 {given_name} {family_name} ...")
+        self.log(f"Step4: Fill in user information {given_name} {family_name} ...")
         page.locator("input[name=givenName]").fill(given_name)
         page.locator("input[name=familyName]").fill(family_name)
         page.locator("input[name=password]").fill(password)
@@ -216,8 +219,8 @@ class GrokRegister:
     @staticmethod
     def _has_turnstile_error(page) -> bool:
         keywords = [
-            "验证失败",
-            "故障排除",
+            "Authentication failed",
+            "troubleshooting",
             "verification failed",
             "troubleshoot",
             "try again",
@@ -291,7 +294,7 @@ class GrokRegister:
             except Exception:
                 pass
         except Exception as e:
-            raise RuntimeError(f"当前系统不支持原生点击: {e}") from e
+            raise RuntimeError(f"The current system does not support native clicks: {e}") from e
 
         page.bring_to_front()
         metrics = page.evaluate(
@@ -327,7 +330,7 @@ class GrokRegister:
             if token:
                 return token
 
-        raise RuntimeError("Native click 后仍未获取到 token")
+        raise RuntimeError("Native click Still haven’t gotten it yet token")
 
     def _solve_turnstile_by_solver(self, page) -> str:
         if not self.captcha_solver:
@@ -337,13 +340,13 @@ class GrokRegister:
             return ""
         client_key = getattr(self.captcha_solver, "client_key", None)
         if client_key is not None and not str(client_key).strip():
-            self.log("  未配置 YesCaptcha key，跳过验证码服务兜底")
+            self.log("  Not configured YesCaptcha key, skip the verification code service")
             return ""
         sitekey = self._read_turnstile_sitekey(page)
         if not sitekey:
-            self.log("  未提取到 Turnstile sitekey，跳过验证码服务兜底")
+            self.log("  Not extracted Turnstile sitekey, skip the verification code service")
             return ""
-        self.log(f"  兜底: 调用验证码服务解 Turnstile (sitekey={sitekey[:8]}...)")
+        self.log(f"  reveal all the details: Call the verification code service solution Turnstile (sitekey={sitekey[:8]}...)")
         token = self.captcha_solver.solve_turnstile(page.url, sitekey)
         if not token:
             return ""
@@ -353,14 +356,14 @@ class GrokRegister:
         return ""
 
     def _solve_turnstile_on_page(self, page) -> str:
-        self.log("Step5: 点击页面内 Turnstile 复选框...")
+        self.log("Step5: Click within the page Turnstile checkbox...")
         last_error = None
         for attempt in range(8):
             frame, box = self._find_turnstile_widget(page)
             if not box:
                 page.wait_for_timeout(1000)
                 if last_error is None:
-                    last_error = "未找到可点击的 Turnstile iframe"
+                    last_error = "No clickable found Turnstile iframe"
                 continue
 
             click_x = box["x"] + min(28, max(18, box["width"] * 0.08))
@@ -400,21 +403,21 @@ class GrokRegister:
                 last_error = str(e)
 
             if self._has_turnstile_error(page):
-                self.log("  检测到 Turnstile 验证失败提示，准备重试...")
+                self.log("  detected Turnstile Verification failed prompt, prepare to try again...")
             page.wait_for_timeout(900 + attempt * 120)
 
         try:
             token = self._solve_turnstile_by_solver(page)
             if token:
-                self.log(f"  Turnstile token(兜底): {token[:40]}...")
+                self.log(f"  Turnstile token(reveal all the details): {token[:40]}...")
                 return token
         except Exception as e:
             last_error = str(e)
 
-        raise RuntimeError(last_error or "Turnstile 求解失败")
+        raise RuntimeError(last_error or "Turnstile Solution failed")
 
     def _submit_register(self, page) -> None:
-        self.log("Step6: 提交完成注册...")
+        self.log("Step6: Submit to complete registration...")
 
         def _tos_or_account_ready() -> bool:
             url = page.url
@@ -423,12 +426,12 @@ class GrokRegister:
                 "/accept-tos" in url
                 or "/account" in url
                 or page.locator("input[type=checkbox]").count() >= 2
-                or "接受服务条款" in body
-                or "您的账户" in body
+                or "Accept terms of service" in body
+                or "your account" in body
                 or self._has_auth_cookies(page.context.cookies())
             )
 
-        last_error = "等待注册后跳转超时"
+        last_error = "Waiting for jump timeout after registration"
         for submit_attempt in range(1, 4):
             page.locator("button[type=submit]").click()
             page.wait_for_timeout(900)
@@ -438,14 +441,14 @@ class GrokRegister:
                     page.wait_for_timeout(1200)
                     return
                 if self._has_turnstile_error(page):
-                    last_error = "Cloudflare 验证失败"
+                    last_error = "Cloudflare Authentication failed"
                     break
                 page.wait_for_timeout(500)
             else:
-                last_error = "等待注册后跳转超时"
+                last_error = "Waiting for jump timeout after registration"
 
             if submit_attempt < 3:
-                self.log(f"  提交失败({last_error})，重新过 Turnstile 后重试...")
+                self.log(f"  Submission failed({last_error}), do it again Turnstile Try again later...")
                 self._solve_turnstile_on_page(page)
 
         raise RuntimeError(last_error)
@@ -458,8 +461,8 @@ class GrokRegister:
                 page.locator("input[type=checkbox]").count() >= 2
                 or "/accept-tos" in url
                 or "/account" in url
-                or "接受服务条款" in body
-                or "您的账户" in body
+                or "Accept terms of service" in body
+                or "your account" in body
                 or self._has_auth_cookies(page.context.cookies())
             )
 
@@ -473,10 +476,10 @@ class GrokRegister:
             if page.locator("input[type=checkbox]").count() < 2:
                 return
 
-        self.log("Step7: 接受 ToS ...")
+        self.log("Step7: accept ToS ...")
         checkbox_labels = [
-            "我确认已阅读并接受 企业服务条款，并知晓 隐私政策。",
-            "我确认我已年满 18 岁。",
+            "I confirm that I have read and accepted Enterprise Terms of Service and be aware of them Privacy Policy.",
+            "I confirm that I am over 18 age.",
         ]
         for label in checkbox_labels:
             try:
@@ -486,18 +489,18 @@ class GrokRegister:
             except Exception:
                 pass
 
-        page.get_by_role("button", name="继续").click()
+        page.get_by_role("button", name="continue").click()
 
         def _account_ready() -> bool:
             url = page.url
             body = page.locator("body").inner_text()
             return (
                 "/account" in url
-                or "您的账户" in body
+                or "your account" in body
                 or self._has_auth_cookies(page.context.cookies())
             )
 
-        self._wait_until(_account_ready, timeout=20, desc="等待账户页超时")
+        self._wait_until(_account_ready, timeout=20, desc="Timeout waiting for account page")
         page.wait_for_timeout(1500)
 
     @staticmethod
@@ -534,9 +537,14 @@ class GrokRegister:
         context = None
         try:
             playwright, browser = self._launch_browser()
+            us_loc = resolve_us_profile(self.proxy)
             context = browser.new_context(
                 viewport={"width": 1400, "height": 1200},
                 user_agent=UA,
+                locale=us_loc["locale"],
+                timezone_id=us_loc["timezone"],
+                geolocation={"latitude": us_loc["latitude"], "longitude": us_loc["longitude"]},
+                permissions=["geolocation"],
             )
             page = context.new_page()
 
@@ -544,12 +552,12 @@ class GrokRegister:
             self._submit_email(page, email)
 
             if not otp_callback:
-                code = input("验证码: ").strip()
+                code = input("Verification code: ").strip()
             else:
-                self.log("等待验证码...")
+                self.log("Wait for verification code...")
                 code = otp_callback() or ""
             if not code:
-                raise RuntimeError("未获取到验证码")
+                raise RuntimeError("Verification code not obtained")
 
             self._submit_otp(page, code)
             self._fill_user_form(page, given_name, family_name, password)
@@ -564,10 +572,10 @@ class GrokRegister:
             sso = self._pick_cookie(cookies, "sso")
             sso_rw = self._pick_cookie(cookies, "sso-rw")
             if not sso:
-                raise RuntimeError("注册成功但未提取到 sso cookie")
+                raise RuntimeError("Registered successfully but not withdrawn sso cookie")
 
             self.log(f"  ✅ sso={sso[:40]}...")
-            self.log("Grok 注册链路完成")
+            self.log("Grok Registration link completed")
             return {
                 "email": email,
                 "password": password,

@@ -1,4 +1,4 @@
-"""Playwright 版 Sentinel SDK token 获取辅助。"""
+"""Playwright version Sentinel SDK token Get assistance."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from core.proxy_utils import (
     build_playwright_proxy_config,
     build_requests_proxy_config,
     is_authenticated_socks5_proxy,
+    resolve_us_profile,
 )
 
 
@@ -74,7 +75,7 @@ def _ensure_sdk_file(session: Any, timeout_ms: int) -> Path:
     resp.raise_for_status()
     content = getattr(resp, "content", b"")
     if not content:
-        raise RuntimeError("下载 Sentinel sdk.js 失败: 响应为空")
+        raise RuntimeError("download Sentinel sdk.js fail: response is empty")
     sdk_file.write_bytes(content)
     return sdk_file
 
@@ -145,13 +146,13 @@ process.stdin.on('end', async () => {
     )
     if process.returncode != 0:
         detail = (process.stderr or process.stdout or "unknown error").strip()
-        raise RuntimeError(f"QuickJS 执行失败: {detail}")
+        raise RuntimeError(f"QuickJS Execution failed: {detail}")
     output = (process.stdout or "").strip()
     if not output:
-        raise RuntimeError("QuickJS 返回空输出")
+        raise RuntimeError("QuickJS Return empty output")
     data = json.loads(output)
     if not isinstance(data, dict):
-        raise RuntimeError("QuickJS 输出不是 JSON 对象")
+        raise RuntimeError("QuickJS The output is not JSON object")
     return data
 
 
@@ -183,7 +184,7 @@ def _fetch_sentinel_challenge(
     resp.raise_for_status()
     payload = resp.json()
     if not isinstance(payload, dict):
-        raise RuntimeError("Sentinel challenge 响应不是 JSON 对象")
+        raise RuntimeError("Sentinel challenge The response is not JSON object")
     return payload
 
 
@@ -198,12 +199,12 @@ def _get_sentinel_token_via_quickjs(
     try:
         from curl_cffi import requests as curl_requests
     except Exception as e:
-        logger(f"Sentinel QuickJS 不可用: curl_cffi 导入失败: {e}")
+        logger(f"Sentinel QuickJS Not available: curl_cffi Import failed: {e}")
         return None
 
     quickjs_script = _quickjs_script_path()
     if not quickjs_script.exists():
-        logger(f"Sentinel QuickJS 脚本不存在: {quickjs_script}")
+        logger(f"Sentinel QuickJS Script does not exist: {quickjs_script}")
         return None
 
     did = str(device_id or uuid.uuid4())
@@ -222,7 +223,7 @@ def _get_sentinel_token_via_quickjs(
         )
         request_p = str(requirements.get("request_p") or "").strip()
         if not request_p:
-            logger("Sentinel QuickJS 失败: requirements 未返回 request_p")
+            logger("Sentinel QuickJS fail: requirements Not returned request_p")
             return None
 
         challenge = _fetch_sentinel_challenge(
@@ -234,7 +235,7 @@ def _get_sentinel_token_via_quickjs(
         )
         c_value = str(challenge.get("token") or "").strip()
         if not c_value:
-            logger("Sentinel QuickJS 失败: challenge token 为空")
+            logger("Sentinel QuickJS fail: challenge token is empty")
             return None
 
         solved = _run_quickjs_action_with_node(
@@ -250,13 +251,13 @@ def _get_sentinel_token_via_quickjs(
         )
         final_p = str(solved.get("final_p") or solved.get("p") or "").strip()
         if not final_p:
-            logger("Sentinel QuickJS 失败: solve 未返回 final_p")
+            logger("Sentinel QuickJS fail: solve Not returned final_p")
             return None
 
         t_raw = solved.get("t")
         t_value = "" if t_raw is None else str(t_raw).strip()
         if not t_value:
-            logger("Sentinel QuickJS 失败: solve 未返回有效 t")
+            logger("Sentinel QuickJS fail: solve Not returned valid t")
             return None
 
         token = json.dumps(
@@ -270,10 +271,10 @@ def _get_sentinel_token_via_quickjs(
             separators=(",", ":"),
             ensure_ascii=False,
         )
-        logger("Sentinel QuickJS 成功: p=OK t=OK c=OK")
+        logger("Sentinel QuickJS success: p=OK t=OK c=OK")
         return token
     except Exception as e:
-        logger(f"Sentinel QuickJS 异常: {e}")
+        logger(f"Sentinel QuickJS abnormal: {e}")
         return None
     finally:
         try:
@@ -292,11 +293,11 @@ def get_sentinel_token_via_browser(
     device_id: Optional[str] = None,
     log_fn: Optional[Callable[[str], None]] = None,
 ) -> Optional[str]:
-    """通过浏览器直接调用 SentinelSDK.token(flow) 获取完整 token。"""
+    """Call directly through the browser SentinelSDK.token(flow) get complete token."""
     logger = log_fn or (lambda _msg: None)
 
     if is_authenticated_socks5_proxy(proxy):
-        logger("Sentinel 检测到带认证 SOCKS5 代理: 跳过浏览器，改用 QuickJS 获取 token")
+        logger("Sentinel Detected with authentication SOCKS5 acting: Skip the browser and use instead QuickJS get token")
         return _get_sentinel_token_via_quickjs(
             flow=flow,
             proxy=proxy,
@@ -308,14 +309,14 @@ def get_sentinel_token_via_browser(
     try:
         from playwright.sync_api import sync_playwright
     except Exception as e:
-        logger(f"Sentinel Browser 不可用: {e}")
+        logger(f"Sentinel Browser Not available: {e}")
         return None
 
     target_url = str(page_url or _flow_page_url(flow)).strip() or _flow_page_url(flow)
     effective_headless, reason = resolve_browser_headless(headless)
     ensure_browser_display_available(effective_headless)
     logger(
-        f"Sentinel Browser 模式: {'headless' if effective_headless else 'headed'} ({reason})"
+        f"Sentinel Browser model: {'headless' if effective_headless else 'headed'} ({reason})"
     )
 
     launch_args: dict[str, Any] = {
@@ -329,8 +330,9 @@ def get_sentinel_token_via_browser(
     if proxy_config:
         launch_args["proxy"] = proxy_config
 
-    logger(f"Sentinel Browser 启动: flow={flow}, url={target_url}")
+    logger(f"Sentinel Browser start up: flow={flow}, url={target_url}")
 
+    us_loc = resolve_us_profile(proxy)
     with sync_playwright() as p:
         browser = p.chromium.launch(**launch_args)
         try:
@@ -341,6 +343,10 @@ def get_sentinel_token_via_browser(
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/136.0.7103.92 Safari/537.36"
                 ),
+                locale=us_loc["locale"],
+                timezone_id=us_loc["timezone"],
+                geolocation={"latitude": us_loc["latitude"], "longitude": us_loc["longitude"]},
+                permissions=["geolocation"],
                 ignore_https_errors=True,
             )
             if device_id:
@@ -358,7 +364,7 @@ def get_sentinel_token_via_browser(
                         ]
                     )
                 except Exception as ex:
-                    logger(f"Sentinel Browser add_cookies异常: {ex}")
+                    logger(f"Sentinel Browser add_cookiesabnormal: {ex}")
                     pass
 
             page = context.new_page()
@@ -387,30 +393,30 @@ def get_sentinel_token_via_browser(
 
             if not result or not result.get("success") or not result.get("token"):
                 logger(
-                    "Sentinel Browser 获取失败: "
+                    "Sentinel Browser Failed to obtain: "
                     + str((result or {}).get("error") or "no result")
                 )
                 return None
 
             token = str(result["token"] or "").strip()
             if not token:
-                logger("Sentinel Browser 返回空 token")
+                logger("Sentinel Browser Return empty token")
                 return None
 
             try:
                 parsed = json.loads(token)
                 logger(
-                    "Sentinel Browser 成功: "
+                    "Sentinel Browser success: "
                     f"p={'OK' if parsed.get('p') else 'X'} "
                     f"t={'OK' if parsed.get('t') else 'X'} "
                     f"c={'OK' if parsed.get('c') else 'X'}"
                 )
             except Exception:
-                logger(f"Sentinel Browser 成功: len={len(token)}")
+                logger(f"Sentinel Browser success: len={len(token)}")
 
             return token
         except Exception as e:
-            logger(f"Sentinel Browser 异常: {e}")
+            logger(f"Sentinel Browser abnormal: {e}")
             return None
         finally:
             browser.close()
