@@ -393,7 +393,8 @@ def query_openrouter(prompt, model="openrouter/free"):
             res = json.loads(resp.read().decode("utf-8"))
             choices = res.get("choices", [])
             if choices:
-                return choices[0]["message"]["content"].strip()
+                content = choices[0]["message"]["content"]
+                return content.strip() if content is not None else None
     except Exception as e:
         print(f"  [LLM] OpenRouter API query failed: {e}")
     return None
