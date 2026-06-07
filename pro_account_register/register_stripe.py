@@ -258,6 +258,257 @@ def parse_dataset_line(filepath, line_index=None):
     }, line_index
 
 
+def generate_fallback_saas_profile():
+    import random
+    prefixes = ["Neuro", "Aether", "Synthetix", "Optima", "Vertex", "Kinetix", "Aura", "Quantum", "Nexus", "Cognito"]
+    suffixes = ["Flow", "Forge", "Grid", "Labs", "Systems", "Mind", "Core", "Node", "Pulse", "Sphere"]
+    categories = [
+        "customer support automation", 
+        "code generation and refactoring", 
+        "automated marketing copy", 
+        "video synthesis", 
+        "automated spreadsheet analysis", 
+        "data extraction"
+    ]
+    
+    name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
+    domain = f"https://{name.lower()}.io"
+    desc = f"{name} provides a cloud-based AI platform specializing in {random.choice(categories)} using advanced deep learning models. Our services are offered on monthly and annual subscription plans."
+    stmt = f"{name.upper()}*SUBSCRIBE"[:22]
+    short = name.upper()[:10]
+    
+    return {
+        "business_name": f"{name} LLC",
+        "dba": name,
+        "website": domain,
+        "description": desc,
+        "statement_descriptor": stmt,
+        "shortened_descriptor": short,
+        "domain_research_summary": "Fallback local generation used."
+    }
+
+
+def check_domain_available(domain):
+    import socket
+    import urllib.request
+    import urllib.error
+    domain = domain.lower().replace("https://", "").replace("http://", "").strip("/")
+    
+    # 1. DNS check (fastest)
+    try:
+        socket.gethostbyname(domain)
+        return False
+    except socket.gaierror:
+        pass
+    except Exception:
+        pass
+
+    # 2. RDAP check
+    url = f"https://rdap.org/domain/{domain}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return False
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return True
+        return False
+    except Exception:
+        return True
+
+
+def get_openrouter_key():
+    import os
+    if os.environ.get("OPENROUTER_API_KEY"):
+        return os.environ.get("OPENROUTER_API_KEY")
+    try:
+        from core.config_store import config_store
+        key = config_store.get("OPENROUTER_API_KEY")
+        if key:
+            return key
+    except Exception:
+        pass
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        for base_dir in [script_dir, os.path.dirname(script_dir)]:
+            keys_file = os.path.join(base_dir, "openrouter_keys.txt")
+            if os.path.exists(keys_file):
+                with open(keys_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if ":" in line:
+                            _, key = line.split(":", 1)
+                            key = key.strip()
+                            if key.startswith("sk-or-"):
+                                return key
+    except Exception:
+        pass
+    return None
+
+
+def query_openrouter(prompt, model="openrouter/free"):
+    import urllib.request
+    import json
+    key = get_openrouter_key()
+    if not key:
+        return None
+        
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/aikomputeapi-web/devtools-inspector",
+        "X-Title": "DevTools Inspector"
+    }
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    try:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            res = json.loads(resp.read().decode("utf-8"))
+            choices = res.get("choices", [])
+            if choices:
+                return choices[0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"  [LLM] OpenRouter API query failed: {e}")
+    return None
+
+
+def extract_json(text):
+    import json
+    import re
+    if not text:
+        return None
+    m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except Exception:
+            pass
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    return None
+
+
+def generate_ai_saas_profile():
+    import os
+    import json
+    import urllib.request
+    import urllib.error
+    
+    # 1. Attempt OpenRouter pipeline
+    or_key = get_openrouter_key()
+    if or_key:
+        print("  [LLM] Using OpenRouter to generate business names and research domains...")
+        prompt_candidates = """
+        Propose a JSON array containing 5 unique, realistic, brand-new AI SaaS startup company names and matching domain names (.com, .io, or .ai) that don't already exist.
+        Choose modern, creative names in the AI space.
+        Respond ONLY with the JSON array, no conversational text. Example format:
+        [
+          {"name": "CognitoFlow", "domain": "cognitoflow.io"},
+          {"name": "AetherForge", "domain": "aetherforge.ai"}
+        ]
+        """
+        response = query_openrouter(prompt_candidates)
+        candidates = extract_json(response)
+        if candidates and isinstance(candidates, list):
+            selected_candidate = None
+            for cand in candidates:
+                name = cand.get("name")
+                domain = cand.get("domain")
+                if not name or not domain:
+                    continue
+                print(f"  [LLM] Researching availability for '{domain}'...")
+                if check_domain_available(domain):
+                    print(f"    >> '{domain}' is available! Selecting it.")
+                    selected_candidate = cand
+                    break
+                else:
+                    print(f"    >> '{domain}' is already registered/taken.")
+            
+            if selected_candidate:
+                name = selected_candidate["name"]
+                domain = selected_candidate["domain"]
+                prompt_details = f"""
+                Write complete business details for the AI SaaS company "{name}" with website "https://{domain}".
+                The business specializes in customer support automation or software engineering tooling using advanced AI.
+                
+                Respond ONLY with a valid JSON object matching this structure:
+                {{
+                  "business_name": "{name} LLC",
+                  "dba": "{name}",
+                  "website": "https://{domain}",
+                  "description": "Provide a detailed 2-3 sentence product description of what this AI SaaS does.",
+                  "statement_descriptor": "STATEMENT_DESCRIPTOR (max 22 characters, e.g. '{name.upper()[:10]}*SUBSCRIBE')",
+                  "shortened_descriptor": "SHORTNAME (max 10 characters, e.g. '{name.upper()[:10]}')",
+                  "domain_research_summary": "Domain is available according to DNS and RDAP checks."
+                }}
+                """
+                response_details = query_openrouter(prompt_details)
+                details = extract_json(response_details)
+                if details and "business_name" in details:
+                    return details
+
+    # 2. Attempt Gemini API (original implementation) as fallback/backup
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        try:
+            from core.config_store import config_store
+            api_key = config_store.get("GOOGLE_API_KEY")
+        except Exception:
+            pass
+            
+    if api_key:
+        print("  [LLM] Attempting Gemini API fallback...")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        prompt = """
+        Generate unique business details for a brand new, non-existent AI SaaS (Software as a Service) startup.
+        The details must be fully realistic for a real business.
+        
+        Requirements:
+        1. Propose a unique business name that does not exist yet (e.g. something creative and modern in the AI space).
+        2. Propose a matching domain name (.com, .io, or .ai).
+        3. Research/verify if this domain is available or if the name is already in use by another company. Use your search tool to check if it's taken.
+        4. Provide a detailed 2-3 sentence product description of what the AI SaaS does.
+        5. Provide a statement descriptor (max 22 characters, e.g. "BRANDNAME*SUBSCRIBE").
+        6. Provide a shortened descriptor (max 10 characters, e.g. "BRANDNAME").
+        
+        Respond ONLY with a valid JSON object matching this structure:
+        {
+          "business_name": "Proposed Name LLC",
+          "dba": "Proposed Name",
+          "website": "https://proposeddomain.com",
+          "description": "Product description...",
+          "statement_descriptor": "STATEMENT_DESCRIPTOR",
+          "shortened_descriptor": "SHORTNAME",
+          "domain_research_summary": "Domain is available because search for it returned..."
+        }
+        """
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "tools": [{"google_search": {}}],
+            "generationConfig": {"responseMimeType": "application/json"}
+        }
+        headers = {"Content-Type": "application/json"}
+        try:
+            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw_response = json.loads(resp.read().decode("utf-8"))
+                candidates = raw_response.get("candidates", [])
+                if candidates:
+                    text_content = candidates[0]["content"]["parts"][0]["text"].strip()
+                    return json.loads(text_content)
+        except Exception as e:
+            print(f"  [LLM] Gemini API attempt failed: {e}")
+            
+    print("  [LLM] Falling back to rule-based random AI SaaS generation...")
+    return generate_fallback_saas_profile()
+
+
 def main():
     global BRIDGE_URL
 
@@ -306,6 +557,24 @@ def main():
         profile["Representative Zip"] = user_info["zip"]
         
         print(f"  Representative: {profile.get('Full Name', 'N/A')}")
+
+        # Generate and override business details
+        print("\n[INFO] Generating unique AI SaaS business details via LLM...")
+        biz_info = generate_ai_saas_profile()
+        print(f"  [LLM] Generated Business: {biz_info['business_name']}")
+        print(f"    DBA: {biz_info['dba']}")
+        print(f"    Website: {biz_info['website']}")
+        print(f"    Descriptor: {biz_info['statement_descriptor']}")
+        print(f"    Shortened: {biz_info['shortened_descriptor']}")
+        print(f"    Research Summary: {biz_info.get('domain_research_summary', 'N/A')}")
+        
+        # Override profile keys with generated business details
+        profile["Legal Business Name"] = biz_info["business_name"]
+        profile["DBA (Doing Business As)"] = biz_info["dba"]
+        profile["Business Website"] = biz_info["website"]
+        profile["Product Description"] = biz_info["description"]
+        profile["Statement Descriptor"] = biz_info["statement_descriptor"]
+        profile["Shortened Descriptor"] = biz_info["shortened_descriptor"]
     except Exception as e:
         print(f"[ERROR] {e}")
         return
