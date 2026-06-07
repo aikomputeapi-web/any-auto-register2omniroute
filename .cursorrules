@@ -1,0 +1,5 @@
+# Workspace Rules & Instructions
+
+- **Git Remote Synchronization**: Always save and push changes to the git remote at the end of every task/session.
+- **Git Push Remote**: Since pushing directly to `origin/main` (zc-zhangchen) is restricted, always push changes to the `target` remote (`target/main`) which tracks `aikomputeapi-web/any-auto-register2omniroute.git`.
+- **Git Commit Messages**: Follow the project's git workflow guidelines (`.agent/workflows/git.md`) for writing detailed commits.
