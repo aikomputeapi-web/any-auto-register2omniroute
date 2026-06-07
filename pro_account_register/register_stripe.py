@@ -319,8 +319,28 @@ def check_domain_available(domain):
 
 def get_openrouter_key():
     import os
+    # 1. Try environment variable
     if os.environ.get("OPENROUTER_API_KEY"):
         return os.environ.get("OPENROUTER_API_KEY")
+        
+    # 2. Try loading directly from .env file (for local run flexibility)
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        for base_dir in [script_dir, os.path.dirname(script_dir)]:
+            env_file = os.path.join(base_dir, ".env")
+            if os.path.exists(env_file):
+                with open(env_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("OPENROUTER_API_KEY="):
+                            val = line.split("=", 1)[1].strip()
+                            if len(val) >= 2 and val[0] == val[-1] and val[0] in {"'", '"'}:
+                                val = val[1:-1]
+                            return val
+    except Exception:
+        pass
+
+    # 3. Try config store
     try:
         from core.config_store import config_store
         key = config_store.get("OPENROUTER_API_KEY")
@@ -328,6 +348,8 @@ def get_openrouter_key():
             return key
     except Exception:
         pass
+
+    # 4. Try openrouter_keys.txt
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         for base_dir in [script_dir, os.path.dirname(script_dir)]:
@@ -344,6 +366,7 @@ def get_openrouter_key():
     except Exception:
         pass
     return None
+
 
 
 def query_openrouter(prompt, model="openrouter/free"):
