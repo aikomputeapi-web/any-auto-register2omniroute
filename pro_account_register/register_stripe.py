@@ -221,6 +221,43 @@ def save_details(filename, profile, email, password, status="Unknown", url="", t
         f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
 
+def parse_dataset_line(filepath, line_index=None):
+    """Parse a specific line of dataset or pick a random one if line_index is None."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Dataset not found at {filepath}")
+        
+    with open(filepath, 'r', encoding='utf-8') as f:
+        lines = [line.strip() for line in f.readlines() if line.strip()]
+        
+    if not lines:
+        raise ValueError(f"Dataset file is empty: {filepath}")
+        
+    import random
+    if line_index is None:
+        line_index = random.randint(0, len(lines) - 1)
+        print(f"  [Dataset] Randomly selected line index {line_index + 1} (1-based) out of {len(lines)} total lines")
+    elif line_index < 0 or line_index >= len(lines):
+        raise IndexError(f"Line index {line_index} out of bounds. Total lines: {len(lines)}")
+        
+    line = lines[line_index]
+    parts = line.split('|')
+    if len(parts) < 8:
+        raise ValueError(f"Unexpected line format in dataset: {line}")
+        
+    dob = parts[6]  # 12/04/1935
+    
+    return {
+        "first_name": parts[0],
+        "last_name": parts[1],
+        "address": parts[2],
+        "city": parts[3],
+        "state": parts[4],
+        "zip": parts[5],
+        "dob_str": dob,
+        "ssn": parts[7].replace("-", "")
+    }, line_index
+
+
 def main():
     global BRIDGE_URL
 
@@ -230,6 +267,10 @@ def main():
                         help="Path to the business profile text file")
     parser.add_argument("--bridge", type=str, default="http://localhost:3005",
                         help="CDP bridge URL (default: http://localhost:3005)")
+    parser.add_argument("--dataset", type=str, default="pointclickcare data.txt",
+                        help="Path to the user dataset file (default: pointclickcare data.txt)")
+    parser.add_argument("--line", type=int, default=None,
+                        help="The 1-based line number of user data to use. If omitted, a random line is selected.")
     args = parser.parse_args()
     BRIDGE_URL = args.bridge
 
@@ -237,7 +278,39 @@ def main():
     print("STRIPE ACCOUNT REGISTRATION (CDP Bridge)")
     print("=" * 60)
 
-    # 1. Verify bridge connection
+    # 1. Parse business profile and representative details
+    try:
+        profile = parse_business_profile(args.profile)
+        print(f"\n[OK] Parsed business profile:")
+        print(f"  Business: {profile.get('Legal Business Name', 'N/A')}")
+        print(f"  Industry: {profile.get('Industry / Category', 'N/A')}")
+        print(f"  Email: {profile.get('Email', 'N/A')}")
+        
+        # Parse and override with representative/owner dataset details
+        line_idx = args.line - 1 if args.line is not None else None
+        user_info, selected_line = parse_dataset_line(args.dataset, line_idx)
+        print(f"  [Dataset] Successfully parsed representative details (Row {selected_line + 1}):")
+        print(f"    Name: {user_info['first_name']} {user_info['last_name']}")
+        print(f"    Address: {user_info['address']}, {user_info['city']}, {user_info['state']} {user_info['zip']}")
+        print(f"    DOB: {user_info['dob_str']} (SSN: {user_info['ssn']})")
+        
+        # Override profile keys
+        profile["Full Name"] = f"{user_info['first_name']} {user_info['last_name']}"
+        profile["Representative First Name"] = user_info["first_name"]
+        profile["Representative Last Name"] = user_info["last_name"]
+        profile["Date of Birth"] = user_info["dob_str"]
+        profile["SSN"] = user_info["ssn"]
+        profile["Representative Address"] = user_info["address"]
+        profile["Representative City"] = user_info["city"]
+        profile["Representative State"] = user_info["state"]
+        profile["Representative Zip"] = user_info["zip"]
+        
+        print(f"  Representative: {profile.get('Full Name', 'N/A')}")
+    except Exception as e:
+        print(f"[ERROR] {e}")
+        return
+
+    # 2. Verify bridge connection
     status = bridge_get("/status")
     if not status or not status.get("connected"):
         print("[ERROR] Cannot connect to CDP bridge at " + BRIDGE_URL)
@@ -250,18 +323,6 @@ def main():
     url, title = get_page_info()
     print(f"  Current page: {title}")
     print(f"  URL: {url}")
-
-    # 2. Parse business profile
-    try:
-        profile = parse_business_profile(args.profile)
-        print(f"\n[OK] Parsed business profile:")
-        print(f"  Business: {profile.get('Legal Business Name', 'N/A')}")
-        print(f"  Industry: {profile.get('Industry / Category', 'N/A')}")
-        print(f"  Email: {profile.get('Email', 'N/A')}")
-        print(f"  Representative: {profile.get('Full Name', 'N/A')}")
-    except Exception as e:
-        print(f"[ERROR] {e}")
-        return
 
     full_name = profile.get("Full Name", "")
     password = profile.get("Password", "")
@@ -511,14 +572,14 @@ def main():
 
             # First name
             elif any(k in combined for k in ["first_name", "first-name", "firstname"]):
-                val = profile.get("Full Name", "").split()[0]
+                val = profile.get("Representative First Name", profile.get("Full Name", "").split()[0])
                 print(f"    >> Filling first name: {val}")
                 fill_field(selector, val)
                 filled_any = True
 
             # Last name
             elif any(k in combined for k in ["last_name", "last-name", "lastname"]):
-                val = " ".join(profile.get("Full Name", "").split()[1:])
+                val = profile.get("Representative Last Name", " ".join(profile.get("Full Name", "").split()[1:]))
                 print(f"    >> Filling last name: {val}")
                 fill_field(selector, val)
                 filled_any = True
@@ -550,22 +611,43 @@ def main():
             # Address line 1
             elif any(k in combined for k in ["address_line1", "address-line1",
                                               "street_address", "line1", "address1"]):
-                val = profile.get("Business Address", "").split(",")[0].strip()
+                if any(p in combined for p in ["home", "personal", "representative"]):
+                    val = profile.get("Representative Address", profile.get("Business Address", "").split(",")[0].strip())
+                else:
+                    val = profile.get("Business Address", "").split(",")[0].strip()
                 print(f"    >> Filling address: {val}")
                 fill_field(selector, val)
                 filled_any = True
 
             # City
             elif any(k in combined for k in ["address_city", "address-city", "city"]):
-                print(f"    >> Filling city: Hayward")
-                fill_field(selector, "Hayward")
+                if any(p in combined for p in ["home", "personal", "representative"]):
+                    val = profile.get("Representative City", "Hayward")
+                else:
+                    val = "Hayward"
+                print(f"    >> Filling city: {val}")
+                fill_field(selector, val)
                 filled_any = True
 
             # ZIP
             elif any(k in combined for k in ["address_zip", "address-zip", "postal_code",
                                               "postal-code", "zip"]):
-                print(f"    >> Filling zip: 94545")
-                fill_field(selector, "94545")
+                if any(p in combined for p in ["home", "personal", "representative"]):
+                    val = profile.get("Representative Zip", "94545")
+                else:
+                    val = "94545"
+                print(f"    >> Filling zip: {val}")
+                fill_field(selector, val)
+                filled_any = True
+
+            # State
+            elif any(k in combined for k in ["state", "region"]):
+                if any(p in combined for p in ["home", "personal", "representative"]):
+                    val = profile.get("Representative State", "CA")
+                else:
+                    val = "CA"
+                print(f"    >> Filling state: {val}")
+                fill_field(selector, val)
                 filled_any = True
 
             # Routing number
