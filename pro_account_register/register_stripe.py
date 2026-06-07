@@ -24,6 +24,27 @@ import argparse
 import urllib.request
 import urllib.error
 
+# Bypass proxy for localhost / CDP bridge connections
+import os
+os.environ["NO_PROXY"] = "localhost,127.0.0.1," + os.environ.get("NO_PROXY", "")
+os.environ["no_proxy"] = "localhost,127.0.0.1," + os.environ.get("no_proxy", "")
+
+# Log redirection support for task runner UI logs
+_log_fn = None
+
+def print(*args, **kwargs):
+    global _log_fn
+    kwargs.setdefault('flush', True)
+    if _log_fn is not None:
+        try:
+            msg = " ".join(str(arg) for arg in args)
+            _log_fn(msg)
+            return
+        except Exception:
+            pass
+    import builtins
+    builtins.print(*args, **kwargs)
+
 
 BRIDGE_URL = "http://localhost:3005"
 

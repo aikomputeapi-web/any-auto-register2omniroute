@@ -31,11 +31,13 @@ class StripePlatform(BasePlatform):
         
         log = getattr(self, "_log_fn", print)
         log(f"Starting Stripe registration using profile {profile} and bridge {bridge}...")
-        
         try:
             from pro_account_register import register_stripe
             import importlib
             importlib.reload(register_stripe)
+            
+            # Set the logger on the module to capture print calls
+            register_stripe._log_fn = log
             
             register_stripe.main()
         except Exception as e:
