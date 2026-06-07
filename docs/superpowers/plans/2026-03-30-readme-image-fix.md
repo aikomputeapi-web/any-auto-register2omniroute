@@ -2,74 +2,74 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 修复根目录 README 中两张界面预览图片无法显示的问题。
+**Goal:** Repair root directory README The two interface preview images cannot be displayed.
 
-**Architecture:** 本次只修改 `README.md` 的两处图片链接，不改图片资源文件，也不改其他文案。修复方式是删除非标准的 `null` 尾缀，并把路径统一成标准 Markdown 可解析的 `docs/images/...` 相对路径。
+**Architecture:** Only modifications are made this time `README.md` The two image links do not change the image resource files nor other copywriting. The fix is ​​to delete the non-standard `null` suffix, and unify the path into a standard Markdown parsable `docs/images/...` Relative path.
 
 **Tech Stack:** Markdown, GitHub-style Markdown rendering
 
 ---
 
-### Task 1: 修复 README 图片链接
+### Task 1: repair README Image link
 
 **Files:**
 - Modify: `README.md:63-67`
 - Verify: `docs/images/dashboard.png`
 - Verify: `docs/images/settings-integrations.png`
 
-- [ ] **Step 1: 读取当前 README 预览图片段**
+- [ ] **Step 1: Read current README Preview snippet**
 
 ```markdown
-### 仪表盘
+### Dashboard
 
-![仪表盘](./docs/images/dashboard.png null)
+![Dashboard](./docs/images/dashboard.png null)
 
-### 全局配置 / 插件管理
+### Global configuration / Plug-in management
 
-![全局配置 / 插件管理](./docs/images/settings-integrations.png null)
+![Global configuration / Plug-in management](./docs/images/settings-integrations.png null)
 ```
 
-- [ ] **Step 2: 确认当前写法不符合目标设计**
+- [ ] **Step 2: Confirm that the current writing method does not meet the target design**
 
-检查点：
-- 链接末尾包含 `null`
-- 该写法不是标准 Markdown 图片语法
-- 设计要求统一成 `docs/images/...`
+Checkpoint:
+- The end of the link contains `null`
+- This way of writing is not standard Markdown Picture Grammar
+- Design requirements are unified into `docs/images/...`
 
-Expected: 确认需要替换两处链接。
+Expected: Confirm that two links need to be replaced.
 
-- [ ] **Step 3: 按设计改为标准 Markdown 图片链接**
+- [ ] **Step 3: Change to standard by design Markdown Image link**
 
-将片段改成：
+Change the snippet to:
 
 ```markdown
-### 仪表盘
+### Dashboard
 
-![仪表盘](docs/images/dashboard.png)
+![Dashboard](docs/images/dashboard.png)
 
-### 全局配置 / 插件管理
+### Global configuration / Plug-in management
 
-![全局配置 / 插件管理](docs/images/settings-integrations.png)
+![Global configuration / Plug-in management](docs/images/settings-integrations.png)
 ```
 
-- [ ] **Step 4: 验证图片资源路径存在**
+- [ ] **Step 4: Verify that the image resource path exists**
 
-检查以下文件是否存在：
+Check if the following files exist:
 
 ```text
 docs/images/dashboard.png
 docs/images/settings-integrations.png
 ```
 
-Expected: 两个文件都存在。
+Expected: Both files exist.
 
-- [ ] **Step 5: 重新读取 README 相关片段确认修改结果**
+- [ ] **Step 5: reread README Relevant fragments confirm the modification results**
 
-Expected: `README.md` 中对应位置显示为：
-- `![仪表盘](docs/images/dashboard.png)`
-- `![全局配置 / 插件管理](docs/images/settings-integrations.png)`
+Expected: `README.md` The corresponding position in is shown as:
+- `![Dashboard](docs/images/dashboard.png)`
+- `![Global configuration / Plug-in management](docs/images/settings-integrations.png)`
 
-- [ ] **Step 6: 提交（仅在用户明确要求提交 git 时执行）**
+- [ ] **Step 6: Submit (only if explicitly requested by the user) git execution)**
 
 ```bash
 git add README.md

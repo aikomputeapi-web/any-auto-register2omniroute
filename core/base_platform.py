@@ -1,4 +1,4 @@
-"""平台插件基类"""
+"""Platform plug-in base class"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
@@ -25,13 +25,13 @@ class Account:
     token: str = ""
     status: AccountStatus = AccountStatus.REGISTERED
     trial_end_time: int = 0       # unix timestamp
-    extra: dict = field(default_factory=dict)  # 平台自定义字段
+    extra: dict = field(default_factory=dict)  # Platform custom fields
     created_at: int = field(default_factory=lambda: int(time.time()))
 
 
 @dataclass
 class RegisterConfig:
-    """注册任务配置"""
+    """Register task configuration"""
     executor_type: str = "protocol"   # protocol | headless | headed
     captcha_solver: str = "yescaptcha"  # yescaptcha | 2captcha | manual
     proxy: Optional[str] = None
@@ -39,11 +39,11 @@ class RegisterConfig:
 
 
 class BasePlatform(ABC):
-    # 子类必须定义
+    # Subclasses must be defined
     name: str = ""
     display_name: str = ""
     version: str = "1.0.0"
-    # 子类声明支持的执行器类型，未列出的自动降级到 protocol
+    # Executor types supported by subclass declarations, those not listed are automatically downgraded to protocol
     supported_executors: list = ["protocol", "headless", "headed"]
 
     def __init__(self, config: RegisterConfig = None):
@@ -57,8 +57,8 @@ class BasePlatform(ABC):
                 else (self.supported_executors[0] if self.supported_executors else "protocol")
             )
             print(
-                f"[{self.display_name or self.name}] 执行器 '{requested_executor}' 不受支持，"
-                f"自动切换为 '{fallback}' (支持: {self.supported_executors})"
+                f"[{self.display_name or self.name}] actuator '{requested_executor}' not supported,"
+                f"Automatically switch to '{fallback}' (support: {self.supported_executors})"
             )
             self.config.executor_type = fallback
         else:
@@ -66,44 +66,44 @@ class BasePlatform(ABC):
 
     @abstractmethod
     def register(self, email: str, password: str = None) -> Account:
-        """执行注册流程，返回 Account"""
+        """Execute the registration process and return Account"""
         ...
 
     @abstractmethod
     def check_valid(self, account: Account) -> bool:
-        """检测账号是否有效"""
+        """Check if the account is valid"""
         ...
 
     def get_trial_url(self, account: Account) -> Optional[str]:
-        """生成试用激活链接（可选实现）"""
+        """Generate trial activation link (optional implementation)"""
         return None
 
     def get_platform_actions(self) -> list:
         """
-        返回平台支持的额外操作列表，每项格式:
+        Returns a list of additional operations supported by the platform, for each format:
         {"id": str, "label": str, "params": [{"key": str, "label": str, "type": str}]}
         """
         return []
 
     def execute_action(self, action_id: str, account: Account, params: dict) -> dict:
         """
-        执行平台特定操作，返回 {"ok": bool, "data": any, "error": str}
+        Perform platform-specific operations and return {"ok": bool, "data": any, "error": str}
         """
-        raise NotImplementedError(f"平台 {self.name} 不支持操作: {action_id}")
+        raise NotImplementedError(f"platform {self.name} Operation not supported: {action_id}")
 
     def get_quota(self, account: Account) -> dict:
-        """查询账号配额（可选实现）"""
+        """Query account quota (optional implementation)"""
         return {}
 
     def bind_task_control(self, task_control) -> None:
-        """绑定协作式任务控制器，供邮箱等待/人工跳过等场景复用。"""
+        """Bind collaborative task controller for mailbox to wait/Scene reuse such as manual skipping."""
         self._task_control = task_control
         mailbox = getattr(self, "mailbox", None)
         if mailbox is not None:
             mailbox._task_control = task_control
 
     def get_mailbox_otp_timeout(self, default: int = 120) -> int:
-        """统一解析邮箱 OTP 等待秒数，避免平台内散落魔法值。"""
+        """Unified analysis of mailboxes OTP Wait a few seconds to avoid scattering mana on the platform."""
         extra = getattr(self.config, "extra", {}) or {}
         candidates = (
             extra.get("mailbox_otp_timeout_seconds"),
@@ -123,7 +123,7 @@ class BasePlatform(ABC):
         return default
 
     def _make_executor(self):
-        """根据 config 创建执行器"""
+        """according to config Create executor"""
         from .executors.protocol import ProtocolExecutor
         t = self.config.executor_type
         if t == "protocol":
@@ -134,15 +134,27 @@ class BasePlatform(ABC):
         elif t == "headed":
             from .executors.playwright import PlaywrightExecutor
             return PlaywrightExecutor(proxy=self.config.proxy, headless=False)
-        raise ValueError(f"未知执行器类型: {t}")
+        raise ValueError(f"Unknown executor type: {t}")
 
     def _make_captcha(self, **kwargs):
-        """根据 config 创建验证码解决器"""
-        from .base_captcha import YesCaptcha, ManualCaptcha, LocalSolverCaptcha
+        """according to config Create a captcha solver"""
+        from .base_captcha import YesCaptcha, ManualCaptcha, LocalSolverCaptcha, CapSolver
+        from core.config_store import config_store
         t = self.config.captcha_solver
         if t == "yescaptcha":
-            key = kwargs.get("key") or self.config.extra.get("yescaptcha_key", "")
+            key = (
+                kwargs.get("key")
+                or self.config.extra.get("yescaptcha_key")
+                or config_store.get("yescaptcha_key", "")
+            )
             return YesCaptcha(key)
+        elif t == "capsolver":
+            key = (
+                kwargs.get("key")
+                or self.config.extra.get("capsolver_key")
+                or config_store.get("capsolver_key", "")
+            )
+            return CapSolver(key)
         elif t == "manual":
             return ManualCaptcha()
         elif t == "local_solver":
@@ -152,4 +164,4 @@ class BasePlatform(ABC):
                 or f"http://127.0.0.1:{os.getenv('SOLVER_PORT', '8889')}"
             )
             return LocalSolverCaptcha(url)
-        raise ValueError(f"未知验证码解决器: {t}")
+        raise ValueError(f"Unknown captcha solver: {t}")

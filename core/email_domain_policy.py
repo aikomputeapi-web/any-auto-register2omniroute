@@ -1,4 +1,4 @@
-"""邮箱域名全局策略校验。"""
+"""Email domain name global policy verification."""
 
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ def _required_level_count(value: Any) -> int:
     try:
         level_count = int(text)
     except (TypeError, ValueError) as exc:
-        raise ValueError("域名级数必须是整数") from exc
+        raise ValueError("Domain name level must be an integer") from exc
     if level_count < 2:
-        raise ValueError("域名级数不能小于 2")
+        raise ValueError("The domain name level cannot be less than 2")
     return level_count
 
 
@@ -33,21 +33,21 @@ def validate_email_domain_policy(email: str, config: dict[str, Any] | None = Non
 
     address = str(email or "").strip().lower()
     if "@" not in address:
-        raise ValueError("邮箱格式无效，缺少域名")
+        raise ValueError("The email format is invalid and the domain name is missing.")
 
     _, domain = address.rsplit("@", 1)
     domain = domain.strip().strip(".")
     if not domain:
-        raise ValueError("邮箱格式无效，缺少域名")
+        raise ValueError("The email format is invalid and the domain name is missing.")
 
     levels = [part for part in domain.split(".") if part]
     required_levels = _required_level_count(cfg.get("email_domain_level_count"))
     if len(levels) < required_levels:
         raise ValueError(
-            f"邮箱域名不满足要求：当前 {len(levels)} 级，至少需要 {required_levels} 级"
+            f"The email domain name does not meet the requirements: current {len(levels)} level, at least required {required_levels} class"
         )
 
     letters = len(re.findall(r"[a-z]", domain))
     digits = len(re.findall(r"\d", domain))
     if letters < 2 or digits < 2:
-        raise ValueError("邮箱域名不满足要求：域名至少包含 2 个英文字母和 2 个数字")
+        raise ValueError("The email domain name does not meet the requirements: the domain name contains at least 2 English letters and 2 numbers")

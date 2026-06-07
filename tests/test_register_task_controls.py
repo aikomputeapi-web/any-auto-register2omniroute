@@ -144,8 +144,8 @@ class RegisterTaskControlFlowTests(unittest.TestCase):
         snapshot = _task_store.snapshot(task_id)
         joined_logs = "\n".join(snapshot["logs"])
 
-        self.assertIn("workspace进度: 1/2", joined_logs)
-        self.assertIn("workspace进度: 2/2", joined_logs)
+        self.assertIn("workspaceschedule: 1/2", joined_logs)
+        self.assertIn("workspaceschedule: 2/2", joined_logs)
 
 
 if __name__ == "__main__":

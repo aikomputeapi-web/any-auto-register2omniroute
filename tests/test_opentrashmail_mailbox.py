@@ -56,11 +56,11 @@ class OpenTrashMailMailboxTests(unittest.TestCase):
         mock_request.return_value.json.return_value = {
             "1775019492111": {
                 "email": "test@xiyoufm.com",
-                "subject": "测试",
+                "subject": "test",
             },
             "1775019500000": {
                 "email": "test@xiyoufm.com",
-                "subject": "验证码 123456",
+                "subject": "Verification code 123456",
             },
         }
         mock_request.return_value.text = ""

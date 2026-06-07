@@ -3,7 +3,7 @@ import random
 class browser_config:
     @staticmethod
     def get_random_browser_config(browser_type):
-        # 返回: 浏览器名, 版本, User-Agent, Sec-CH-UA
+        # return: Browser name, Version, User-Agent, Sec-CH-UA
         versions = ["120.0.0.0", "121.0.0.0", "122.0.0.0", "124.0.0.0"]
         ver = random.choice(versions)
         ua = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{ver} Safari/537.36"

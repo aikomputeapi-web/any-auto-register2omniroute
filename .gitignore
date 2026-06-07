@@ -40,6 +40,7 @@ electron/backend/
 # PyInstaller
 backend.spec
 static/
+static_pro/
 /build/
 *.spec
 
@@ -78,3 +79,9 @@ kiro_error.*
 
 # 本地数据文件
 account_manager.db
+
+# gstack (global install)
+.amazonq/rules/gstack.md
+
+# DevTools
+devtools_inspector/node_modules/

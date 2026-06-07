@@ -1,16 +1,16 @@
 """
-OpenBlockLabs 自动注册 (WorkOS AuthKit)
+OpenBlockLabs Automatic registration (WorkOS AuthKit)
 
-流程:
+process:
   1. GET auth-relay/.../initiate_signup → authorization_session_id
-  2. GET auth.openblocklabs.com/sign-up?... → 提取 next-action ID
+  2. GET auth.openblocklabs.com/sign-up?... → extract next-action ID
   3. POST /sign-up (first_name/last_name/email/intent=sign-up) → __Host-state cookie
-  4. GET /sign-up/password → 提取 next-action ID
+  4. GET /sign-up/password → extract next-action ID
   5. POST /sign-up/password (password/signals/...) → pendingAuthenticationToken from RSC body
-  6. GET /email-verification → 提取 next-action ID
+  6. GET /email-verification → extract next-action ID
   7. POST /email-verification (code + pending_authentication_token) → 303 → callback
   8. GET dashboard.openblocklabs.com/auth/callback?code=... → wos-session cookie
-  9. GET /api/create-personal-org → 完成
+  9. GET /api/create-personal-org → Finish
 
 pip install curl_cffi requests
 """
@@ -21,7 +21,7 @@ from curl_cffi import requests as curl_requests
 import requests as std_requests
 from core.proxy_utils import build_requests_proxy_config
 
-# ─── 配置 ───────────────────────────────────────────────────────────────────
+# ─── Configuration ───────────────────────────────────────────────────────────────────
 
 AUTH_BASE = "https://auth.openblocklabs.com"
 DASHBOARD_BASE = "https://dashboard.openblocklabs.com"
@@ -61,7 +61,7 @@ def _build_multipart(
 
 
 def _make_signals() -> str:
-    """生成伪造的 browser signals (base64 JSON)"""
+    """generate fake browser signals (base64 JSON)"""
     data = {
         "createdAtMs": int(time.time() * 1000),
         "timezone": "Asia/Shanghai",
@@ -164,7 +164,7 @@ class OpenBlockLabsRegister:
             )
             if r.status_code == 200:
                 break
-            self.log(f"  CF拦截 (status={r.status_code}), 重试 {attempt + 1}/5...")
+            self.log(f"  CFintercept (status={r.status_code}), Try again {attempt + 1}/5...")
             time.sleep(2)
         final_url = str(r.url)
         parsed = urlparse(final_url)
@@ -184,7 +184,7 @@ class OpenBlockLabsRegister:
         return bool(self.authorization_session_id)
 
     def step2_get_signup_page(self) -> bool:
-        """已在 step1 完成，直接返回 True"""
+        """Already in step1 Completed, return directly True"""
         return bool(self.authorization_session_id)
 
     def step3_submit_signup(self, email: str, first_name: str, last_name: str) -> bool:
@@ -219,7 +219,7 @@ class OpenBlockLabsRegister:
         return resp.status_code == 303
 
     def step4_get_password_page(self) -> bool:
-        """GET /sign-up/password → 提取 next-action ID"""
+        """GET /sign-up/password → extract next-action ID"""
         self.log("Step4: GET /sign-up/password")
         url = f"{AUTH_BASE}/sign-up/password?" + urlencode(
             {
@@ -242,7 +242,7 @@ class OpenBlockLabsRegister:
     def step5_submit_password(
         self, email: str, password: str, first_name: str, last_name: str
     ) -> str:
-        """POST /sign-up/password → RSC body 包含 pendingAuthenticationToken"""
+        """POST /sign-up/password → RSC body Include pendingAuthenticationToken"""
         self.log("Step5: POST /sign-up/password")
         url = f"{AUTH_BASE}/sign-up/password?" + urlencode(
             {
@@ -281,7 +281,7 @@ class OpenBlockLabsRegister:
         return token
 
     def step6_get_email_verification_page(self) -> bool:
-        """GET /email-verification → 提取 next-action ID"""
+        """GET /email-verification → extract next-action ID"""
         self.log("Step6: GET /email-verification")
         url = f"{AUTH_BASE}/email-verification?" + urlencode(
             {
@@ -360,7 +360,7 @@ class OpenBlockLabsRegister:
         return None
 
     def step9_create_personal_org(self) -> bool:
-        """GET /api/create-personal-org → 完成组织创建"""
+        """GET /api/create-personal-org → Complete organization creation"""
         self.log("Step9: GET /api/create-personal-org")
         r = self.s.get(
             f"{DASHBOARD_BASE}/api/create-personal-org",
@@ -434,5 +434,5 @@ class OpenBlockLabsRegister:
             "password": password,
             "wos_session": session_token,
         }
-        self.log(f"注册成功: {email}")
+        self.log(f"Registration successful: {email}")
         return result

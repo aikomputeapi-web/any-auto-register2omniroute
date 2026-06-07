@@ -1,5 +1,5 @@
 """
-通用工具函数模块
+General tool function module
 """
 
 from dataclasses import dataclass, field
@@ -18,7 +18,7 @@ from .constants import MAX_REGISTRATION_AGE, MIN_REGISTRATION_AGE
 
 @dataclass
 class FlowState:
-    """OpenAI Auth/Registration 流程中的页面状态。"""
+    """OpenAI Auth/Registration The status of the page in the process."""
 
     page_type: str = ""
     continue_url: str = ""
@@ -30,12 +30,12 @@ class FlowState:
 
 
 def generate_device_id():
-    """生成设备唯一标识（oai-did），UUID v4 格式"""
+    """Generate device unique identifier (oai-did),UUID v4 Format"""
     return str(uuid.uuid4())
 
 
 def generate_random_password(length=16):
-    """生成符合 OpenAI 要求的随机密码"""
+    """Generate a match OpenAI Random password required"""
     chars = string.ascii_letters + string.digits + "!@#$%"
     pwd = list(
         random.choice(string.ascii_uppercase)
@@ -49,7 +49,7 @@ def generate_random_password(length=16):
 
 
 def generate_random_name():
-    """随机生成自然的英文姓名，返回 (first_name, last_name)"""
+    """Randomly generate natural English names and return (first_name, last_name)"""
     first = [
         "James", "Robert", "John", "Michael", "David", "William", "Richard",
         "Mary", "Jennifer", "Linda", "Elizabeth", "Susan", "Jessica", "Sarah",
@@ -63,7 +63,7 @@ def generate_random_name():
 
 
 def generate_random_birthday():
-    """生成随机生日字符串，格式 YYYY-MM-DD（20~45岁）"""
+    """Generate random birthday string, format YYYY-MM-DD(20~45age)"""
     from datetime import datetime
 
     current_year = datetime.now().year
@@ -77,7 +77,7 @@ def generate_random_birthday():
 
 
 def generate_datadog_trace():
-    """生成 Datadog APM 追踪头"""
+    """generate Datadog APM tracking head"""
     trace_id = str(random.getrandbits(64))
     parent_id = str(random.getrandbits(64))
     trace_hex = format(int(trace_id), "016x")
@@ -93,7 +93,7 @@ def generate_datadog_trace():
 
 
 def generate_pkce():
-    """生成 PKCE code_verifier 和 code_challenge"""
+    """generate PKCE code_verifier and code_challenge"""
     code_verifier = (
         base64.urlsafe_b64encode(secrets.token_bytes(64)).rstrip(b"=").decode("ascii")
     )
@@ -103,7 +103,7 @@ def generate_pkce():
 
 
 def decode_jwt_payload(token):
-    """解析 JWT token 的 payload 部分"""
+    """parse JWT token of payload part"""
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -120,7 +120,7 @@ def decode_jwt_payload(token):
 
 
 def extract_code_from_url(url):
-    """从 URL 中提取 authorization code"""
+    """from URL extracted from authorization code"""
     if not url or "code=" not in url:
         return None
     try:
@@ -131,12 +131,12 @@ def extract_code_from_url(url):
 
 
 def normalize_page_type(value):
-    """将 page.type 归一化为便于分支判断的 snake_case。"""
+    """Will page.type Normalized to facilitate branch judgment snake_case."""
     return str(value or "").strip().lower().replace("-", "_").replace("/", "_").replace(" ", "_")
 
 
 def normalize_flow_url(url, auth_base="https://auth.openai.com"):
-    """将 continue_url / payload.url 归一化成绝对 URL。"""
+    """Will continue_url / payload.url normalized into absolute URL."""
     value = str(url or "").strip()
     if not value:
         return ""
@@ -148,7 +148,7 @@ def normalize_flow_url(url, auth_base="https://auth.openai.com"):
 
 
 def infer_page_type_from_url(url):
-    """从 URL 推断流程状态，用于服务端未返回 page.type 时兜底。"""
+    """from URL Infer process status, if the server does not return page.type Always keep the bottom line."""
     if not url:
         return ""
 
@@ -190,7 +190,7 @@ def infer_page_type_from_url(url):
 
 
 def extract_flow_state(data=None, current_url="", auth_base="https://auth.openai.com", default_method="GET"):
-    """从 API 响应或 URL 中提取统一的流程状态。"""
+    """from API response or URL Extract a unified process status."""
     raw = data if isinstance(data, dict) else {}
     page = raw.get("page") or {}
     payload = page.get("payload") or {}
@@ -216,19 +216,19 @@ def extract_flow_state(data=None, current_url="", auth_base="https://auth.openai
 
 
 def describe_flow_state(state: FlowState):
-    """生成简短的流程状态描述，便于记录日志。"""
+    """Generate brief process status descriptions for easy logging."""
     target = state.continue_url or state.current_url or "-"
     return f"page={state.page_type or '-'} method={state.method or '-'} next={target[:80]}..."
 
 
 def random_delay(low=0.3, high=1.0):
-    """随机延迟"""
+    """random delay"""
     import time
     time.sleep(random.uniform(low, high))
 
 
 def extract_chrome_full_version(user_agent):
-    """从 UA 中提取完整的 Chrome 版本号。"""
+    """from UA Extract the complete Chrome Version number."""
     if not user_agent:
         return ""
     match = re.search(r"Chrome/([0-9.]+)", user_agent)
@@ -236,7 +236,7 @@ def extract_chrome_full_version(user_agent):
 
 
 def _registrable_domain(hostname):
-    """粗略提取可注册域名，用于推断 Sec-Fetch-Site。"""
+    """Roughly extract registrable domain names for inference Sec-Fetch-Site."""
     if not hostname:
         return ""
     host = hostname.split(":")[0].strip(".").lower()
@@ -247,7 +247,7 @@ def _registrable_domain(hostname):
 
 
 def infer_sec_fetch_site(url, referer=None, navigation=False):
-    """根据目标 URL 和 Referer 推断 Sec-Fetch-Site。"""
+    """according to goals URL and Referer infer Sec-Fetch-Site."""
     if not referer:
         return "none" if navigation else "same-origin"
 
@@ -270,7 +270,7 @@ def infer_sec_fetch_site(url, referer=None, navigation=False):
 
 
 def build_sec_ch_ua_full_version_list(sec_ch_ua, chrome_full_version):
-    """根据 sec-ch-ua 生成 sec-ch-ua-full-version-list。"""
+    """according to sec-ch-ua generate sec-ch-ua-full-version-list."""
     if not sec_ch_ua or not chrome_full_version:
         return ""
 
@@ -300,7 +300,7 @@ def build_browser_headers(
     headed=False,
     extra_headers=None,
 ):
-    """构造更接近真实 Chrome 有头浏览器的请求头。"""
+    """Construction is closer to reality Chrome Header browser request headers."""
     chrome_full = chrome_full_version or extract_chrome_full_version(user_agent)
     full_version_list = build_sec_ch_ua_full_version_list(sec_ch_ua, chrome_full)
 
@@ -355,7 +355,7 @@ def build_browser_headers(
 
 
 def seed_oai_device_cookie(session, device_id):
-    """在 ChatGPT / OpenAI 相关域上同步设置 oai-did。"""
+    """exist ChatGPT / OpenAI Sync settings on related domains oai-did."""
     for domain in (
         "chatgpt.com",
         ".chatgpt.com",

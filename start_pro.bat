@@ -1,0 +1,6 @@
+@echo off
+echo [INFO] Starting Backend...
+start cmd /k start_backend.bat
+echo [INFO] Starting Pro Frontend...
+cd frontend_pro
+npm run dev

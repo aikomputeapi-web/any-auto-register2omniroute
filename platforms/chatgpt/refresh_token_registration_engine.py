@@ -1,9 +1,9 @@
 """
-ChatGPT Refresh Token 注册引擎。
+ChatGPT Refresh Token Register engine.
 
-主链路采用两段式推进：
-1. `ChatGPTClient.register_complete_flow()` 负责把注册状态机推进到 about_you
-2. `OAuthClient.login_and_get_tokens()` 承接前序会话继续完成 about_you / workspace / token
+The main link adopts two-stage advancement:
+1. `ChatGPTClient.register_complete_flow()` Responsible for advancing the registration state machine to about_you
+2. `OAuthClient.login_and_get_tokens()` Continue to complete the pre-session session about_you / workspace / token
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RegistrationResult:
-    """注册结果。"""
+    """Registration results."""
 
     success: bool
     email: str = ""
@@ -66,7 +66,7 @@ class RegistrationResult:
 
 @dataclass
 class SignupFormResult:
-    """保留旧结构，兼容外部引用。"""
+    """Preserves the old structure and is compatible with external references."""
 
     success: bool
     page_type: str = ""
@@ -76,7 +76,7 @@ class SignupFormResult:
 
 
 class EmailServiceAdapter:
-    """将现有 email_service 适配给 ChatGPTClient / OAuthClient 状态机。"""
+    """will existing email_service adapted to ChatGPTClient / OAuthClient State machine."""
 
     def __init__(self, email_service, email: str, log_fn: Callable[[str], None]):
         self.email_service = email_service
@@ -132,7 +132,7 @@ class EmailServiceAdapter:
         exclude_codes=None,
     ):
         excluded = set(exclude_codes) if exclude_codes is not None else set(self._used_codes)
-        self.log_fn(f"正在等待邮箱 {email} 的验证码 ({timeout}s)...")
+        self.log_fn(f"Waiting for email {email} verification code ({timeout}s)...")
         code = self.email_service.get_verification_code(
             email=email,
             timeout=timeout,
@@ -142,12 +142,12 @@ class EmailServiceAdapter:
         if code:
             code = str(code).strip()
             self._remember_code(code, successful=False)
-            self.log_fn(f"成功获取验证码: {code}")
+            self.log_fn(f"Successfully obtained verification code: {code}")
         return code
 
 
 class RefreshTokenRegistrationEngine:
-    """Refresh token 注册引擎。"""
+    """Refresh token Register engine."""
 
     def __init__(
         self,
@@ -164,8 +164,7 @@ class RefreshTokenRegistrationEngine:
         self.callback_logger = callback_logger or (lambda msg: logger.info(msg))
         self.task_uuid = task_uuid
         self.browser_mode = str(browser_mode or "protocol").strip().lower() or "protocol"
-        # 已移除整流程重试能力，保留参数仅兼容调用方
-        self.max_retries = 1
+        self.max_retries = max(1, int(max_retries or 1))
         self.extra_config = dict(extra_config or {})
 
         self.email: Optional[str] = None
@@ -190,7 +189,7 @@ class RefreshTokenRegistrationEngine:
 
     def _create_email(self) -> bool:
         try:
-            self._log(f"正在创建 {self.email_service.service_type.value} 邮箱...")
+            self._log(f"Creating {self.email_service.service_type.value} Mail...")
             self.email_info = self.email_service.create_email()
 
             email_value = str(
@@ -200,7 +199,7 @@ class RefreshTokenRegistrationEngine:
             ).strip()
             if not email_value:
                 self._log(
-                    f"创建邮箱失败: {self.email_service.service_type.value} 返回空邮箱地址",
+                    f"Failed to create mailbox: {self.email_service.service_type.value} Returns an empty email address",
                     "error",
                 )
                 return False
@@ -209,10 +208,10 @@ class RefreshTokenRegistrationEngine:
                 self.email_info = {}
             self.email_info["email"] = email_value
             self.email = email_value
-            self._log(f"成功创建邮箱: {self.email}")
+            self._log(f"Email created successfully: {self.email}")
             return True
         except Exception as e:
-            self._log(f"创建邮箱失败: {e}", "error")
+            self._log(f"Failed to create mailbox: {e}", "error")
             return False
 
     def _read_int_config(
@@ -245,6 +244,8 @@ class RefreshTokenRegistrationEngine:
             "please login instead",
             "add_phone",
             "add-phone",
+            "authentication method you used during sign up",
+            "authentication method",
         )
         return any(marker in text for marker in markers)
 
@@ -254,7 +255,7 @@ class RefreshTokenRegistrationEngine:
             verbose=False,
             browser_mode=self.browser_mode,
         )
-        client._log = lambda msg: self._log(f"[注册链路] {msg}")
+        client._log = lambda msg: self._log(f"[Registration link] {msg}")
         return client
 
     def _build_oauth_client(self) -> OAuthClient:
@@ -264,7 +265,7 @@ class RefreshTokenRegistrationEngine:
             verbose=False,
             browser_mode=self.browser_mode,
         )
-        client._log = lambda msg: self._log(f"[登录链路] {msg}")
+        client._log = lambda msg: self._log(f"[Login link] {msg}")
         return client
 
     def _reuse_register_browser_context(
@@ -286,7 +287,7 @@ class RefreshTokenRegistrationEngine:
         oauth_client.impersonate = str(
             getattr(register_client, "impersonate", "") or ""
         ).strip()
-        self._log("已接入前序 session/cookie/fingerprint，继续处理 OAuth 后续步骤")
+        self._log("Already connected to prequel session/cookie/fingerprint, continue processing OAuth Next steps")
 
     def _extract_account_info(self, tokens: dict[str, Any]) -> dict[str, Any]:
         id_token = str((tokens or {}).get("id_token") or "").strip()
@@ -334,7 +335,7 @@ class RefreshTokenRegistrationEngine:
         register_otp_wait_seconds: int,
         parallel: int = 3,
     ):
-        """add_phone 阻断后，并行启动多路全新 OAuth session，第一个成功的获胜。"""
+        """add_phone After blocking, start multiple new channels in parallel OAuth session, the first one to succeed wins."""
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         winning_tokens = None
@@ -345,7 +346,7 @@ class RefreshTokenRegistrationEngine:
             client.config.setdefault(
                 "chatgpt_oauth_otp_wait_seconds", register_otp_wait_seconds
             )
-            self._log(f"add_phone 并行重试 #{idx + 1}/{parallel} 启动...")
+            self._log(f"add_phone Parallel retry #{idx + 1}/{parallel} start up...")
             t = client.login_and_get_tokens(
                 result.email,
                 self.password,
@@ -355,7 +356,7 @@ class RefreshTokenRegistrationEngine:
                 impersonate=getattr(register_client, "impersonate", None),
                 skymail_client=email_adapter,
                 prefer_passwordless_login=True,
-                allow_phone_verification=False,
+                allow_phone_verification=True,
                 force_new_browser=True,
                 force_chatgpt_entry=False,
                 screen_hint="login",
@@ -377,15 +378,15 @@ class RefreshTokenRegistrationEngine:
                         winning_tokens = t
                         winning_client = client
                         self._log(
-                            f"add_phone 并行重试 #{futures[future] + 1} 成功，取消其余..."
+                            f"add_phone Parallel retry #{futures[future] + 1} Success, cancel the rest..."
                         )
-                        # 取消尚未开始的 futures
+                        # Cancel something that hasn’t started yet futures
                         for f in futures:
                             if f is not future:
                                 f.cancel()
                         break
                 except Exception as exc:
-                    self._log(f"add_phone 并行重试异常: {exc}", "warning")
+                    self._log(f"add_phone Parallel retry exception: {exc}", "warning")
 
         return winning_tokens, winning_client
 
@@ -451,206 +452,273 @@ class RefreshTokenRegistrationEngine:
             maximum=3600,
         )
 
-        try:
-            registration_message = ""
-            source = "register"
+        for attempt in range(self.max_retries):
+            if attempt > 0:
+                self._log(f"Registration attempt {attempt + 1}/{self.max_retries}...")
+                if not fixed_email:
+                    self.email = None
+                    self.password = None
+                    self.email_info = None
 
-            self._log("=" * 60)
-            self._log("ChatGPT RT 全新主链路启动")
-            self._log(f"请求模式: {self.browser_mode}")
-            self._log("实现策略: 注册状态机 + OAuth 接续流程")
-            self._log("=" * 60)
+            try:
+                registration_message = ""
+                source = "register"
 
-            if not fixed_email:
-                self.email = None
+                self._log("=" * 60)
+                self._log(f"ChatGPT RT New main link starts (Attempt {attempt + 1}/{self.max_retries})")
+                self._log(f"request mode: {self.browser_mode}")
+                self._log("implementation strategy: Register state machine + OAuth Continue process")
+                self._log("=" * 60)
 
-            self._log("1. 创建邮箱...")
-            if not self._create_email():
-                last_error = "创建邮箱失败"
-                result.error_message = last_error
-                return result
+                if not fixed_email:
+                    self.email = None
 
-            result.email = self.email or ""
-            self.password = self.password or generate_random_password(16)
-            result.password = self.password
+                self._log("1. Create mailbox...")
+                if not self._create_email():
+                    last_error = "Failed to create mailbox"
+                    if attempt == self.max_retries - 1:
+                        result.error_message = last_error
+                        return result
+                    continue
 
-            first_name, last_name = generate_random_name()
-            birthdate = generate_random_birthday()
-            self._log(f"邮箱: {result.email}")
-            self._log(f"密码: {self.password}")
-            self._log(f"注册信息: {first_name} {last_name}, 生日: {birthdate}")
-            self._log("流程策略: 注册阶段推进到 about_you 后切换到 OAuth 流程继续完成后续步骤")
-            self._log(
-                "验证码等待策略: "
-                f"register_wait={register_otp_wait_seconds}s, "
-                f"register_resend_wait={register_otp_resend_wait_seconds}s, "
-                "oauth_wait=读取 OAuthClient 配置（默认600s）"
-            )
+                result.email = self.email or ""
+                self.password = self.password or generate_random_password(16)
+                result.password = self.password
 
-            email_adapter = EmailServiceAdapter(
-                self.email_service,
-                result.email,
-                self._log,
-            )
-
-            _REG_RETRY_MARKERS = ("访问首页失败", "预授权被拦截")
-            registered = False
-            registration_message = ""
-            for _reg_attempt in range(3):
-                if _reg_attempt > 0:
-                    self._log(
-                        f"注册状态机重试 {_reg_attempt}/2（原因: {registration_message}）..."
-                    )
-                register_client = self._build_chatgpt_client()
-                self._log("2. 执行注册状态机（interrupt 模式：不在注册阶段提交 about_you）...")
-                registered, registration_message = register_client.register_complete_flow(
-                    result.email,
-                    self.password,
-                    first_name,
-                    last_name,
-                    birthdate,
-                    email_adapter,
-                    stop_before_about_you_submission=True,
-                    otp_wait_timeout=register_otp_wait_seconds,
-                    otp_resend_wait_timeout=register_otp_resend_wait_seconds,
-                )
-                if registered:
-                    break
-                if not any(m in registration_message for m in _REG_RETRY_MARKERS):
-                    break
-
-            if not registered:
-                if not self._should_switch_to_login_after_register_failure(
-                    registration_message
-                ):
-                    last_error = f"注册状态机失败: {registration_message}"
-                    result.error_message = last_error
-                    return result
-
+                first_name, last_name = generate_random_name()
+                birthdate = generate_random_birthday()
+                self._log(f"Mail: {result.email}")
+                self._log(f"password: {self.password}")
+                self._log(f"Registration information: {first_name} {last_name}, Birthday: {birthdate}")
+                self._log("process strategy: The registration stage advances to about_you and then switch to OAuth The process continues with subsequent steps")
                 self._log(
-                    "注册阶段命中可继续处理的终态，改走 OAuth 登录流程",
-                    "warning",
+                    "Verification code waiting strategy: "
+                    f"register_wait={register_otp_wait_seconds}s, "
+                    f"register_resend_wait={register_otp_resend_wait_seconds}s, "
+                    "oauth_wait=read OAuthClient configuration (default600s)"
                 )
-                self._log(f"切换原因: {registration_message}")
-                source = "login"
-            else:
-                if registration_message == "pending_about_you_submission":
-                    self._log("注册状态机已推进至 about_you，符合预期。下一步进入 OAuth 会话补全资料")
-                else:
-                    self._log(
-                        "注册状态机返回成功但未停在 about_you。"
-                        "将继续进入 OAuth 会话，按状态机实际返回推进。"
+
+                email_adapter = EmailServiceAdapter(
+                    self.email_service,
+                    result.email,
+                    self._log,
+                )
+
+                _REG_RETRY_MARKERS = ("Failed to access home page", "Pre-authorization blocked")
+                registered = False
+                registration_message = ""
+                for _reg_attempt in range(3):
+                    if _reg_attempt > 0:
+                        self._log(
+                            f"Register state machine retry {_reg_attempt}/2(reason: {registration_message})..."
+                        )
+                    register_client = self._build_chatgpt_client()
+                    self._log("2. Execute the registration state machine (interrupt Mode: Not submitted during registration phase about_you)...")
+                    registered, registration_message = register_client.register_complete_flow(
+                        result.email,
+                        self.password,
+                        first_name,
+                        last_name,
+                        birthdate,
+                        email_adapter,
+                        stop_before_about_you_submission=True,
+                        otp_wait_timeout=register_otp_wait_seconds,
+                        otp_resend_wait_timeout=register_otp_resend_wait_seconds,
                     )
+                    if registered:
+                        break
+                    if not any(m in registration_message for m in _REG_RETRY_MARKERS):
+                        break
 
-            oauth_client = self._build_oauth_client()
-            oauth_client.config.setdefault(
-                "chatgpt_oauth_otp_wait_seconds",
-                register_otp_wait_seconds,
-            )
-            oauth_client.config.setdefault(
-                "chatgpt_oauth_otp_resend_wait_seconds",
-                register_otp_resend_wait_seconds,
-            )
+                if not registered:
+                    if not self._should_switch_to_login_after_register_failure(
+                        registration_message
+                    ):
+                        last_error = f"Failed to register state machine: {registration_message}"
+                        if attempt == self.max_retries - 1:
+                            result.error_message = last_error
+                            return result
+                        continue
 
-            use_continued_session = registered and (
-                registration_message == "pending_about_you_submission"
-            )
-
-            if use_continued_session:
-                self._reuse_register_browser_context(register_client, oauth_client)
-                self._log("3. 承接前序 session，继续走 OAuth passwordless 流程")
-                self._log("4. 沿用前序阶段的 cookie / device_id / 浏览器指纹")
-                self._log("5. 登录成功后提交 about_you，并继续 workspace/token 流程")
-                tokens = oauth_client.login_and_get_tokens(
-                    result.email,
-                    self.password,
-                    device_id=getattr(register_client, "device_id", "") or "",
-                    user_agent=getattr(register_client, "ua", None),
-                    sec_ch_ua=getattr(register_client, "sec_ch_ua", None),
-                    impersonate=getattr(register_client, "impersonate", None),
-                    skymail_client=email_adapter,
-                    prefer_passwordless_login=True,
-                    allow_phone_verification=False,
-                    force_new_browser=False,
-                    force_chatgpt_entry=False,
-                    screen_hint="login",
-                    force_password_login=False,
-                    complete_about_you_if_needed=True,
-                    first_name=first_name,
-                    last_name=last_name,
-                    birthdate=birthdate,
-                    login_source="post_register_workspace_continue",
-                )
-            else:
-                self._log("3. 新开 OAuth session，按 screen_hint=login + passwordless OTP 登录...")
-                self._log("4. 若命中 about_you，则在 OAuth 会话内提交姓名+生日，再继续 workspace/token")
-                tokens = oauth_client.login_and_get_tokens(
-                    result.email,
-                    self.password,
-                    device_id="",
-                    user_agent=getattr(register_client, "ua", None),
-                    sec_ch_ua=getattr(register_client, "sec_ch_ua", None),
-                    impersonate=getattr(register_client, "impersonate", None),
-                    skymail_client=email_adapter,
-                    prefer_passwordless_login=True,
-                    allow_phone_verification=False,
-                    force_new_browser=True,
-                    force_chatgpt_entry=False,
-                    screen_hint="login",
-                    force_password_login=False,
-                    complete_about_you_if_needed=True,
-                    first_name=first_name,
-                    last_name=last_name,
-                    birthdate=birthdate,
-                    login_source=(
-                        "existing_account_continue" if source == "login" else "post_register_workspace_continue"
-                    ),
-                )
-
-            if not tokens:
-                last_error = oauth_client.last_error or "OAuth 登录状态机失败"
-                if "add_phone" in last_error:
                     self._log(
-                        "OAuth add_phone 阻断，启动并行 OAuth 重试（3 路并发）...",
+                        "The registration phase hits a final state that can continue to be processed, and is changed to OAuth Login process",
                         "warning",
                     )
-                    tokens, oauth_client = self._parallel_add_phone_retry(
-                        result=result,
-                        register_client=register_client,
-                        email_adapter=email_adapter,
+                    self._log(f"Switch reason: {registration_message}")
+                    source = "login"
+                else:
+                    if registration_message == "pending_about_you_submission":
+                        self._log("The registration state machine has been advanced to about_you, in line with expectations. Next step to enter OAuth Conversation complement")
+                    else:
+                        self._log(
+                            "The registration state machine returns successfully but does not stop at about_you."
+                            "will continue to enter OAuth Session, advanced by the actual return of the state machine."
+                        )
+
+                oauth_client = self._build_oauth_client()
+                oauth_client.config.setdefault(
+                    "chatgpt_oauth_otp_wait_seconds",
+                    register_otp_wait_seconds,
+                )
+                oauth_client.config.setdefault(
+                    "chatgpt_oauth_otp_resend_wait_seconds",
+                    register_otp_resend_wait_seconds,
+                )
+
+                use_continued_session = registered and (
+                    registration_message == "pending_about_you_submission"
+                )
+
+                if use_continued_session:
+                    self._reuse_register_browser_context(register_client, oauth_client)
+                    self._log("3. Preface to take over session, keep walking OAuth passwordless process")
+                    self._log("4. Following the preamble stage cookie / device_id / browser fingerprint")
+                    self._log("5. Submit after successful login about_you, and continue workspace/token process")
+                    tokens = oauth_client.login_and_get_tokens(
+                        result.email,
+                        self.password,
+                        device_id=getattr(register_client, "device_id", "") or "",
+                        user_agent=getattr(register_client, "ua", None),
+                        sec_ch_ua=getattr(register_client, "sec_ch_ua", None),
+                        impersonate=getattr(register_client, "impersonate", None),
+                        skymail_client=email_adapter,
+                        prefer_passwordless_login=True,
+                        allow_phone_verification=True,
+                        force_new_browser=False,
+                        force_chatgpt_entry=False,
+                        screen_hint="login",
+                        force_password_login=False,
+                        complete_about_you_if_needed=True,
                         first_name=first_name,
                         last_name=last_name,
                         birthdate=birthdate,
-                        register_otp_wait_seconds=register_otp_wait_seconds,
+                        login_source="post_register_workspace_continue",
                     )
-                    if not tokens:
-                        last_error = (oauth_client.last_error if oauth_client else None) or last_error
+                else:
+                    self._log("3. Newly opened OAuth session,according to screen_hint=login + passwordless OTP Log in...")
+                    self._log("4. If hit about_you, then in OAuth Submit name within session+birthday, keep going workspace/token")
+                    tokens = oauth_client.login_and_get_tokens(
+                        result.email,
+                        self.password,
+                        device_id="",
+                        user_agent=getattr(register_client, "ua", None),
+                        sec_ch_ua=getattr(register_client, "sec_ch_ua", None),
+                        impersonate=getattr(register_client, "impersonate", None),
+                        skymail_client=email_adapter,
+                        prefer_passwordless_login=True,
+                        allow_phone_verification=True,
+                        force_new_browser=True,
+                        force_chatgpt_entry=False,
+                        screen_hint="login",
+                        force_password_login=False,
+                        complete_about_you_if_needed=True,
+                        first_name=first_name,
+                        last_name=last_name,
+                        birthdate=birthdate,
+                        login_source=(
+                            "existing_account_continue" if source == "login" else "post_register_workspace_continue"
+                        ),
+                    )
+
                 if not tokens:
+                    last_error = oauth_client.last_error or "OAuth Login state machine failed"
+                    
+                    # Handle authentication method mismatch - retry with fresh session
+                    if "authentication method" in last_error.lower() and use_continued_session:
+                        self._log(
+                            "OAuth about_you submission failed due to authentication method mismatch",
+                            "warning",
+                        )
+                        self._log(
+                            "Retrying with fresh OAuth session (passwordless flow)...",
+                            "warning",
+                        )
+                        # Create a new OAuth client with fresh session
+                        oauth_client = self._build_oauth_client()
+                        oauth_client.config.setdefault(
+                            "chatgpt_oauth_otp_wait_seconds",
+                            register_otp_wait_seconds,
+                        )
+                        oauth_client.config.setdefault(
+                            "chatgpt_oauth_otp_resend_wait_seconds",
+                            register_otp_resend_wait_seconds,
+                        )
+                        tokens = oauth_client.login_and_get_tokens(
+                            result.email,
+                            self.password,
+                            device_id="",
+                            user_agent=getattr(register_client, "ua", None),
+                            sec_ch_ua=getattr(register_client, "sec_ch_ua", None),
+                            impersonate=getattr(register_client, "impersonate", None),
+                            skymail_client=email_adapter,
+                            prefer_passwordless_login=True,
+                            allow_phone_verification=True,
+                            force_new_browser=True,
+                            force_chatgpt_entry=False,
+                            screen_hint="login",
+                            force_password_login=False,
+                            complete_about_you_if_needed=True,
+                            first_name=first_name,
+                            last_name=last_name,
+                            birthdate=birthdate,
+                            login_source="post_register_auth_mismatch_retry",
+                        )
+                        if tokens:
+                            self._log("Authentication method mismatch resolved via fresh OAuth session")
+                        else:
+                            last_error = oauth_client.last_error or last_error
+                    
+                    # Handle add_phone blocking
+                    if not tokens and "add_phone" in last_error:
+                        self._log(
+                            "OAuth add_phone Block, start parallel OAuth retry(3 Road concurrency)...",
+                            "warning",
+                        )
+                        tokens, oauth_client = self._parallel_add_phone_retry(
+                            result=result,
+                            register_client=register_client,
+                            email_adapter=email_adapter,
+                            first_name=first_name,
+                            last_name=last_name,
+                            birthdate=birthdate,
+                            register_otp_wait_seconds=register_otp_wait_seconds,
+                        )
+                        if not tokens:
+                            last_error = (oauth_client.last_error if oauth_client else None) or last_error
+                    
+                    if not tokens:
+                        if attempt == self.max_retries - 1:
+                            result.error_message = last_error
+                            return result
+                        continue
+
+                self._populate_result_from_tokens(
+                    result=result,
+                    tokens=tokens,
+                    oauth_client=oauth_client,
+                    registration_message=registration_message,
+                    source=source,
+                    register_client=register_client,
+                )
+
+                self._log("5. Main link completed")
+                self._log(f"Account ID: {result.account_id}")
+                self._log(f"Workspace ID: {result.workspace_id}")
+                self._log("=" * 60)
+                return result
+
+            except TaskInterruption:
+                raise
+            except Exception as e:
+                self._log(f"RT Registration main link exception: {e}", "error")
+                last_error = str(e)
+                if attempt == self.max_retries - 1:
                     result.error_message = last_error
                     return result
+                continue
 
-            self._populate_result_from_tokens(
-                result=result,
-                tokens=tokens,
-                oauth_client=oauth_client,
-                registration_message=registration_message,
-                source=source,
-                register_client=register_client,
-            )
-
-            self._log("5. 主链路完成")
-            self._log(f"Account ID: {result.account_id}")
-            self._log(f"Workspace ID: {result.workspace_id}")
-            self._log("=" * 60)
-            return result
-
-        except TaskInterruption:
-            raise
-        except Exception as e:
-            self._log(f"RT 注册主链路异常: {e}", "error")
-            result.error_message = str(e)
-            return result
+        return result
 
     def save_to_database(self, result: RegistrationResult) -> bool:
-        """保留旧接口，占位返回。"""
+        """Keep the old interface and return the placeholder."""
         return bool(result and result.success)

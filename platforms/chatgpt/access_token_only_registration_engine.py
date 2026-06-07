@@ -1,6 +1,6 @@
 """
-注册流程引擎 V2
-基于 curl_cffi 的注册状态机，注册成功后直接复用同一会话提取 ChatGPT Session。
+Registration process engine V2
+based on curl_cffi Registration state machine, directly reuse the same session extraction after successful registration ChatGPT Session.
 """
 
 import time
@@ -77,17 +77,17 @@ class AccessTokenOnlyRegistrationEngine:
             "tls",
             "ssl",
             "curl: (35)",
-            "预授权被拦截",
+            "Pre-authorization blocked",
             "authorize",
             "registration_disallowed",
             "http 400",
-            "创建账号失败",
-            "未获取到 authorization code",
+            "Failed to create account",
+            "Not obtained authorization code",
             "consent",
             "workspace",
             "organization",
             "otp",
-            "验证码",
+            "Verification code",
             "session",
             "accessToken",
             "next-auth",
@@ -102,18 +102,18 @@ class AccessTokenOnlyRegistrationEngine:
                 try:
                     if attempt == 0:
                         self._log("=" * 60)
-                        self._log("开始注册流程 V2 (Session 复用直取 AccessToken)")
-                        self._log(f"请求模式: {self.browser_mode}")
+                        self._log("Start the registration process V2 (Session Reuse direct access AccessToken)")
+                        self._log(f"request mode: {self.browser_mode}")
                         self._log("=" * 60)
                     else:
-                        self._log(f"整流程重试 {attempt + 1}/{self.max_retries} ...")
+                        self._log(f"Retry the entire process {attempt + 1}/{self.max_retries} ...")
                         time.sleep(1)
 
-                    # 1. 创建邮箱
+                    # 1. Create mailbox
                     email_data = self.email_service.create_email()
                     email_addr = self.email or (email_data.get('email') if email_data else None)
                     if not email_addr:
-                        result.error_message = "创建邮箱失败"
+                        result.error_message = "Failed to create mailbox"
                         return result
 
                     result.email = email_addr
@@ -121,17 +121,17 @@ class AccessTokenOnlyRegistrationEngine:
                     pwd = self.password or "AAb1234567890!"
                     result.password = pwd
 
-                    # 随机姓名、生日
+                    # Random name, birthday
                     first_name, last_name = generate_random_name()
                     birthdate = generate_random_birthday()
 
-                    self._log(f"邮箱: {email_addr}, 密码: {pwd}")
-                    self._log(f"注册信息: {first_name} {last_name}, 生日: {birthdate}")
+                    self._log(f"Mail: {email_addr}, password: {pwd}")
+                    self._log(f"Registration information: {first_name} {last_name}, Birthday: {birthdate}")
 
-                    # 使用包装器为底层客户端提供接码服务
+                    # Use wrappers to provide coding services for underlying clients
                     skymail_adapter = EmailServiceAdapter(self.email_service, email_addr, self._log)
 
-                    # 2. 初始化 V2 客户端
+                    # 2. initialization V2 client
                     chatgpt_client = ChatGPTClient(
                         proxy=self.proxy_url,
                         verbose=False,
@@ -139,25 +139,25 @@ class AccessTokenOnlyRegistrationEngine:
                     )
                     chatgpt_client._log = self._log
 
-                    self._log("步骤 1/2: 执行注册状态机...")
+                    self._log("step 1/2: Execute registration state machine...")
 
                     success, msg = chatgpt_client.register_complete_flow(
                         email_addr, pwd, first_name, last_name, birthdate, skymail_adapter
                     )
 
                     if not success:
-                        last_error = f"注册流失败: {msg}"
+                        last_error = f"Registration flow failed: {msg}"
                         if attempt < self.max_retries - 1 and self._should_retry(msg):
-                            self._log(f"注册流失败，准备整流程重试: {msg}")
+                            self._log(f"The registration process failed, prepare to retry the entire process.: {msg}")
                             continue
                         result.error_message = last_error
                         return result
 
-                    self._log("步骤 2/2: 复用注册会话，直接获取 ChatGPT Session / AccessToken...")
+                    self._log("step 2/2: Reuse the registration session and obtain it directly ChatGPT Session / AccessToken...")
                     session_ok, session_result = chatgpt_client.reuse_session_and_get_tokens()
 
                     if session_ok:
-                        self._log("Token 提取完成！")
+                        self._log("Token Extraction completed!")
                         result.success = True
                         result.access_token = session_result.get("access_token", "")
                         result.session_token = session_result.get("session_token", "")
@@ -179,13 +179,13 @@ class AccessTokenOnlyRegistrationEngine:
                             self._log(f"Session Workspace ID: {result.workspace_id}")
 
                         self._log("=" * 60)
-                        self._log("注册流程成功结束!")
+                        self._log("Registration process ended successfully!")
                         self._log("=" * 60)
                         return result
 
-                    last_error = f"注册成功，但复用会话获取 AccessToken 失败: {session_result}"
+                    last_error = f"Registration is successful, but the reuse session is obtained AccessToken fail: {session_result}"
                     if attempt < self.max_retries - 1:
-                        self._log(f"{last_error}，准备整流程重试")
+                        self._log(f"{last_error}, prepare to retry the entire process")
                         continue
                     result.error_message = last_error
                     return result
@@ -194,22 +194,22 @@ class AccessTokenOnlyRegistrationEngine:
                 except Exception as attempt_error:
                     last_error = str(attempt_error)
                     if attempt < self.max_retries - 1 and self._should_retry(last_error):
-                        self._log(f"本轮出现异常，准备整流程重试: {last_error}")
+                        self._log(f"An exception occurred this round. Prepare to retry the whole process.: {last_error}")
                         continue
                     raise
 
-            result.error_message = last_error or "注册失败"
+            result.error_message = last_error or "Registration failed"
             return result
                 
         except TaskInterruption:
             raise
         except Exception as e:
-            self._log(f"无 RT 注册全流程执行异常: {e}", "error")
+            self._log(f"none RT Execution exception during the entire registration process: {e}", "error")
             import traceback
             traceback.print_exc()
             result.error_message = str(e)
             return result
 
 
-# 兼容旧命名，逐步迁移到更见名知意的类名。
+# Compatible with old naming, gradually migrate to more meaningful class names.
 RegistrationEngineV2 = AccessTokenOnlyRegistrationEngine

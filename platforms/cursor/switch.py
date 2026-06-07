@@ -1,6 +1,6 @@
 """
-Cursor 账号切换 —— 写入本地配置文件，Cursor IDE 自动识别
-支持 macOS / Windows / Linux
+Cursor Account switching —— Write to local configuration file,Cursor IDE automatic recognition
+support macOS / Windows / Linux
 """
 
 import os
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_cursor_config_dir() -> str:
-    """获取 Cursor 配置目录路径"""
+    """get Cursor Configuration directory path"""
     system = platform.system()
     
     if system == "Darwin":  # macOS
@@ -34,13 +34,13 @@ def _get_cursor_config_dir() -> str:
 
 
 def _get_cursor_storage_path() -> str:
-    """获取 Cursor storage.json 路径"""
+    """get Cursor storage.json path"""
     config_dir = _get_cursor_config_dir()
     return os.path.join(config_dir, "globalStorage", "storage.json")
 
 
 def _atomic_write(filepath: str, content: str):
-    """原子写入：先写临时文件，再 rename"""
+    """Atomic write: write to temporary file first, then rename"""
     dir_path = os.path.dirname(filepath)
     os.makedirs(dir_path, exist_ok=True)
     
@@ -61,7 +61,7 @@ def _atomic_write(filepath: str, content: str):
 
 def switch_cursor_account(token: str) -> Tuple[bool, str]:
     """
-    切换 Cursor 账号（写入 storage.json，需要重启 Cursor）
+    switch Cursor Account number (write storage.json, need to restart Cursor)
     
     Args:
         token: WorkosCursorSessionToken
@@ -72,36 +72,36 @@ def switch_cursor_account(token: str) -> Tuple[bool, str]:
     try:
         storage_path = _get_cursor_storage_path()
         
-        # 读取现有配置
+        # Read existing configuration
         storage_data = {}
         if os.path.exists(storage_path):
             try:
                 with open(storage_path, "r", encoding="utf-8") as f:
                     storage_data = json.load(f)
             except Exception as e:
-                logger.warning(f"读取现有配置失败，将创建新配置: {e}")
+                logger.warning(f"Failed to read existing configuration, new configuration will be created: {e}")
         
-        # 更新 token
+        # renew token
         storage_data["workos.sessionToken"] = token
         
-        # 原子写入
+        # Atomic writes
         content = json.dumps(storage_data, indent=2, ensure_ascii=False)
         _atomic_write(storage_path, content)
         
-        return True, "切换成功，请重启 Cursor IDE 使新账号生效"
+        return True, "Switching successful, please restart Cursor IDE Make the new account effective"
     
     except Exception as e:
-        logger.error(f"Cursor 账号切换失败: {e}")
-        return False, f"切换失败: {str(e)}"
+        logger.error(f"Cursor Account switching failed: {e}")
+        return False, f"Switch failed: {str(e)}"
 
 
 def restart_cursor_ide() -> Tuple[bool, str]:
-    """关闭并重启 Cursor IDE"""
+    """Shut down and restart Cursor IDE"""
     system = platform.system()
     
     try:
         if system == "Darwin":  # macOS
-            # 关闭 Cursor
+            # closure Cursor
             subprocess.run(
                 ["osascript", "-e", 'quit app "Cursor"'],
                 capture_output=True,
@@ -109,15 +109,15 @@ def restart_cursor_ide() -> Tuple[bool, str]:
             )
             time.sleep(2.0)
             
-            # 启动 Cursor
+            # start up Cursor
             cursor_app = "/Applications/Cursor.app"
             if os.path.exists(cursor_app):
                 subprocess.Popen(["open", "-a", "Cursor"])
-                return True, "Cursor IDE 已重启"
-            return True, "已关闭 Cursor IDE（未找到应用路径，请手动启动）"
+                return True, "Cursor IDE Restarted"
+            return True, "Closed Cursor IDE(Application path not found, please start manually)"
         
         elif system == "Windows":
-            # 关闭 Cursor
+            # closure Cursor
             subprocess.run(
                 ["taskkill", "/IM", "Cursor.exe", "/F"],
                 capture_output=True,
@@ -126,38 +126,38 @@ def restart_cursor_ide() -> Tuple[bool, str]:
             )
             time.sleep(1.5)
             
-            # 启动 Cursor
+            # start up Cursor
             localappdata = os.environ.get("LOCALAPPDATA", "")
             cursor_exe = os.path.join(localappdata, "Programs", "Cursor", "Cursor.exe")
             if os.path.exists(cursor_exe):
                 subprocess.Popen([cursor_exe])
-                return True, "Cursor IDE 已重启"
-            return True, "已关闭 Cursor IDE（未找到应用路径，请手动启动）"
+                return True, "Cursor IDE Restarted"
+            return True, "Closed Cursor IDE(Application path not found, please start manually)"
         
         else:  # Linux
-            # 关闭 Cursor
+            # closure Cursor
             subprocess.run(["pkill", "-f", "cursor"], capture_output=True, timeout=5)
             time.sleep(1.5)
             
-            # 启动 Cursor
+            # start up Cursor
             for path in ["/usr/bin/cursor", os.path.expanduser("~/.local/bin/cursor")]:
                 if os.path.exists(path):
                     subprocess.Popen([path])
-                    return True, "Cursor IDE 已重启"
+                    return True, "Cursor IDE Restarted"
             
             try:
                 subprocess.Popen(["cursor"])
-                return True, "Cursor IDE 已重启"
+                return True, "Cursor IDE Restarted"
             except FileNotFoundError:
-                return True, "已关闭 Cursor IDE（未找到应用路径，请手动启动）"
+                return True, "Closed Cursor IDE(Application path not found, please start manually)"
     
     except Exception as e:
-        logger.error(f"Cursor IDE 重启失败: {e}")
-        return False, f"重启失败: {str(e)}"
+        logger.error(f"Cursor IDE Restart failed: {e}")
+        return False, f"Restart failed: {str(e)}"
 
 
 def read_current_cursor_account() -> dict | None:
-    """读取当前 Cursor IDE 正在使用的账号 token"""
+    """Read current Cursor IDE Account in use token"""
     storage_path = _get_cursor_storage_path()
     
     if not os.path.exists(storage_path):
@@ -173,12 +173,12 @@ def read_current_cursor_account() -> dict | None:
         return None
     
     except Exception as e:
-        logger.error(f"读取 Cursor 配置失败: {e}")
+        logger.error(f"read Cursor Configuration failed: {e}")
         return None
 
 
 def get_cursor_user_info(token: str) -> dict | None:
-    """通过 token 获取用户信息"""
+    """pass token Get user information"""
     from curl_cffi import requests as curl_req
     
     try:
@@ -199,5 +199,5 @@ def get_cursor_user_info(token: str) -> dict | None:
         return None
     
     except Exception as e:
-        logger.error(f"获取 Cursor 用户信息失败: {e}")
+        logger.error(f"get Cursor User information failed: {e}")
         return None

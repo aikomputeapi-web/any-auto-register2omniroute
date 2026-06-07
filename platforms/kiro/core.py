@@ -1269,7 +1269,7 @@ class KiroRegister:
                 }
 
             try:
-                desktop_tokens = self._complete_desktop_idc_flow(email=email, pwd=pwd)
+                desktop_tokens = self._complete_desktop_idc_flow(email=email, pwd=pwd, otp_callback=otp_callback)
                 self._captured_tokens.update(desktop_tokens)
                 self.log("Desktop Builder ID Token The catch-up has been completed")
                 try:

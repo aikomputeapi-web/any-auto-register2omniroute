@@ -1,10 +1,10 @@
 """
-用户端 API 接口
+client API interface
 Base URL: {base_url}/api/v1/openapi
 
-所有方法均支持同步/异步双模式，根据调用上下文自动识别：
-- 在 async 函数中 await 调用：异步模式
-- 在普通函数中直接调用：同步模式
+All methods support synchronization/Asynchronous dual mode, automatically recognized based on the calling context:
+- exist async in function await Call: asynchronous mode
+- Call directly in a normal function: synchronous mode
 """
 
 import asyncio
@@ -33,7 +33,7 @@ from .models import (
 
 
 def _parse_page_result(data: dict, item_parser=None) -> PageResult:
-    """解析分页结果"""
+    """Parse paginated results"""
     items = data.get("list", [])
     if item_parser:
         items = [item_parser(i) for i in items]
@@ -200,33 +200,33 @@ def _parse_token_mail_detail(data: dict) -> TokenMailDetail:
 
 class UserAPI:
     """
-    用户端 API 接口集合
+    client API interface collection
     
-    所有方法智能支持同步/异步调用：
-    - 在 async 函数中：await client.user.get_user_info()
-    - 在普通函数中：client.user.get_user_info()
+    All methods intelligently support synchronization/Asynchronous call:
+    - exist async In the function:await client.user.get_user_info()
+    - In a normal function:client.user.get_user_info()
     
     Args:
-        http_client: LuckMailHttpClient 实例
+        http_client: LuckMailHttpClient Example
     """
     
     def __init__(self, http_client: LuckMailHttpClient):
         self._client = http_client
     
-    # ===== 用户信息 =====
+    # ===== User information =====
     
     def get_user_info(self):
         """
-        获取用户信息及余额
+        Get user information and balance
         
         Returns:
-            UserInfo: 用户信息对象
+            UserInfo: User information object
         
-        同步调用::
+        Synchronous call::
             info = client.user.get_user_info()
             print(info.username, info.balance)
         
-        异步调用::
+        asynchronous call::
             info = await client.user.get_user_info()
             print(info.username, info.balance)
         """
@@ -244,14 +244,14 @@ class UserAPI:
     
     def get_balance(self):
         """
-        查询余额
+        Check balance
         
         Returns:
-            str: 余额字符串，如 "150.0000"
+            str: Balance string, such as "150.0000"
         
-        示例::
+        Example::
             balance = client.user.get_balance()
-            print(f"余额: {balance}")
+            print(f"Balance: {balance}")
         """
         if _is_async_context():
             return self._async_get_balance()
@@ -265,16 +265,16 @@ class UserAPI:
         data = self._client._sync_request("GET", "/api/v1/openapi/balance")
         return data.get("balance", "0.0000")
     
-    # ===== 邮箱类型 =====
+    # ===== Email type =====
     
     def get_email_types(self):
         """
-        获取支持的邮箱类型列表
+        Get a list of supported email types
         
         Returns:
-            List[dict]: 邮箱类型列表，每项含 type、name、description
+            List[dict]: List of mailbox types, each item contains type,name,description
         
-        示例::
+        Example::
             types = client.user.get_email_types()
             for t in types:
                 print(t['type'], t['name'])
@@ -289,7 +289,7 @@ class UserAPI:
     def _sync_get_email_types(self) -> List[dict]:
         return self._client._sync_request("GET", "/api/v1/openapi/email-types")
     
-    # ===== 我的邮箱管理 =====
+    # ===== My email management =====
     
     def get_emails(
         self,
@@ -299,18 +299,18 @@ class UserAPI:
         status: Optional[int] = None,
     ):
         """
-        获取我的邮箱列表（分页）
+        Get my email list (paginated)
         
         Args:
-            page: 页码，默认 1
-            page_size: 每页数量，默认 20
-            keyword: 邮箱地址关键词搜索
-            status: 状态过滤：1=正常 2=异常 4=禁用
+            page: Page number, default 1
+            page_size: Number per page, default 20
+            keyword: Email address keyword search
+            status: Status filtering:1=normal 2=abnormal 4=Disable
         
         Returns:
-            PageResult: 分页结果，list 为 EmailItem 列表
+            PageResult: Paginated results,list for EmailItem list
         
-        示例::
+        Example::
             result = client.user.get_emails(page=1, keyword="outlook")
             for email in result.list:
                 print(email.address, email.status)
@@ -335,16 +335,16 @@ class UserAPI:
     
     def import_emails(self, email_type: str, emails: List[dict]):
         """
-        导入邮箱到私有邮箱池
+        Import mailboxes into a private mailbox pool
         
         Args:
-            email_type: 邮箱类型，如 'ms_graph', 'ms_imap', 'google_variant', 'self_built'
-            emails: 邮箱列表，每项为 dict，包含 address、password、client_id、refresh_token 等
+            email_type: Email type, such as 'ms_graph', 'ms_imap', 'google_variant', 'self_built'
+            emails: Email list, each item is dict,Include address,password,client_id,refresh_token wait
         
         Returns:
-            ImportResult: 导入结果（success/duplicate/failed 数量）
+            ImportResult: Import results (success/duplicate/failed quantity)
         
-        示例::
+        Example::
             result = client.user.import_emails(
                 email_type='ms_graph',
                 emails=[
@@ -356,7 +356,7 @@ class UserAPI:
                     }
                 ]
             )
-            print(f"成功: {result.success}, 重复: {result.duplicate}, 失败: {result.failed}")
+            print(f"success: {result.success}, repeat: {result.duplicate}, fail: {result.failed}")
         """
         body = {"type": email_type, "emails": emails}
         if _is_async_context():
@@ -385,16 +385,16 @@ class UserAPI:
         status: Optional[int] = None,
     ):
         """
-        导出邮箱（txt 文件流）
+        Export mailbox (txt file stream)
         
         Args:
-            keyword: 关键词过滤
-            status: 状态过滤：1=正常 2=异常 4=禁用
+            keyword: keyword filter
+            status: Status filtering:1=normal 2=abnormal 4=Disable
         
         Returns:
-            bytes: txt 文件内容，每行格式：address----password 或 address----client_id----refresh_token
+            bytes: txt File content, format of each line:address----password or address----client_id----refresh_token
         
-        示例::
+        Example::
             content = client.user.export_emails(keyword="outlook")
             with open("emails.txt", "wb") as f:
                 f.write(content)
@@ -404,20 +404,20 @@ class UserAPI:
             return self._client._async_get_stream("/api/v1/openapi/emails/export", params=params)
         return self._client._sync_get_stream("/api/v1/openapi/emails/export", params=params)
     
-    # ===== 项目列表 =====
+    # ===== Project list =====
     
     def get_projects(self, page: int = 1, page_size: int = 50):
         """
-        获取项目列表
+        Get project list
         
         Args:
-            page: 页码，默认 1
-            page_size: 每页数量，默认 50，最大 500
+            page: Page number, default 1
+            page_size: Number per page, default 50,maximum 500
         
         Returns:
-            PageResult: 分页结果，list 为 ProjectItem 列表
+            PageResult: Paginated results,list for ProjectItem list
         
-        示例::
+        Example::
             result = client.user.get_projects()
             for p in result.list:
                 print(p.name, p.code)
@@ -435,7 +435,7 @@ class UserAPI:
         data = self._client._sync_request("GET", "/api/v1/openapi/projects", params=params)
         return _parse_page_result(data, _parse_project_item)
     
-    # ===== 接码订单 =====
+    # ===== Receive code order =====
     
     def create_order(
         self,
@@ -446,22 +446,22 @@ class UserAPI:
         variant_mode: Optional[str] = None,
     ):
         """
-        创建接码订单
+        Create code receiving order
         
         Args:
-            project_code: 项目编码，如 'twitter', 'facebook'
-            email_type: 邮箱类型（可选）：ms_graph / ms_imap / self_built / google_variant
-            domain: 指定域名（可选），如 'outlook.com'
-            specified_email: 指定邮箱地址（可选）
-            variant_mode: 谷歌变种模式（可选，仅 email_type=google_variant 时有效）: dot=点号变种 / plus=+号变种 / mixed=混合变种 / all=随机选择
+            project_code: Project coding, such as 'twitter', 'facebook'
+            email_type: Email type (optional):ms_graph / ms_imap / self_built / google_variant
+            domain: Specify the domain name (optional), such as 'outlook.com'
+            specified_email: Specify email address (optional)
+            variant_mode: Google variant mode (optional, only email_type=google_variant valid at the time): dot=dot variant / plus=+number variant / mixed=Mixed variants / all=randomly selected
         
         Returns:
-            OrderInfo: 订单信息，包含 order_no 和分配的 email_address
+            OrderInfo: Order information, including order_no and allocated email_address
         
-        示例::
+        Example::
             order = client.user.create_order('twitter', email_type='ms_graph')
-            print(f"订单号: {order.order_no}")
-            print(f"邮箱: {order.email_address}")
+            print(f"Order number: {order.order_no}")
+            print(f"Mail: {order.email_address}")
         """
         body: Dict[str, Any] = {"project_code": project_code}
         if email_type:
@@ -487,18 +487,18 @@ class UserAPI:
     
     def get_order_code(self, order_no: str):
         """
-        查询验证码（单次查询）
+        Query verification code (single query)
         
         Args:
-            order_no: 订单编号
+            order_no: order number
         
         Returns:
-            OrderCode: 验证码结果，status 为 'success' 时包含 verification_code
+            OrderCode: Verification code result,status for 'success' included when verification_code
         
-        示例::
+        Example::
             code = client.user.get_order_code(order.order_no)
             if code.status == 'success':
-                print(f"验证码: {code.verification_code}")
+                print(f"Verification code: {code.verification_code}")
         """
         if _is_async_context():
             return self._async_get_order_code(order_no)
@@ -518,15 +518,15 @@ class UserAPI:
     
     def cancel_order(self, order_no: str):
         """
-        取消订单
+        Cancel order
         
         Args:
-            order_no: 订单编号
+            order_no: order number
         
         Returns:
             None
         
-        示例::
+        Example::
             client.user.cancel_order(order.order_no)
         """
         if _is_async_context():
@@ -551,20 +551,20 @@ class UserAPI:
         project_id: Optional[int] = None,
     ):
         """
-        获取订单列表（分页）
+        Get order list (pagination)
         
         Args:
-            page: 页码
-            page_size: 每页数量
-            status: 状态过滤：1=待接码 2=已完成 3=已超时 4=已取消 5=已退款
-            project_id: 按项目 ID 筛选
+            page: page number
+            page_size: Quantity per page
+            status: Status filtering:1=Waiting code 2=Completed 3=Timed out 4=Canceled 5=Refunded
+            project_id: by project ID filter
         
         Returns:
-            PageResult: 分页结果，list 为订单 dict 列表
+            PageResult: Paginated results,list for orders dict list
         
-        示例::
+        Example::
             result = client.user.get_orders(status=2)
-            print(f"共 {result.total} 条已完成订单")
+            print(f"common {result.total} completed orders")
         """
         params = {
             "page": page,
@@ -584,7 +584,7 @@ class UserAPI:
         data = self._client._sync_request("GET", "/api/v1/openapi/orders", params=params)
         return _parse_page_result(data)
     
-    # ===== 接码轮询（高级方法）=====
+    # ===== Code reception polling (advanced method)=====
     
     def wait_for_code(
         self,
@@ -594,32 +594,32 @@ class UserAPI:
         on_poll: Optional[callable] = None,
     ):
         """
-        等待接码（带自动轮询），智能识别同步/异步上下文
+        Waiting for code reception (with automatic polling), intelligent identification and synchronization/asynchronous context
         
-        会自动每隔 interval 秒查询一次，直到收到验证码或超时。
+        will automatically occur every interval Query once every second until verification code is received or timeout occurs.
         
         Args:
-            order_no: 订单编号
-            timeout: 最大等待时间（秒），默认 300
-            interval: 轮询间隔（秒），默认 3.0
-            on_poll: 每次轮询时的回调函数，接收 OrderCode 参数（可选）
+            order_no: order number
+            timeout: Maximum wait time (seconds), default 300
+            interval: Polling interval (seconds), default 3.0
+            on_poll: The callback function for each polling, receives OrderCode Parameters (optional)
         
         Returns:
-            OrderCode: 最终结果，status 为 'success' 或 'timeout'/'cancelled'
+            OrderCode: final result,status for 'success' or 'timeout'/'cancelled'
         
-        同步调用示例::
+        Synchronous call example::
             order = client.user.create_order('twitter')
             result = client.user.wait_for_code(order.order_no, timeout=300)
             if result.status == 'success':
-                print(f"✅ 验证码: {result.verification_code}")
+                print(f"✅ Verification code: {result.verification_code}")
             else:
-                print(f"❌ 接码失败: {result.status}")
+                print(f"❌ Failed to receive code: {result.status}")
         
-        异步调用示例::
+        Asynchronous call example::
             order = await client.user.create_order('twitter')
             result = await client.user.wait_for_code(order.order_no, timeout=300)
             if result.status == 'success':
-                print(f"✅ 验证码: {result.verification_code}")
+                print(f"✅ Verification code: {result.verification_code}")
         """
         if _is_async_context():
             return self._async_wait_for_code(order_no, timeout, interval, on_poll)
@@ -632,7 +632,7 @@ class UserAPI:
         interval: float,
         on_poll: Optional[callable],
     ) -> OrderCode:
-        """异步轮询等待验证码"""
+        """Asynchronous polling waiting for verification code"""
         start = time.time()
         while True:
             result = await self._async_get_order_code(order_no)
@@ -659,7 +659,7 @@ class UserAPI:
         interval: float,
         on_poll: Optional[callable],
     ) -> OrderCode:
-        """同步轮询等待验证码"""
+        """Synchronous polling waiting for verification code"""
         start = time.time()
         while True:
             result = self._sync_get_order_code(order_no)
@@ -676,7 +676,7 @@ class UserAPI:
             
             time.sleep(interval)
     
-    # ===== 购买邮箱 =====
+    # ===== Buy email =====
     
     def purchase_emails(
         self,
@@ -687,19 +687,19 @@ class UserAPI:
         variant_mode: Optional[str] = None,
     ):
         """
-        购买邮箱
+        Buy email
         
         Args:
-            project_code: 项目编码
-            quantity: 购买数量（1-10000）
-            email_type: 邮箱类型（可选）
-            domain: 指定域名（可选）
-            variant_mode: 谷歌变种模式（可选，仅 email_type=google_variant 时有效）: dot=点号变种 / plus=+号变种 / mixed=混合变种 / all=随机选择
+            project_code: Project code
+            quantity: Purchase quantity (1-10000)
+            email_type: Email type (optional)
+            domain: Specify domain name (optional)
+            variant_mode: Google variant mode (optional, only email_type=google_variant valid at the time): dot=dot variant / plus=+number variant / mixed=Mixed variants / all=randomly selected
         
         Returns:
-            dict: 购买结果，包含 purchases 列表、total_cost、balance_after
+            dict: Purchase results include purchases list,total_cost,balance_after
         
-        示例::
+        Example::
             result = client.user.purchase_emails('twitter', quantity=5, email_type='ms_graph')
             for item in result['purchases']:
                 print(item['email_address'], item['token'])
@@ -735,20 +735,20 @@ class UserAPI:
         user_disabled: Optional[int] = None,
     ):
         """
-        获取已购邮箱列表
+        Get the purchased email list
         
         Args:
-            page: 页码
-            page_size: 每页数量
-            project_id: 按项目 ID 筛选
-            tag_id: 按标签 ID 筛选
-            keyword: 邮箱地址关键词搜索
-            user_disabled: 禁用状态：0=正常 1=已禁用
+            page: page number
+            page_size: Quantity per page
+            project_id: by project ID filter
+            tag_id: by tag ID filter
+            keyword: Email address keyword search
+            user_disabled: Disabled state:0=normal 1=Disabled
         
         Returns:
-            PageResult: 分页结果，list 为 PurchaseItem 列表
+            PageResult: Paginated results,list for PurchaseItem list
         
-        示例::
+        Example::
             result = client.user.get_purchases(tag_id=1, keyword="outlook")
             for item in result.list:
                 print(item.email_address, item.token, item.tag_name)
@@ -775,18 +775,18 @@ class UserAPI:
     
     def get_token_code(self, token: str):
         """
-        通过 Token 获取最新验证码（已购邮箱）
+        pass Token Get the latest verification code (purchased email address)
         
         Args:
-            token: 已购邮箱的 token
+            token: Purchased email address token
         
         Returns:
-            TokenCode: 验证码结果
+            TokenCode: Verification code result
         
-        示例::
+        Example::
             result = client.user.get_token_code("tok_abc123def456")
             if result.has_new_mail:
-                print(f"验证码: {result.verification_code}")
+                print(f"Verification code: {result.verification_code}")
         """
         if _is_async_context():
             return self._async_get_token_code(token)
@@ -806,15 +806,15 @@ class UserAPI:
 
     def check_token_alive(self, token: str):
         """
-        通过 Token 测试已购邮箱是否可以正常获取邮件列表
+        pass Token Test whether the purchased mailbox can obtain the mailing list normally
 
         Args:
-            token: 已购邮箱 token
+            token: Purchased email address token
 
         Returns:
-            TokenAliveResult: 测活结果
+            TokenAliveResult: Activity test results
 
-        示例::
+        Example::
             result = client.user.check_token_alive("tok_abc123def456")
             print(result.alive, result.message)
         """
@@ -842,21 +842,21 @@ class UserAPI:
         on_poll: Optional[callable] = None,
     ):
         """
-        等待 Token 邮箱的验证码（带自动轮询），智能识别同步/异步上下文
+        wait Token Verification code for email (with automatic polling), intelligent identification and synchronization/asynchronous context
         
         Args:
-            token: 已购邮箱 token
-            timeout: 最大等待时间（秒）
-            interval: 轮询间隔（秒）
-            on_poll: 每次轮询的回调
+            token: Purchased email address token
+            timeout: Maximum waiting time (seconds)
+            interval: Polling interval (seconds)
+            on_poll: callback for each poll
         
         Returns:
-            TokenCode: 最终结果
+            TokenCode: final result
         
-        示例::
+        Example::
             result = client.user.wait_for_token_code("tok_abc123", timeout=120)
             if result.has_new_mail:
-                print(f"✅ 验证码: {result.verification_code}")
+                print(f"✅ Verification code: {result.verification_code}")
         """
         if _is_async_context():
             return self._async_wait_for_token_code(token, timeout, interval, on_poll)
@@ -901,21 +901,21 @@ class UserAPI:
             
             time.sleep(interval)
     
-    # ===== 已购邮箱邮件列表和详情 =====
+    # ===== Purchased email list and details =====
     
     def get_token_mails(self, token: str):
         """
-        通过 Token 获取已购邮箱的邮件列表
+        pass Token Get the mailing list of purchased mailboxes
         
         Args:
-            token: 已购邮箱的 token
+            token: Purchased email address token
         
         Returns:
-            TokenMailList: 邮件列表结果，包含 email_address、project、warranty_until、mails
+            TokenMailList: Mailing list results, including email_address,project,warranty_until,mails
         
-        示例::
+        Example::
             result = client.user.get_token_mails("tok_abc123def456")
-            print(f"邮箱: {result.email_address}, 项目: {result.project}")
+            print(f"Mail: {result.email_address}, project: {result.project}")
             for mail in result.mails:
                 print(f"  [{mail.received_at}] {mail.from_addr}: {mail.subject}")
         """
@@ -937,21 +937,21 @@ class UserAPI:
     
     def get_token_mail_detail(self, token: str, message_id: str):
         """
-        通过 Token 获取已购邮箱的邮件详情
+        pass Token Get the email details of the purchased email address
         
         Args:
-            token: 已购邮箱的 token
-            message_id: 邮件 ID（从 get_token_mails 返回的列表中获取）
+            token: Purchased email address token
+            message_id: mail ID(from get_token_mails obtained from the returned list)
         
         Returns:
-            TokenMailDetail: 邮件详情，包含 message_id、from_addr、to、subject、body_text、body_html、verification_code
+            TokenMailDetail: Email details, including message_id,from_addr,to,subject,body_text,body_html,verification_code
         
-        示例::
+        Example::
             detail = client.user.get_token_mail_detail("tok_abc123", "AAMkAGI2...")
-            print(f"主题: {detail.subject}")
-            print(f"正文: {detail.body_text}")
+            print(f"theme: {detail.subject}")
+            print(f"text: {detail.body_text}")
             if detail.verification_code:
-                print(f"验证码: {detail.verification_code}")
+                print(f"Verification code: {detail.verification_code}")
         """
         if _is_async_context():
             return self._async_get_token_mail_detail(token, message_id)
@@ -969,7 +969,7 @@ class UserAPI:
         )
         return _parse_token_mail_detail(data)
     
-    # ===== 申述 =====
+    # ===== representation =====
     
     def create_appeal(
         self,
@@ -981,27 +981,27 @@ class UserAPI:
         evidence_urls: Optional[List[str]] = None,
     ):
         """
-        提交申述
+        Submit a representation
         
         Args:
-            appeal_type: 申述类型：1=接码订单 2=购买邮箱
-            reason: 申述原因，如 'no_code', 'wrong_code', 'email_invalid'
-            description: 详细描述
-            order_id: 接码订单 ID（appeal_type=1 时必填）
-            purchase_id: 购买记录 ID（appeal_type=2 时必填）
-            evidence_urls: 证据截图 URL 列表（可选）
+            appeal_type: Complaint type:1=Receive code order 2=Buy email
+            reason: State the reasons for the complaint, such as 'no_code', 'wrong_code', 'email_invalid'
+            description: Detailed description
+            order_id: Receive code order ID(appeal_type=1 Required)
+            purchase_id: Purchase history ID(appeal_type=2 Required)
+            evidence_urls: Evidence screenshot URL list (optional)
         
         Returns:
-            dict: 包含 appeal_no 的字典
+            dict: Include appeal_no dictionary
         
-        示例::
+        Example::
             result = client.user.create_appeal(
                 appeal_type=1,
                 order_id=123,
                 reason='no_code',
-                description='等待 5 分钟未收到验证码'
+                description='wait 5 No verification code received in minutes'
             )
-            print(f"申述单号: {result['appeal_no']}")
+            print(f"Complaint number: {result['appeal_no']}")
         """
         body: Dict[str, Any] = {
             "appeal_type": appeal_type,
@@ -1029,22 +1029,22 @@ class UserAPI:
             "POST", "/api/v1/openapi/appeal/create", json_data=body
         )
 
-    # ===== 已购邮箱禁用管理 =====
+    # ===== Disable management of purchased mailboxes =====
 
     def set_purchase_disabled(self, purchase_id: int, disabled: int):
         """
-        设置已购邮箱禁用状态
+        Set the disabled status of the purchased email address
 
         Args:
-            purchase_id: 已购邮箱 ID
-            disabled: 禁用状态：0=启用 1=禁用
+            purchase_id: Purchased email address ID
+            disabled: Disabled state:0=enable 1=Disable
 
         Returns:
             None
 
-        示例::
-            client.user.set_purchase_disabled(1, 1)  # 禁用
-            client.user.set_purchase_disabled(1, 0)  # 启用
+        Example::
+            client.user.set_purchase_disabled(1, 1)  # Disable
+            client.user.set_purchase_disabled(1, 0)  # enable
         """
         body = {"disabled": disabled}
         if _is_async_context():
@@ -1063,17 +1063,17 @@ class UserAPI:
 
     def batch_set_purchase_disabled(self, ids: List[int], disabled: int):
         """
-        批量设置已购邮箱禁用状态
+        Set the disabled status of purchased mailboxes in batches
 
         Args:
-            ids: 已购邮箱 ID 列表
-            disabled: 禁用状态：0=启用 1=禁用
+            ids: Purchased email address ID list
+            disabled: Disabled state:0=enable 1=Disable
 
         Returns:
             None
 
-        示例::
-            client.user.batch_set_purchase_disabled([1, 2, 3], 1)  # 批量禁用
+        Example::
+            client.user.batch_set_purchase_disabled([1, 2, 3], 1)  # Batch disable
         """
         body = {"ids": ids, "disabled": disabled}
         if _is_async_context():
@@ -1090,7 +1090,7 @@ class UserAPI:
             "POST", "/api/v1/openapi/email/purchases/batch-disabled", json_data=body
         )
 
-    # ===== 已购邮箱标签管理 =====
+    # ===== Purchased email label management =====
 
     def set_purchase_tag(
         self,
@@ -1099,20 +1099,20 @@ class UserAPI:
         tag_name: Optional[str] = None,
     ):
         """
-        设置已购邮箱标签
+        Set a purchased email label
 
         Args:
-            purchase_id: 已购邮箱 ID
-            tag_id: 标签 ID（与 tag_name 二选一，传 0 表示移除标签）
-            tag_name: 标签名称（与 tag_id 二选一）
+            purchase_id: Purchased email address ID
+            tag_id: Label ID(and tag_name Choose one of the two, pass 0 means remove tag)
+            tag_name: tag name (with tag_id Choose one of the two)
 
         Returns:
             None
 
-        示例::
+        Example::
             client.user.set_purchase_tag(1, tag_id=1)
-            client.user.set_purchase_tag(1, tag_name="主力号")
-            client.user.set_purchase_tag(1, tag_id=0)  # 移除标签
+            client.user.set_purchase_tag(1, tag_name="Main account")
+            client.user.set_purchase_tag(1, tag_id=0)  # Remove tag
         """
         body: Dict[str, Any] = {}
         if tag_id is not None:
@@ -1140,18 +1140,18 @@ class UserAPI:
         tag_name: Optional[str] = None,
     ):
         """
-        批量设置已购邮箱标签
+        Set purchased email labels in batches
 
         Args:
-            ids: 已购邮箱 ID 列表
-            tag_id: 标签 ID（与 tag_name 二选一，传 0 表示移除标签）
-            tag_name: 标签名称（与 tag_id 二选一）
+            ids: Purchased email address ID list
+            tag_id: Label ID(and tag_name Choose one of the two, pass 0 means remove tag)
+            tag_name: tag name (with tag_id Choose one of the two)
 
         Returns:
             None
 
-        示例::
-            client.user.batch_set_purchase_tag([1, 2, 3], tag_name="主力号")
+        Example::
+            client.user.batch_set_purchase_tag([1, 2, 3], tag_name="Main account")
         """
         body: Dict[str, Any] = {"ids": ids}
         if tag_id is not None:
@@ -1181,23 +1181,23 @@ class UserAPI:
         mark_tag_name: Optional[str] = None,
     ):
         """
-        按标签获取已购邮箱（API 下发）
+        Get purchased email addresses by label (API issued)
 
-        仅返回未禁用且标签 limit_type=1（可下发）的邮箱。
-        可选择将获取到的邮箱标记为另一个标签。
+        Only return tags that are not disabled and limit_type=1(can be sent to) email address.
+        You can choose to mark the obtained mailbox with another label.
 
         Args:
-            count: 获取数量（1-100）
-            tag_id: 按标签 ID 筛选（与 tag_name 二选一）
-            tag_name: 按标签名称筛选（与 tag_id 二选一）
-            mark_tag_id: 获取后将邮箱标记为此标签 ID（与 mark_tag_name 二选一）
-            mark_tag_name: 获取后将邮箱标记为此标签名称（与 mark_tag_id 二选一）
+            count: get quantity (1-100)
+            tag_id: by tag ID Filter (with tag_name Choose one of the two)
+            tag_name: Filter by tag name (with tag_id Choose one of the two)
+            mark_tag_id: After retrieval, mark the mailbox with this label ID(and mark_tag_name Choose one of the two)
+            mark_tag_name: After retrieval, mark the mailbox with this label name (the same as mark_tag_id Choose one of the two)
 
         Returns:
-            List[PurchaseItem]: 已购邮箱列表
+            List[PurchaseItem]: Purchased email list
 
-        示例::
-            items = client.user.api_get_purchases(5, tag_name="主力号", mark_tag_name="已使用")
+        Example::
+            items = client.user.api_get_purchases(5, tag_name="Main account", mark_tag_name="Already used")
             for item in items:
                 print(item.email_address, item.token)
         """
@@ -1226,23 +1226,23 @@ class UserAPI:
         )
         return [_parse_purchase_item(i) for i in data]
 
-    # ===== 标签管理 =====
+    # ===== tag management =====
 
     def create_tag(self, name: str, limit_type: int, remark: Optional[str] = None):
         """
-        创建邮箱标签
+        Create mailbox labels
 
         Args:
-            name: 标签名称（用户下唯一）
-            limit_type: 限制类型：0=不下发 1=可下发
-            remark: 备注说明（可选）
+            name: Tag name (unique under user)
+            limit_type: Restriction type:0=Not issued 1=Can be issued
+            remark: Remarks (optional)
 
         Returns:
-            TagItem: 创建的标签信息
+            TagItem: Created label information
 
-        示例::
-            tag = client.user.create_tag("主力号", limit_type=1, remark="主力邮箱池")
-            print(f"标签 ID: {tag.id}, 名称: {tag.name}")
+        Example::
+            tag = client.user.create_tag("Main account", limit_type=1, remark="Main mailbox pool")
+            print(f"Label ID: {tag.id}, name: {tag.name}")
         """
         body: Dict[str, Any] = {"name": name, "limit_type": limit_type}
         if remark is not None:
@@ -1265,12 +1265,12 @@ class UserAPI:
 
     def get_tags(self):
         """
-        获取所有标签列表
+        Get a list of all tags
 
         Returns:
-            List[TagItem]: 标签列表
+            List[TagItem]: tag list
 
-        示例::
+        Example::
             tags = client.user.get_tags()
             for tag in tags:
                 print(tag.id, tag.name, tag.limit_type, tag.purchase_count)
@@ -1295,20 +1295,20 @@ class UserAPI:
         remark: Optional[str] = None,
     ):
         """
-        更新标签
+        Update label
 
         Args:
-            tag_id_or_name: 标签 ID（数字）或标签名称（字符串）
-            limit_type: 限制类型：0=不下发 1=可下发
-            name: 新的标签名称（可选）
-            remark: 备注说明（可选）
+            tag_id_or_name: Label ID(number) or label name (string)
+            limit_type: Restriction type:0=Not issued 1=Can be issued
+            name: New label name (optional)
+            remark: Remarks (optional)
 
         Returns:
             None
 
-        示例::
-            client.user.update_tag(1, limit_type=1, name="备用号")
-            client.user.update_tag("主力号", limit_type=0)
+        Example::
+            client.user.update_tag(1, limit_type=1, name="Alternate number")
+            client.user.update_tag("Main account", limit_type=0)
         """
         body: Dict[str, Any] = {"limit_type": limit_type}
         if name is not None:
@@ -1331,19 +1331,19 @@ class UserAPI:
 
     def delete_tag(self, tag_id_or_name: Union[int, str]):
         """
-        删除标签
+        Delete tag
 
-        删除后，该标签下的已购邮箱将变为无标签状态。
+        After deletion, the purchased mailbox under the label will become unlabeled.
 
         Args:
-            tag_id_or_name: 标签 ID（数字）或标签名称（字符串）
+            tag_id_or_name: Label ID(number) or label name (string)
 
         Returns:
             None
 
-        示例::
+        Example::
             client.user.delete_tag(1)
-            client.user.delete_tag("已使用")
+            client.user.delete_tag("Already used")
         """
         if _is_async_context():
             return self._async_delete_tag(tag_id_or_name)

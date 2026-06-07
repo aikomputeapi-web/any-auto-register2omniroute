@@ -1,4 +1,4 @@
-"""数据库模型 - SQLite via SQLModel"""
+"""Database model - SQLite via SQLModel"""
 from datetime import datetime, timezone
 import os
 from typing import Optional
@@ -26,7 +26,7 @@ class AccountModel(SQLModel, table=True):
     status: str = "registered"
     trial_end_time: int = 0
     cashier_url: str = ""
-    extra_json: str = "{}"   # JSON 存储平台自定义字段
+    extra_json: str = "{}"   # JSON Storage platform custom fields
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
 
@@ -100,7 +100,7 @@ class ProxyModel(SQLModel, table=True):
 
 
 def save_account(account) -> 'AccountModel':
-    """从 base_platform.Account 存入数据库（同平台同邮箱则更新）"""
+    """from base_platform.Account Save to database (update if same platform and same email address)"""
     with Session(engine) as session:
         existing = session.exec(
             select(AccountModel)

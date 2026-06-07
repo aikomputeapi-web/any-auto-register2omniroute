@@ -1,35 +1,35 @@
-# 使用 ClawCloud 部署 any-auto-register
+# use ClawCloud deploy any-auto-register
 
-本文档包含两部分：
-- 如何用 GitHub Actions 自动构建并推送镜像
-- 如何在 ClawCloud Run 上部署并持久化数据
+This document contains two parts:
+- How to use GitHub Actions Automatically build and push images
+- how to ClawCloud Run Deploy and persist data on
 
-## 1. 准备条件
+## 1. Preparatory conditions
 
-- 已有 GitHub 仓库（本项目）
-- 已开通 ClawCloud Run
-- Docker 镜像仓库可用（推荐 GHCR）
+- Already have GitHub Warehouse (this project)
+- Already activated ClawCloud Run
+- Docker Mirror repository available (recommended GHCR)
 
-## 2. 启用 GitHub Actions 构建镜像
+## 2. enable GitHub Actions Build image
 
-本仓库已提供工作流文件：
+This repository has provided workflow files:
 - `.github/workflows/docker-image.yml`
 
-它会在以下场景执行：
-- 推送到 `main` 或 `master`
-- 打 `v*` 标签（如 `v1.0.0`）
-- 手动触发（`workflow_dispatch`）
+It will be executed in the following scenarios:
+- push to `main` or `master`
+- beat `v*` tags (such as `v1.0.0`)
+- manual trigger (`workflow_dispatch`)
 
-默认推送到 GHCR，镜像地址格式：
-- `ghcr.io/<你的GitHub用户名或组织>/any-auto-register`
+Default pushed to GHCR, Mirror address format:
+- `ghcr.io/<yourGitHubUsername or organization>/any-auto-register`
 
-### 2.1 仓库设置
+### 2.1 Warehouse settings
 
-在 GitHub 仓库中确认：
-- `Settings -> Actions -> General -> Workflow permissions` 允许 `Read and write permissions`
-- 仓库 Actions 可运行
+exist GitHub Confirmed in the warehouse:
+- `Settings -> Actions -> General -> Workflow permissions` allow `Read and write permissions`
+- storehouse Actions Runnable
 
-### 2.2 推送一次触发构建
+### 2.2 Push once to trigger a build
 
 ```bash
 git add .github/workflows/docker-image.yml docs/CLAWCLOUD_DEPLOY.md
@@ -37,50 +37,50 @@ git commit -m "chore: add clawcloud deployment guide and docker image workflow"
 git push
 ```
 
-构建成功后，在 `Packages` 或 Actions 日志中可以看到镜像标签，例如：
+After the build is successful, in `Packages` or Actions Mirror tags can be seen in the log, for example:
 - `latest`
 - `main`
 - `sha-<commit-short-sha>`
-- `v1.0.0`（仅 tag 发布时）
+- `v1.0.0`(only tag at the time of publication)
 
-## 3. 在 ClawCloud Run 创建应用
+## 3. exist ClawCloud Run Create app
 
-### 3.1 新建应用
+### 3.1 New application
 
-- 进入 ClawCloud Run 控制台
-- 选择 `App Launchpad` 创建应用
-- Deployment source 选择容器镜像（Image）
-- 填入镜像地址：
-  - `ghcr.io/<你的GitHub用户名或组织>/any-auto-register:latest`
+- Enter ClawCloud Run console
+- choose `App Launchpad` Create app
+- Deployment source Select the container image (Image)
+- Fill in the mirror address:
+  - `ghcr.io/<yourGitHubUsername or organization>/any-auto-register:latest`
 
-说明：
-- 如果 GHCR 镜像是私有，需要在 ClawCloud 配置镜像仓库凭据
-- 建议先将镜像设为 public，部署更简单
+illustrate:
+- if GHCR The image is private and needs to be ClawCloud Configure image warehouse credentials
+- It is recommended to first set the mirror to public, deployment is simpler
 
-### 3.2 实例与端口
+### 3.2 Instances and ports
 
-- Deploy mode：`Fixed`
-- Replicas：`1`
-- Exposed port：`8000`（HTTP 对外）
+- Deploy mode:`Fixed`
+- Replicas:`1`
+- Exposed port:`8000`(HTTP foreign)
 
-可选端口：
-- `8889` 是 solver 端口，通常不建议公网暴露
+Optional ports:
+- `8889` yes solver Port, it is usually not recommended to expose it to the public network
 
-## 4. 持久化存储（关键）
+## 4. Persistent storage (key)
 
-在 ClawCloud 的 `Persistent Storage` / `Local Storage` 中添加挂载：
+exist ClawCloud of `Persistent Storage` / `Local Storage` Add mount in:
 
-- 挂载 `/<storage>/runtime` 到容器路径 `/runtime`（必选）
-- 挂载 `/<storage>/ext_targets` 到容器路径 `/_ext_targets`（可选）
-- 挂载 `/<storage>/external_logs` 到容器路径 `/app/services/external_logs`（可选）
+- mount `/<storage>/runtime` path to container `/runtime`(required)
+- mount `/<storage>/ext_targets` path to container `/_ext_targets`(optional)
+- mount `/<storage>/external_logs` path to container `/app/services/external_logs`(optional)
 
-为什么必须挂载 `/runtime`：
-- `docker/entrypoint.sh` 会在 `/runtime` 下创建 `account_manager.db`、日志及缓存文件
-- 不挂载会导致重建容器后数据丢失
+Why must be mounted `/runtime`:
+- `docker/entrypoint.sh` will be in `/runtime` Created under `account_manager.db`, log and cache files
+- Failure to mount will result in data loss after rebuilding the container.
 
-## 5. 环境变量配置
+## 5. Environment variable configuration
 
-在 ClawCloud 应用环境变量中设置：
+exist ClawCloud Set in application environment variables:
 
 - `HOST=0.0.0.0`
 - `PORT=8000`
@@ -93,53 +93,53 @@ git push
 - `LOCAL_SOLVER_URL=http://127.0.0.1:8889`
 - `SOLVER_BROWSER_TYPE=camoufox`
 
-业务相关可按需增加：
+Business-related items can be added as needed:
 - `OPENAI_*`
 - `SMSTOME_COOKIE`
-- 其他第三方服务密钥
+- Other third-party service keys
 
-## 6. 启动后验证
+## 6. Verify after startup
 
-部署完成后检查：
+Check after deployment is complete:
 
-- 打开首页：`http(s)://<你的域名>/`
-- 接口检查：`http(s)://<你的域名>/api/solver/status`
+- Open the home page:`http(s)://<your domain name>/`
+- Interface check:`http(s)://<your domain name>/api/solver/status`
 
-预期返回示例：
+Expected return example:
 
 ```json
 {"running": true}
 ```
 
-如果你禁用了 solver（`APP_ENABLE_SOLVER=0`），返回可能是：
+If you disable solver(`APP_ENABLE_SOLVER=0`), the return may be:
 
 ```json
 {"running": false}
 ```
 
-## 7. 升级流程
+## 7. Upgrade process
 
-- 本地更新代码并 push 到 `main`
-- GitHub Actions 自动构建并推送新镜像
-- 在 ClawCloud 里重新部署最新 tag（或保持 `latest` 并重启）
-- 因为 `/runtime` 已挂载，业务数据会保留
+- Update the code locally and push arrive `main`
+- GitHub Actions Automatically build and push new images
+- exist ClawCloud Redeploy the latest tag(or keep `latest` and restart)
+- because `/runtime` Already mounted, business data will be retained
 
-## 8. 常见问题
+## 8. FAQ
 
-### 8.1 数据丢失
+### 8.1 data loss
 
-原因通常是没挂载 `/runtime`。  
-处理：在 ClawCloud 补充持久化存储挂载到 `/runtime`，再重新部署。
+The reason is usually that it is not mounted `/runtime`.  
+Processing: in ClawCloud Supplementary persistent storage is mounted to `/runtime`, and then redeploy.
 
-### 8.2 容器启动后无法访问
+### 8.2 Inaccessible after container startup
 
-检查：
-- 端口是否暴露 `8000`
-- `HOST` 是否为 `0.0.0.0`
-- 应用日志是否有报错
+examine:
+- Is the port exposed? `8000`
+- `HOST` Is it `0.0.0.0`
+- Are there any errors in the application log?
 
-### 8.3 使用 SQLite 的副本数建议
+### 8.3 use SQLite Suggested number of copies
 
-当前项目默认 SQLite，建议单副本运行（`Replicas=1`）。  
-若需要多副本高可用，建议改造为 PostgreSQL。
+Current project default SQLite, it is recommended to run a single copy (`Replicas=1`).  
+If multiple copies are required for high availability, it is recommended to transform it into PostgreSQL.
 

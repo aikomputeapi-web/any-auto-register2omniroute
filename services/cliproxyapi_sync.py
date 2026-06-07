@@ -1,4 +1,4 @@
-"""CLIProxyAPI 只读状态同步。"""
+"""CLIProxyAPI Read-only status sync."""
 
 from __future__ import annotations
 
@@ -121,9 +121,9 @@ def _request_json(method: str, path: str, *, api_url: str | None = None, api_key
             verify=False,
         )
     except requests.exceptions.ConnectionError as exc:
-        raise RuntimeError(f"CLIProxyAPI 无法连接，请确认服务已启动或 API URL 是否正确：{_base_url(api_url)}") from exc
+        raise RuntimeError(f"CLIProxyAPI Unable to connect, please confirm that the service is started or API URL Is it correct:{_base_url(api_url)}") from exc
     except requests.exceptions.Timeout as exc:
-        raise RuntimeError(f"CLIProxyAPI 请求超时：{_base_url(api_url)}") from exc
+        raise RuntimeError(f"CLIProxyAPI Request timeout:{_base_url(api_url)}") from exc
     response.raise_for_status()
     if not response.content:
         return {}
@@ -138,8 +138,8 @@ def _is_retryable_sync_error(exc: Exception) -> bool:
     if not text:
         return False
     markers = (
-        "无法连接",
-        "请求超时",
+        "Unable to connect",
+        "Request timeout",
         "connection",
         "timeout",
         "timed out",
@@ -211,7 +211,7 @@ def _probe_remote_auth(auth_index: str, account_id: str, *, api_url: str | None 
             "last_probe_at": checked_at,
             "last_probe_status_code": 0,
             "last_probe_error_code": "",
-            "last_probe_message": "缺少 auth_index，无法探测远端额度状态",
+            "last_probe_message": "Lack auth_index, unable to detect remote quota status",
             "remote_state": "probe_skipped",
         }
     if not account_id:
@@ -219,7 +219,7 @@ def _probe_remote_auth(auth_index: str, account_id: str, *, api_url: str | None 
             "last_probe_at": checked_at,
             "last_probe_status_code": 0,
             "last_probe_error_code": "",
-            "last_probe_message": "缺少 Chatgpt-Account-Id，无法严格探测远端额度状态",
+            "last_probe_message": "Lack Chatgpt-Account-Id, unable to strictly detect the remote quota status",
             "remote_state": "probe_skipped",
         }
 
@@ -282,7 +282,7 @@ def _build_remote_sync_result(
         return {
             "uploaded": False,
             "last_synced_at": synced_at,
-            "message": "未在 CLIProxyAPI 找到匹配的 Codex auth-file",
+            "message": "Not here CLIProxyAPI found matching Codex auth-file",
             "remote_state": "not_found",
             "base_url": _base_url(api_url),
         }
@@ -376,7 +376,7 @@ def sync_chatgpt_cliproxyapi_status_batch(
             account_id = getattr(account, "id", None)
             if account_id is not None:
                 results[int(account_id)] = dict(fallback)
-        logger.warning("CLIProxyAPI 批量同步失败：无法获取 auth-files, accounts=%s, error=%s", len(accounts), exc)
+        logger.warning("CLIProxyAPI Batch sync failed: Unable to obtain auth-files, accounts=%s, error=%s", len(accounts), exc)
         return results
 
     for index, account in enumerate(accounts):
@@ -391,7 +391,7 @@ def sync_chatgpt_cliproxyapi_status_batch(
     unreachable = sum(1 for item in results.values() if str(item.get("remote_state") or "").strip().lower() == "unreachable")
     not_found = sum(1 for item in results.values() if str(item.get("remote_state") or "").strip().lower() == "not_found")
     logger.info(
-        "CLIProxyAPI 批量同步完成：accounts=%s, unreachable=%s, not_found=%s, base_url=%s",
+        "CLIProxyAPI Batch synchronization completed:accounts=%s, unreachable=%s, not_found=%s, base_url=%s",
         len(results),
         unreachable,
         not_found,

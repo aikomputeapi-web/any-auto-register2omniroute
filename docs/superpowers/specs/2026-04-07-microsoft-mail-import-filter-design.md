@@ -17,7 +17,7 @@ The current backend strategy class is named `OutlookImportStrategy`, but its act
 - Rename the strategy to reflect Microsoft-wide scope rather than Outlook-only scope.
 - Change Microsoft import from direct plaintext-to-database insertion into a staged pipeline.
 - Introduce a rule-based filtering abstraction for Microsoft import records.
-- Add a named rule called **微软邮箱可用性检测**.
+- Add a named rule called **Microsoft mailbox availability check**.
 - Reject accounts during import when Microsoft reports `service abuse mode`.
 - Require OAuth credentials (`client_id` and `refresh_token`) for every imported Microsoft account.
 - Return explicit per-line failure reasons to the UI.
@@ -46,9 +46,9 @@ When importing Outlook or Hotmail accounts:
 
 Example rejection reasons:
 
-- `行 2: 缺少 client_id 或 refresh_token，无法通过微软邮箱可用性检测`
-- `行 5: 微软邮箱可用性检测未通过，账号处于 service abuse mode`
-- `行 8: 邮箱已存在: example@hotmail.com`
+- `OK 2: Lack client_id or refresh_token, unable to pass Microsoft mailbox availability check`
+- `OK 5: Microsoft mailbox availability test failed, the account is in service abuse mode`
+- `OK 8: Email already exists: example@hotmail.com`
 
 The frontend keeps using the existing import result panel and error list rendering.
 
@@ -91,7 +91,7 @@ Recommended units:
 - `MicrosoftMailImportRuleEngine`
   - executes rules for each record
 - `MicrosoftMailboxAvailabilityRule`
-  - implementation of **微软邮箱可用性检测**
+  - implementation of **Microsoft mailbox availability check**
 
 The strategy will:
 
@@ -120,7 +120,7 @@ Minimum rule set:
 3. **Uniqueness rule**
    - email must not already exist in `OutlookAccountModel`
 
-4. **微软邮箱可用性检测**
+4. **Microsoft mailbox availability check**
    - attempt Microsoft OAuth token validation using the imported credentials
    - if the response indicates `invalid_grant` and the description contains `service abuse mode`, reject the row
 
@@ -136,7 +136,7 @@ The approved behavior is strict:
 
 ### Responsibility
 
-The **微软邮箱可用性检测** rule determines whether a Microsoft mailbox is acceptable for import.
+The **Microsoft mailbox availability check** rule determines whether a Microsoft mailbox is acceptable for import.
 
 ### Scope
 
@@ -170,7 +170,7 @@ The import response should normalize that failure into a user-readable message, 
 
 Preferred message style:
 
-- `微软邮箱可用性检测未通过，账号处于 service abuse mode`
+- `Microsoft mailbox availability test failed, the account is in service abuse mode`
 
 The original lower-level error can still be logged internally if useful, but the import response should stay concise and actionable.
 
@@ -241,4 +241,4 @@ This change tightens Microsoft import acceptance. Existing import text that omit
 
 ## Final design summary
 
-The system will rename the Microsoft import strategy to reflect actual scope, replace direct Microsoft plaintext import with a parser + rule-engine pipeline, and introduce a reusable **微软邮箱可用性检测** rule that rejects abuse-mode Microsoft accounts before they ever enter the local mailbox pool.
+The system will rename the Microsoft import strategy to reflect actual scope, replace direct Microsoft plaintext import with a parser + rule-engine pipeline, and introduce a reusable **Microsoft mailbox availability check** rule that rejects abuse-mode Microsoft accounts before they ever enter the local mailbox pool.

@@ -1,6 +1,6 @@
 """
 LuckMailSdk - Python SDK for LuckMail Email System
-支持同步/异步双模式，智能识别调用上下文自动切换
+Support synchronization/Asynchronous dual mode, intelligent identification and automatic switching of calling context
 """
 
 from .client import LuckMailClient

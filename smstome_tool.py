@@ -2,22 +2,22 @@ from __future__ import annotations
 
 """SMSToMe phone pool + OTP helper.
 
-该文件是一个**单独的工具脚本**，负责：
+The file is a**separate tool script**,Responsible:
 
-1. `update_global_phone_list`：抓取多个国家的全部可用手机号，写入本地 txt。
-2. `get_unused_phone`：针对某个任务名，返回一个尚未使用过的手机号。
-3. `wait_for_otp`：轮询该手机号的短信页面，提取验证码。
+1. `update_global_phone_list`: Capture all available mobile phone numbers in multiple countries and write them locally txt.
+2. `get_unused_phone`: For a certain task name, return an unused mobile phone number.
+3. `wait_for_otp`: Poll the SMS page of the mobile phone number to extract the verification code.
 
-实现细节：
-  - 基于 `httpx` + `selectolax` 的 HTTP + HTML 解析方案；
-  - 默认使用浏览器风格 UA，禁用系统代理 (`trust_env=False`)，避免影响 Tavily 相关代理行为；
-  - 支持通过环境变量 `SMSTOME_COOKIE`、仓库根目录 `config.yaml` 或显式参数注入 Cookie；
-  - 使用简单的循环 + 退避重试，避免额外引入 tenacity 依赖。
+Implementation details:
+  - based on `httpx` + `selectolax` of HTTP + HTML Analysis plan;
+  - Use browser style by default UA, disable system proxy (`trust_env=False`), to avoid affecting Tavily Relevant agency actions;
+  - Support via environment variables `SMSTOME_COOKIE`, warehouse root directory `config.yaml` or explicit parameter injection Cookie;
+  - Use a simple loop + Back off and retry to avoid additional introductions tenacity rely.
 
-注意：
-  - txt 持久化仅做简单记录，不做数据库级别的状态管理；
-  - 全量号码文件中会额外保存国家 slug 与详情页 URL，方便后续获取验证码；
-  - 每个任务的“已使用号码列表”是独立的 txt 文件，仅按手机号一行记录。
+Notice:
+  - txt Persistence only performs simple records and does not perform database-level state management;
+  - The country will be additionally saved in the full number file. slug and details page URL, to facilitate subsequent acquisition of verification codes;
+  - for each task“Used number list”is independent txt The file is only recorded on one line by mobile phone number.
 """
 
 import os
@@ -61,7 +61,7 @@ except ImportError:
 SMSTOME_BASE_URL = "https://smstome.com"
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("config.yaml")
 
-# 当前支持的国家 slug（来自站点 URL）
+# Currently supported countries slug(from site URL)
 DEFAULT_COUNTRY_SLUGS: List[str] = [
     "poland",
     "united-kingdom",
@@ -72,11 +72,11 @@ DEFAULT_COUNTRY_SLUGS: List[str] = [
 ]
 
 
-# 全量号码列表文件（每行：phone\tcountry_slug\tdetail_url）
+# Full number list file (each line:phone\tcountry_slug\tdetail_url)
 GLOBAL_PHONE_FILE = Path("smstome_all_numbers.txt")
 DEFAULT_SYNC_MAX_PAGES_PER_COUNTRY = 5
 
-# 每个任务自己的“已使用号码”目录（文件名：<task>_used_numbers.txt）
+# Each task has its own“Number used”directory (filename:<task>_used_numbers.txt)
 USED_NUMBERS_DIR = Path("smstome_used")
 BLACKLISTED_NUMBERS_SUFFIX = "_blacklisted_numbers.txt"
 USED_NUMBERS_SUFFIX = "_used_numbers.txt"
@@ -148,7 +148,7 @@ def _extract_otp_from_text(
 
 
 def _extract_recent_6digit_otp(message_text: str, received_text: str) -> Optional[str]:
-    """优先匹配“最近约 1 分钟内”的 6 位验证码。"""
+    """priority matching“recent appointment 1 within minutes”of 6 Verification code."""
 
     msg = (message_text or "").strip()
     recv = (received_text or "").strip().lower()
@@ -167,7 +167,7 @@ def _extract_recent_6digit_otp(message_text: str, received_text: str) -> Optiona
     is_recent = any(marker in recv for marker in recent_markers)
 
     if not is_recent:
-        # 兼容 "1 min ago" / "1 minute ago" 等形式
+        # compatible "1 min ago" / "1 minute ago" etc.
         minute_match = re.search(r"(\d+)\s*(m|min|mins|minute|minutes)\b", recv)
         if minute_match:
             is_recent = int(minute_match.group(1)) <= 1
@@ -225,7 +225,7 @@ def _parse_received_age_minutes(received_text: str) -> Optional[float]:
 
 @dataclass(frozen=True)
 class PhoneEntry:
-    """代表一个 SMSToMe 手机号记录。"""
+    """represents a SMSToMe Mobile phone number records."""
 
     country_slug: str
     phone: str  # e.g. "+48573583699"
@@ -234,7 +234,7 @@ class PhoneEntry:
 
 @dataclass(frozen=True)
 class SmsMessage:
-    """单条短信记录。"""
+    """Single message record."""
 
     from_label: str
     received_text: str
@@ -296,9 +296,9 @@ def _has_recent_sms_history(
 
 
 def _parse_cookie_header(cookie_header: str) -> Dict[str, str]:
-    """将浏览器复制的 Cookie 字符串解析为字典。
+    """Copy the browser Cookie String parsed into dictionary.
 
-    例如：
+    For example:
         "a=1; b=2; cf_clearance=xxx" -> {"a": "1", "b": "2", "cf_clearance": "xxx"}
     """
 
@@ -342,7 +342,7 @@ def _resolve_cookie_header(cookie_header: Optional[str]) -> str:
 
 
 def _build_client(*, cookie_header: Optional[str], timeout: float) -> httpx.Client:
-    """构造 httpx.Client，注入 UA 和可选 Cookie，禁用系统代理。"""
+    """structure httpx.Client,injection UA and optional Cookie, disable the system agent."""
 
     headers = dict(DEFAULT_HEADERS)
     cookie_header = _resolve_cookie_header(cookie_header)
@@ -356,17 +356,17 @@ def _build_client(*, cookie_header: Optional[str], timeout: float) -> httpx.Clie
         cookies=cookies,
         timeout=timeout,
         follow_redirects=True,
-        trust_env=False,  # 不继承环境代理，避免影响 Tavily 流量策略
+        trust_env=False,  # Do not inherit the environment agent to avoid influence Tavily traffic policy
     )
     return client
 
 
 def _polite_sleep(base_delay: float, jitter: float) -> None:
-    """在请求之间添加一点随机延迟，用于简单规避风控。
+    """Add a little random delay between requests for simple evasion of risk control.
 
     Args:
-        base_delay: 基础延迟秒数，<=0 表示不等待。
-        jitter: 抖动上限秒数，>0 时会在 [0, jitter] 之间随机增加额外延迟。
+        base_delay: Base delay seconds,<=0 Indicates no waiting.
+        jitter: Jitter upper limit seconds,>0 time will be [0, jitter] Additional delays are randomly added between.
     """
 
     if base_delay <= 0:
@@ -382,10 +382,10 @@ def _fetch_with_retries(
     max_attempts: int = 3,
     backoff_factor: float = 0.5,
 ) -> str:
-    """带简单重试的 GET 请求，返回文本内容。
+    """With simple retry GET Request to return text content.
 
-    - 对网络异常 / 5xx 做有限次重试；
-    - 对 4xx（例如 403/404）不做额外特殊处理，直接抛出。
+    - Network anomalies / 5xx Do a limited number of retries;
+    - right 4xx(For example 403/404) is thrown directly without additional special processing.
     """
 
     last_exc: Optional[Exception] = None
@@ -396,7 +396,7 @@ def _fetch_with_retries(
             return resp.text
         except (httpx.RequestError, httpx.HTTPStatusError) as exc:  # noqa: PERF203
             last_exc = exc
-            # 4xx 错误通常不需要重试
+            # 4xx Errors usually do not require retrying
             status = getattr(exc, "response", None)
             status_code = getattr(status, "status_code", None)
             if isinstance(status_code, int) and 400 <= status_code < 500:
@@ -407,15 +407,15 @@ def _fetch_with_retries(
             sleep_s = backoff_factor * attempt
             time.sleep(sleep_s)
 
-    # 正常逻辑不会走到这里
+    # Normal logic would not go here
     raise RuntimeError(f"Failed to fetch {url!r}: {last_exc}")
 
 
 def _detect_max_page(tree: HTMLParser) -> int:
-    """从国家列表页中解析最大页码，若没有分页则返回 1。"""
+    """Parse the maximum page number from the country list page, and return if there is no paging 1."""
 
     max_page = 1
-    # 仅关注包含 `?page=` 的链接，避免抓到其它数字
+    # Only focus on inclusion `?page=` link to avoid catching other numbers
     for a in tree.css("a[href*='?page=']"):
         text = (a.text() or "").strip()
         if text.isdigit():
@@ -433,7 +433,7 @@ def _collect_numbers_from_country_page(
     country_slug: str,
     phone_map: Dict[str, PhoneEntry],
 ) -> None:
-    """从单个国家页解析所有号码并写入 phone_map。"""
+    """Parse all numbers from a single country page and write phone_map."""
 
     for article in tree.css("article"):
         link = article.css_first("a[href*='/phone/']")
@@ -447,7 +447,7 @@ def _collect_numbers_from_country_page(
             continue
 
         detail_url = urljoin(SMSTOME_BASE_URL + "/", href)
-        # 以手机号去重，后出现的记录会覆盖之前的（一般无影响）
+        # Use the mobile phone number to remove duplicates, and the records that appear later will overwrite the previous ones (generally no impact)
         phone_map[phone_text] = PhoneEntry(
             country_slug=country_slug,
             phone=phone_text,
@@ -539,30 +539,30 @@ def update_global_phone_list(
     require_recent_history: bool = True,
     recent_history_minutes: float = DEFAULT_RECENT_HISTORY_MINUTES,
 ) -> int:
-    """抓取多个国家的号码并写入 txt 文件。
+    """Grab numbers from multiple countries and write them txt document.
 
-    txt 格式：每行 `phone\tcountry_slug\tdetail_url`，例如：
+    txt Format: per line `phone\tcountry_slug\tdetail_url`,For example:
 
         +48573583699	poland	https://smstome.com/poland/phone/48573583699/sms/14642
 
     Args:
-        cookie_header: 可选的 Cookie 字符串；若为 None，则尝试从
-            `SMSTOME_COOKIE` 环境变量，再回退到仓库根目录 `config.yaml`
-            读取。
-        countries: 需要同步的国家 slug 列表；若为 None，则使用
-            DEFAULT_COUNTRY_SLUGS。
-        output_path: 全量号码 txt 文件路径。
-        request_timeout: HTTP 请求超时时间（秒）。
-        http_max_attempts: 单个请求的最大重试次数。
-        max_pages_per_country: 从 start_page 开始，最多抓取多少页，默认 5。
-        start_page: 每个国家从第几页开始抓，默认 1。
-        per_page_delay: 每翻一页之间的基础延迟（秒），默认 1s。
-        per_country_delay: 每个国家抓取完成后的基础延迟（秒），默认 3s。
-        jitter: 额外抖动上限（秒），会在 [0, jitter] 内随机增加到延迟上，
-            用于让访问节奏更“人类化”。
+        cookie_header: Optional Cookie String; if None, then try to start from
+            `SMSTOME_COOKIE` environment variables, and then return to the warehouse root directory `config.yaml`
+            Read.
+        countries: Countries that need to be synchronized slug list; if None, then use
+            DEFAULT_COUNTRY_SLUGS.
+        output_path: full number txt File path.
+        request_timeout: HTTP Request timeout (seconds).
+        http_max_attempts: The maximum number of retries for a single request.
+        max_pages_per_country: from start_page Start, maximum number of pages to crawl, default 5.
+        start_page: Which page does each country start from? Default 1.
+        per_page_delay: Base delay between each page turn (seconds), default 1s.
+        per_country_delay: Base delay (seconds) after each country crawl is completed, default 3s.
+        jitter: The upper limit of additional jitter (seconds) will be in [0, jitter] Randomly added to the delay,
+            Used to make access more paced“humanization”.
 
     Returns:
-        写入文件的去重后手机号数量。
+        The number of mobile phone numbers written to the file after deduplication.
     """
 
     if countries is None:
@@ -595,7 +595,7 @@ def update_global_phone_list(
                 if page == 1 and index + 1 < len(page_window):
                     _polite_sleep(per_page_delay, jitter)
 
-            # 每个国家抓取完后再稍微停顿一下
+            # After each country is fetched, pause briefly.
             _polite_sleep(per_country_delay, jitter)
 
         if require_recent_history:
@@ -620,7 +620,7 @@ def update_global_phone_list(
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
 
-        # 仅要求“记录全量号码”，但为了后续方便，额外保存国家与详情 URL。
+        # only request“Record all numbers”, but for subsequent convenience, additionally save the country and details URL.
         with output.open("w", encoding="utf-8") as f:
             for phone in sorted(phone_map.keys()):
                 entry = phone_map[phone]
@@ -632,7 +632,7 @@ def update_global_phone_list(
 
 
 def load_global_phone_index(path: Path | str = GLOBAL_PHONE_FILE) -> Dict[str, PhoneEntry]:
-    """从全量号码 txt 文件中加载索引。"""
+    """from full number txt Load the index into the file."""
 
     phone_index: Dict[str, PhoneEntry] = {}
     file_path = Path(path)
@@ -658,13 +658,13 @@ def load_global_phone_index(path: Path | str = GLOBAL_PHONE_FILE) -> Dict[str, P
 
 
 def _sanitize_task_name(task_name: str) -> str:
-    """将任务名转换为适合作为文件名的形式。"""
+    """Convert the task name into a form suitable as a file name."""
 
     return re.sub(r"[^a-zA-Z0-9_.-]", "_", task_name)
 
 
 def _used_numbers_file(task_name: str, *, base_dir: Path | str = USED_NUMBERS_DIR) -> Path:
-    """返回某个任务对应的“已使用号码”文件路径。"""
+    """Returns the corresponding“Number used”File path."""
 
     safe_name = _sanitize_task_name(task_name)
     directory = Path(base_dir)
@@ -673,7 +673,7 @@ def _used_numbers_file(task_name: str, *, base_dir: Path | str = USED_NUMBERS_DI
 
 
 def _blacklisted_numbers_file(task_name: str, *, base_dir: Path | str = USED_NUMBERS_DIR) -> Path:
-    """返回某个任务对应的“黑名单号码”文件路径。"""
+    """Returns the corresponding“blacklist number”File path."""
 
     safe_name = _sanitize_task_name(task_name)
     directory = Path(base_dir)
@@ -748,23 +748,23 @@ def get_unused_phone(
     used_numbers_dir: Path | str = USED_NUMBERS_DIR,
     exclude_prefixes: Optional[Iterable[str]] = None,
 ) -> Optional[PhoneEntry]:
-    """返回一个对指定任务尚未使用过的手机号，并立即标记为已使用。
+    """Returns a mobile phone number that has not been used for the specified task and immediately marks it as used.
 
-    调用者应在调用前先运行一次 `update_global_phone_list`，确保
-    `global_file` 是最新的。
+    The caller should run once before calling `update_global_phone_list`,make sure
+    `global_file` is the latest.
 
     Args:
-        task_name: 任务名称（例如目标站点标识），用于区分不同任务的
-            使用记录文件。
-        country_slug: 若指定，则仅从该国家或国家列表中选择；支持单个
-            slug、逗号分隔字符串或可迭代 slug 集合。为 None 表示任意国家。
-        global_file: 全量号码文件路径。
-        used_numbers_dir: 每个任务“已使用号码”文件所在目录。
-        exclude_prefixes: 可选的手机号前缀黑名单；用于在单次流程里避开
-            已明确被目标站点拒绝的号段。
+        task_name: Task name (such as target site ID) to distinguish between different tasks
+            Use log files.
+        country_slug: If specified, only selects from this country or list of countries; supports a single
+            slug, comma separated string or iterable slug gather. for None Represents any country.
+        global_file: Full number file path.
+        used_numbers_dir: every task“Number used”The directory where the file is located.
+        exclude_prefixes: Optional mobile phone number prefix blacklist; used to avoid in a single process
+            The number range that has been rejected by the target site has been identified.
 
     Returns:
-        未使用过的 PhoneEntry；若没有可用号码则返回 None。
+        unused PhoneEntry;If no number is available, return None.
     """
 
     phone_index = load_global_phone_index(global_file)
@@ -814,19 +814,19 @@ def _fetch_sms_messages(
     *,
     http_max_attempts: int,
 ) -> List[SmsMessage]:
-    """抓取某个号码主页（第一页）的短信列表。"""
+    """Grab the SMS list of a certain number's homepage (first page)."""
 
     html = _fetch_with_retries(client, detail_url, max_attempts=http_max_attempts)
     tree = HTMLParser(html)
 
-    # 页面中只有一个主要的短信表格，这里直接取第一个 table 即可。
+    # There is only one main text message form on the page. Here we take the first one directly. table That’s it.
     table = tree.css_first("table")
     if table is None:
         return []
 
     messages: List[SmsMessage] = []
     for tr in table.css("tr"):
-        # 跳过表头行（包含 th）
+        # Skip header rows (including th)
         if tr.css_first("th") is not None:
             continue
         tds = tr.css("td")
@@ -859,28 +859,28 @@ def wait_for_otp(
     trace: Callable[[str], None] | None = None,
     raise_on_timeout: bool = False,
 ) -> Optional[str]:
-    """轮询指定手机号短信，提取验证码并返回。
+    """Poll the specified mobile phone number for text messages, extract the verification code and return it.
 
-    基本逻辑：
-      1. 启动时抓取一次当前短信列表，记录为已见；
-      2. 在给定 `timeout` 内，每隔 `poll_interval` 秒重新抓取；
-      3. 对每条“未见过”的短信，用 `otp_regex` 匹配验证码；
-      4. 匹配成功则返回第一个验证码；超时则返回 None。
+    Basic logic:
+      1. At startup, the current text message list is captured once and recorded as seen;
+      2. in given `timeout` within, every `poll_interval` Re-fetch in seconds;
+      3. for each“never seen”SMS, use `otp_regex` Match verification code;
+      4. If the match is successful, the first verification code will be returned; if it times out, it will be returned. None.
 
     Args:
-        entry: 通过 `get_unused_phone` 或其它方式得到的 PhoneEntry。
-        cookie_header: 可选 Cookie 字符串；若为 None，则尝试从
-            `SMSTOME_COOKIE` 环境变量，再回退到仓库根目录 `config.yaml`
-            读取。
-        timeout: 最大等待时间（秒）。
-        poll_interval: 轮询间隔（秒）。
-        otp_regex: 用于从短信中提取验证码的正则，默认匹配 4–8 位数字。
-        http_max_attempts: 每次抓取短信时的 HTTP 重试次数。
-        trace: 可选日志回调；若提供，会输出每轮轮询的诊断摘要。
-        raise_on_timeout: 若为 True，超时后抛出更具体的异常，而不是返回 None。
+        entry: pass `get_unused_phone` or obtained by other means PhoneEntry.
+        cookie_header: Optional Cookie String; if None, then try to start from
+            `SMSTOME_COOKIE` environment variables, and then return to the warehouse root directory `config.yaml`
+            Read.
+        timeout: Maximum wait time (seconds).
+        poll_interval: Polling interval (seconds).
+        otp_regex: Regular pattern used to extract verification codes from text messages, matching by default 4–8 digits.
+        http_max_attempts: Every time a text message is captured HTTP Number of retries.
+        trace: Optional log callback; if provided, a diagnostic summary of each poll is output.
+        raise_on_timeout: If True, throw a more specific exception after the timeout instead of returning None.
 
     Returns:
-        匹配到的验证码字符串；若超时未获得则返回 None。
+        Matched verification code string; if not obtained after timeout, return None.
     """
 
     client = _build_client(cookie_header=cookie_header, timeout=timeout)
@@ -905,7 +905,7 @@ def wait_for_otp(
                 f"SMSToMe {phase} fetch failed for {entry.phone}: {exc}"
             ) from exc
 
-    # 初始抓取，避免把历史短信误当成“新短信”
+    # Initial capture to avoid mistaking historical text messages for“New SMS”
     initial_messages = _fetch_messages("initial")
     latest_message = initial_messages[0] if initial_messages else None
     latest_snapshot = (
@@ -1023,7 +1023,7 @@ def wait_for_otp(
             )
 
 
-if __name__ == "__main__":  # pragma: no cover - 简单调试入口
+if __name__ == "__main__":  # pragma: no cover - Simple debugging entrance
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -1033,12 +1033,12 @@ if __name__ == "__main__":  # pragma: no cover - 简单调试入口
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     sync_parser = subparsers.add_parser(
-        "sync", help="同步全量手机号到 txt 文件",
+        "sync", help="Synchronize all mobile phone numbers to txt document",
     )
     sync_parser.add_argument(
         "--cookie",
         dest="cookie",
-        help="可选 Cookie 字符串；为空则使用 SMSTOME_COOKIE 环境变量或 config.yaml",
+        help="Optional Cookie String; used if empty SMSTOME_COOKIE environment variables or config.yaml",
     )
     sync_parser.add_argument(
         "--max-pages-per-country",
@@ -1046,8 +1046,8 @@ if __name__ == "__main__":  # pragma: no cover - 简单调试入口
         type=int,
         default=DEFAULT_SYNC_MAX_PAGES_PER_COUNTRY,
         help=(
-            "从起始页开始，每个国家最多抓取多少页；"
-            f"默认 {DEFAULT_SYNC_MAX_PAGES_PER_COUNTRY}"
+            "Starting from the starting page, the maximum number of pages to crawl for each country;"
+            f"default {DEFAULT_SYNC_MAX_PAGES_PER_COUNTRY}"
         ),
     )
     sync_parser.add_argument(
@@ -1055,24 +1055,24 @@ if __name__ == "__main__":  # pragma: no cover - 简单调试入口
         dest="start_page",
         type=int,
         default=1,
-        help="每个国家从第几页开始抓；默认 1",
+        help="Which page does each country start from? Default 1",
     )
     sync_parser.add_argument(
         "--countries",
         dest="countries",
-        help="可选国家 slug 列表；支持单个 slug 或逗号分隔，例如 united-kingdom,sweden",
+        help="Optional countries slug List; supports single slug or comma separated, e.g. united-kingdom,sweden",
     )
     sync_parser.add_argument(
         "--output",
         dest="output_path",
         default=str(GLOBAL_PHONE_FILE),
-        help=f"同步结果输出文件；默认 {GLOBAL_PHONE_FILE}",
+        help=f"Synchronization result output file; default {GLOBAL_PHONE_FILE}",
     )
     sync_parser.add_argument(
         "--skip-history-check",
         dest="skip_history_check",
         action="store_true",
-        help="不同步详情页历史活跃度；默认会过滤掉没有分钟级历史短信的号码",
+        help="Do not synchronize the historical activity of the details page; by default, numbers without minute-level historical text messages will be filtered out",
     )
     sync_parser.add_argument(
         "--recent-history-minutes",
@@ -1080,19 +1080,19 @@ if __name__ == "__main__":  # pragma: no cover - 简单调试入口
         type=float,
         default=DEFAULT_RECENT_HISTORY_MINUTES,
         help=(
-            "同步时仅保留最近 N 分钟内有历史短信的号码；"
-            f"默认 {int(DEFAULT_RECENT_HISTORY_MINUTES)}"
+            "Keep only the most recent when syncing N Numbers with historical text messages within minutes;"
+            f"default {int(DEFAULT_RECENT_HISTORY_MINUTES)}"
         ),
     )
 
     pick_parser = subparsers.add_parser(
-        "pick", help="为某个任务选择一个未使用的手机号",
+        "pick", help="Choose an unused mobile phone number for a task",
     )
-    pick_parser.add_argument("task", help="任务名称，用于区分已使用号码文件")
+    pick_parser.add_argument("task", help="Task name, used to distinguish used number files")
     pick_parser.add_argument(
         "--country",
         dest="country",
-        help="可选国家 slug（例如 poland、sweden）",
+        help="Optional countries slug(For example poland,sweden)",
     )
 
     args = parser.parse_args()

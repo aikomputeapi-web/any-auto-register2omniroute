@@ -18,12 +18,12 @@ class CliproxyapiSyncTests(unittest.TestCase):
 
         with mock.patch(
             "services.cliproxyapi_sync.list_auth_files",
-            side_effect=RuntimeError("CLIProxyAPI 无法连接，请确认服务已启动或 API URL 是否正确：http://127.0.0.1:8317"),
+            side_effect=RuntimeError("CLIProxyAPI Unable to connect, please confirm that the service is started or API URL Is it correct:http://127.0.0.1:8317"),
         ):
             result = sync_chatgpt_cliproxyapi_status(account, api_url="http://127.0.0.1:8317", api_key="demo")
 
         self.assertEqual(result["remote_state"], "unreachable")
-        self.assertIn("无法连接", result["message"])
+        self.assertIn("Unable to connect", result["message"])
 
     def test_sync_retries_list_auth_files_until_success(self):
         account = DummyAccount(email="demo@example.com", user_id="acct-123")
@@ -42,8 +42,8 @@ class CliproxyapiSyncTests(unittest.TestCase):
         with mock.patch(
             "services.cliproxyapi_sync.list_auth_files",
             side_effect=[
-                RuntimeError("CLIProxyAPI 无法连接，请确认服务已启动或 API URL 是否正确：http://127.0.0.1:8317"),
-                RuntimeError("CLIProxyAPI 请求超时：http://127.0.0.1:8317"),
+                RuntimeError("CLIProxyAPI Unable to connect, please confirm that the service is started or API URL Is it correct:http://127.0.0.1:8317"),
+                RuntimeError("CLIProxyAPI Request timeout:http://127.0.0.1:8317"),
                 auth_files,
             ],
         ) as list_mock:
@@ -72,7 +72,7 @@ class CliproxyapiSyncTests(unittest.TestCase):
             result = sync_chatgpt_cliproxyapi_status(account, api_url="http://127.0.0.1:8317", api_key="demo")
 
         self.assertFalse(result["uploaded"])
-        self.assertIn("未在 CLIProxyAPI 找到匹配", result["message"])
+        self.assertIn("Not here CLIProxyAPI found match", result["message"])
 
     def test_sync_uses_matching_codex_auth_and_probe(self):
         account = DummyAccount(email="demo@example.com", user_id="acct-123")
@@ -155,8 +155,8 @@ class CliproxyapiSyncTests(unittest.TestCase):
             with mock.patch(
                 "services.cliproxyapi_sync._probe_remote_auth",
                 side_effect=[
-                    RuntimeError("CLIProxyAPI 请求超时：http://127.0.0.1:8317"),
-                    RuntimeError("CLIProxyAPI 无法连接，请确认服务已启动或 API URL 是否正确：http://127.0.0.1:8317"),
+                    RuntimeError("CLIProxyAPI Request timeout:http://127.0.0.1:8317"),
+                    RuntimeError("CLIProxyAPI Unable to connect, please confirm that the service is started or API URL Is it correct:http://127.0.0.1:8317"),
                     {
                         "last_probe_at": "2026-03-31T00:00:00Z",
                         "last_probe_status_code": 200,

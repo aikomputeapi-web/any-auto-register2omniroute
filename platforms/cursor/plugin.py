@@ -1,4 +1,4 @@
-"""Cursor 平台插件"""
+"""Cursor Platform plugin"""
 from core.base_platform import BasePlatform, Account, AccountStatus, RegisterConfig
 from core.base_mailbox import BaseMailbox
 from core.registry import register
@@ -28,14 +28,14 @@ class CursorPlatform(BasePlatform):
         otp_timeout = self.get_mailbox_otp_timeout()
 
         def otp_cb():
-            log("等待验证码...")
+            log("Wait for verification code...")
             code = self.mailbox.wait_for_code(
                 mail_acct,
                 keyword="",
                 timeout=otp_timeout,
                 before_ids=before_ids,
             )
-            if code: log(f"验证码: {code}")
+            if code: log(f"Verification code: {code}")
             return code
 
         result = reg.register(
@@ -67,20 +67,20 @@ class CursorPlatform(BasePlatform):
             return False
 
     def get_platform_actions(self) -> list:
-        """返回平台支持的操作列表"""
+        """Returns the list of operations supported by the platform"""
         return [
-            {"id": "switch_account", "label": "切换到桌面应用", "params": []},
-            {"id": "get_user_info", "label": "获取用户信息", "params": []},
+            {"id": "switch_account", "label": "Switch to desktop app", "params": []},
+            {"id": "get_user_info", "label": "Get user information", "params": []},
         ]
 
     def execute_action(self, action_id: str, account: Account, params: dict) -> dict:
-        """执行平台操作"""
+        """Perform platform operations"""
         if action_id == "switch_account":
             from platforms.cursor.switch import switch_cursor_account, restart_cursor_ide
             
             token = account.token
             if not token:
-                return {"ok": False, "error": "账号缺少 token"}
+                return {"ok": False, "error": "Account missing token"}
             
             ok, msg = switch_cursor_account(token)
             if not ok:
@@ -90,7 +90,7 @@ class CursorPlatform(BasePlatform):
             return {
                 "ok": True,
                 "data": {
-                    "message": f"{msg}。{restart_msg}" if restart_ok else msg,
+                    "message": f"{msg}.{restart_msg}" if restart_ok else msg,
                 }
             }
         
@@ -99,11 +99,11 @@ class CursorPlatform(BasePlatform):
             
             token = account.token
             if not token:
-                return {"ok": False, "error": "账号缺少 token"}
+                return {"ok": False, "error": "Account missing token"}
             
             user_info = get_cursor_user_info(token)
             if user_info:
                 return {"ok": True, "data": user_info}
-            return {"ok": False, "error": "获取用户信息失败"}
+            return {"ok": False, "error": "Failed to obtain user information"}
         
-        raise NotImplementedError(f"未知操作: {action_id}")
+        raise NotImplementedError(f"Unknown operation: {action_id}")

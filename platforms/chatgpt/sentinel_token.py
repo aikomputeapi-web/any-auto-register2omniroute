@@ -1,5 +1,5 @@
 """
-Sentinel Token 生成器模块（纯 Python 方案）。
+Sentinel Token generator module (pure Python plan).
 """
 
 import base64
@@ -15,11 +15,11 @@ SENTINEL_REFERER = "https://sentinel.openai.com/backend-api/sentinel/frame.html"
 
 class SentinelTokenGenerator:
     """
-    Sentinel Token 纯 Python 生成器。
+    Sentinel Token pure Python generator.
 
-    说明：
-    - 该实现不依赖 Node / JS。
-    - t 字段按当前纯 Python 方案固定空串，由上游接口判定可用性。
+    illustrate:
+    - This implementation does not depend on Node / JS.
+    - t The field is currently pure Python The solution has a fixed empty string, and the availability is determined by the upstream interface.
     """
 
     MAX_ATTEMPTS = 500000
@@ -230,7 +230,7 @@ def build_sentinel_token(
     sec_ch_ua=None,
     impersonate=None,
 ):
-    """默认 Sentinel token 构造：纯 Python。"""
+    """default Sentinel token Construction: Pure Python."""
     return _build_sentinel_token_python(
         session,
         device_id,
@@ -250,7 +250,7 @@ def build_sentinel_token_vm_only(
     impersonate=None,
 ):
     """
-    VM 分支专用构造器（命名保持不变，内部使用纯 Python）。
+    VM Branch-specific constructor (name remains unchanged, internally uses pure Python).
     """
     return _build_sentinel_token_python(
         session,

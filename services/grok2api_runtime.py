@@ -20,9 +20,9 @@ def verify_grok2api(api_url: str | None = None, app_key: str | None = None) -> T
     app_key = str(app_key or _get_config("grok2api_app_key", "")).strip()
 
     if not api_url:
-        return False, "grok2api URL 未配置"
+        return False, "grok2api URL Not configured"
     if not app_key:
-        return False, "grok2api App Key 未配置"
+        return False, "grok2api App Key Not configured"
 
     try:
         resp = requests.get(
@@ -31,10 +31,10 @@ def verify_grok2api(api_url: str | None = None, app_key: str | None = None) -> T
             timeout=10,
         )
         if resp.status_code == 200:
-            return True, "grok2api 鉴权正常"
-        return False, f"grok2api 鉴权失败: HTTP {resp.status_code} - {resp.text[:200]}"
+            return True, "grok2api Authentication is normal"
+        return False, f"grok2api Authentication failed: HTTP {resp.status_code} - {resp.text[:200]}"
     except Exception as e:
-        return False, f"grok2api 连接失败: {e}"
+        return False, f"grok2api Connection failed: {e}"
 
 
 def ensure_grok2api_ready() -> Tuple[bool, str]:
@@ -50,13 +50,13 @@ def ensure_grok2api_ready() -> Tuple[bool, str]:
     try:
         status = next((item for item in list_status() if item["name"] == "grok2api"), None)
         if status and not status.get("repo_exists"):
-            return False, "grok2api 未安装，请先到“设置 → 插件”里手动安装"
+            return False, "grok2api Not installed, please come first“set up → plug-in”Manual installation in"
         running = bool(status and status.get("running"))
 
         if running:
             stop("grok2api")
         start("grok2api")
     except Exception as e:
-        return False, f"{msg}; 自动重启 grok2api 失败: {e}"
+        return False, f"{msg}; Automatic restart grok2api fail: {e}"
 
     return verify_grok2api(api_url=api_url, app_key=app_key)

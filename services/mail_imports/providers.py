@@ -75,7 +75,7 @@ class AppleMailImportStrategy(BaseMailImportStrategy):
             remaining.append(record)
 
         for email, _ in pending:
-            errors.append(f"未找到要删除的小苹果邮箱: {email}")
+            errors.append(f"The Little Apple mailbox to be deleted was not found: {email}")
 
         return remaining, deleted, errors
 
@@ -83,21 +83,21 @@ class AppleMailImportStrategy(BaseMailImportStrategy):
     def descriptor(self) -> MailImportProviderDescriptor:
         return MailImportProviderDescriptor(
             type="applemail",
-            label="AppleMail / 小苹果",
-            description="导入本地邮箱池文件，运行时按文件轮询邮箱并通过 AppleMail API 拉取邮件。",
+            label="AppleMail / little apple",
+            description="Import the local mailbox pool file, poll the mailboxes by file at runtime and pass AppleMail API Pull mail.",
             helper_text=(
-                "支持数组/对象 JSON，也支持每行一条的 "
-                "`email----password----client_id----refresh_token` 文本。"
+                "Support array/object JSON, also supports one line per line "
+                "`email----password----client_id----refresh_token` text."
             ),
             content_placeholder=(
                 '[\n  {\n    "email": "demo@example.com",\n    "clientId": "xxxx",\n'
                 '    "refreshToken": "xxxx",\n    "folder": "INBOX"\n  }\n]\n\n'
-                "或粘贴 TXT:\ndemo@example.com----password----client_id----refresh_token"
+                "or paste TXT:\ndemo@example.com----password----client_id----refresh_token"
             ),
             supports_filename=True,
-            filename_label="邮箱池文件名",
-            filename_placeholder="可选文件名，例如 applemail_hotmail.json；留空自动生成",
-            preview_empty_text="当前还没有可预览的 AppleMail 邮箱池内容。",
+            filename_label="Mailbox pool file name",
+            filename_placeholder="Optional filename, e.g. applemail_hotmail.json;Leave blank to automatically generate",
+            preview_empty_text="There are currently no previews available AppleMail Mailbox pool contents.",
         )
 
     def get_snapshot(self, request: MailImportSnapshotRequest) -> MailImportSnapshot:
@@ -208,7 +208,7 @@ class AppleMailImportStrategy(BaseMailImportStrategy):
             remaining.append(record)
 
         if removed is None:
-            raise RuntimeError(f"未找到要删除的小苹果邮箱: {request.email}")
+            raise RuntimeError(f"The Little Apple mailbox to be deleted was not found: {request.email}")
 
         path.write_text(
             json.dumps(remaining, ensure_ascii=False, indent=2),
@@ -355,7 +355,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
         except Exception as exc:
             return {
                 "ok": False,
-                "message": f"行 {record.line_number}: 微软邮箱可用性检测异常: {exc}",
+                "message": f"OK {record.line_number}: Microsoft mailbox availability detection anomaly: {exc}",
                 "reason": "oauth_probe_exception",
             }
 
@@ -363,7 +363,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
             return {"ok": True, "message": "ok"}
         return {
             "ok": False,
-            "message": f"行 {record.line_number}: {result.get('message') or '微软邮箱可用性检测未通过'}",
+            "message": f"OK {record.line_number}: {result.get('message') or 'Microsoft mailbox availability test failed'}",
             "reason": result.get("reason", "oauth_token_failed"),
         }
 
@@ -371,15 +371,15 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
     def descriptor(self) -> MailImportProviderDescriptor:
         return MailImportProviderDescriptor(
             type="microsoft",
-            label="微软邮箱（Outlook / Hotmail，本地导入）",
-            description="导入微软邮箱本地账号池，运行时从数据库取账号并通过 Graph / IMAP 策略轮询邮件（默认 Graph）。",
-            helper_text="支持两种格式并自动识别：1) 邮箱----密码----client_id----refresh_token（微软 OAuth）；2) 邮箱----mailapi_url（MailAPI URL 轮询取码）。",
+            label="Microsoft Email (Outlook / Hotmail, local import)",
+            description="Import the Microsoft mailbox local account pool, fetch the account from the database and pass Graph / IMAP Policy polling email (default Graph).",
+            helper_text="Two formats are supported and recognized automatically:1) Mail----password----client_id----refresh_token(Microsoft OAuth);2) Mail----mailapi_url(MailAPI URL Polling code acquisition).",
             content_placeholder=(
                 "example@outlook.com----password----client_id----refresh_token\n"
                 "example@hotmail.com----password----client_id----refresh_token\n"
                 "example@hotmail.com----https://mailapi.icu/key?type=html&orderNo=xxx"
             ),
-            preview_empty_text="当前还没有已导入的微软邮箱本地账号。",
+            preview_empty_text="There are currently no imported Microsoft mailbox local accounts.",
         )
 
     def get_snapshot(self, request: MailImportSnapshotRequest) -> MailImportSnapshot:
@@ -454,7 +454,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
 
             if record.email in batch_seen_emails:
                 failed += 1
-                errors.append(f"行 {line_number}: 导入内容存在重复邮箱: {record.email}")
+                errors.append(f"OK {line_number}: There are duplicate mailboxes in the imported content: {record.email}")
                 continue
             batch_seen_emails.add(record.email)
 
@@ -464,7 +464,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
             )
             if not duplicate_check.get("ok"):
                 failed += 1
-                errors.append(str(duplicate_check.get("message") or f"行 {line_number}: 导入失败"))
+                errors.append(str(duplicate_check.get("message") or f"OK {line_number}: Import failed"))
                 continue
             valid_records.append(record)
 
@@ -500,7 +500,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
                     except Exception as exc:
                         oauth_check_results[record.line_number] = {
                             "ok": False,
-                            "message": f"行 {record.line_number}: 微软邮箱可用性检测异常: {exc}",
+                            "message": f"OK {record.line_number}: Microsoft mailbox availability detection anomaly: {exc}",
                             "reason": "oauth_probe_exception",
                         }
 
@@ -511,12 +511,12 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
                 continue
             check_result = oauth_check_results.get(record.line_number) or {
                 "ok": False,
-                "message": f"行 {record.line_number}: 微软邮箱可用性检测未返回结果",
+                "message": f"OK {record.line_number}: Microsoft Mailbox Availability Test Returns No Results",
                 "reason": "oauth_probe_missing_result",
             }
             if not check_result.get("ok"):
                 failed += 1
-                errors.append(str(check_result.get("message") or f"行 {record.line_number}: 导入失败"))
+                errors.append(str(check_result.get("message") or f"OK {record.line_number}: Import failed"))
                 continue
             passed_records.append(record)
 
@@ -553,7 +553,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
                 except Exception as exc:
                     session.rollback()
                     failed += 1
-                    errors.append(f"行 {record.line_number}: 创建失败: {str(exc)}")
+                    errors.append(f"OK {record.line_number}: Creation failed: {str(exc)}")
 
         snapshot = self.get_snapshot(
             MailImportSnapshotRequest(
@@ -581,14 +581,14 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
     def delete(self, request: MailImportDeleteRequest) -> MailImportResponse:
         email = str(request.email or "").strip()
         if not email:
-            raise RuntimeError("缺少要删除的邮箱地址")
+            raise RuntimeError("Missing email address to delete")
 
         with Session(engine) as session:
             account = session.exec(
                 select(OutlookAccountModel).where(OutlookAccountModel.email == email)
             ).first()
             if not account:
-                raise RuntimeError(f"未找到要删除的微软邮箱: {email}")
+                raise RuntimeError(f"The Microsoft mailbox to be deleted was not found: {email}")
 
             session.delete(account)
             session.commit()
@@ -621,7 +621,7 @@ class MicrosoftMailImportStrategy(BaseMailImportStrategy):
                     select(OutlookAccountModel).where(OutlookAccountModel.email == email)
                 ).first()
                 if not account:
-                    errors.append(f"未找到要删除的微软邮箱: {email}")
+                    errors.append(f"The Microsoft mailbox to be deleted was not found: {email}")
                     continue
                 session.delete(account)
                 deleted.append(email)

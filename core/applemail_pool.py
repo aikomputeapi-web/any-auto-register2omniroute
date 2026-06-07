@@ -58,7 +58,7 @@ def _normalize_record(entry: Any) -> dict[str, str]:
     if isinstance(entry, (list, tuple)):
         return _normalize_sequence_record(entry)
     if not isinstance(entry, dict):
-        raise ValueError(f"不支持的邮箱记录格式: {type(entry).__name__}")
+        raise ValueError(f"Unsupported mailbox record format: {type(entry).__name__}")
 
     email = _extract_first(entry, "email", "mail", "address", "username")
     client_id = _extract_first(entry, "client_id", "clientId", "clientID")
@@ -74,9 +74,9 @@ def _normalize_record(entry: Any) -> dict[str, str]:
     password = _extract_first(entry, "password", "pass", "pwd")
 
     if not email:
-        raise ValueError("缺少 email")
+        raise ValueError("Lack email")
     if not client_id or not refresh_token:
-        raise ValueError(f"{email} 缺少 client_id 或 refresh_token")
+        raise ValueError(f"{email} Lack client_id or refresh_token")
 
     record = {
         "email": email,
@@ -92,9 +92,9 @@ def _normalize_record(entry: Any) -> dict[str, str]:
 def _normalize_sequence_record(entry: list[Any] | tuple[Any, ...]) -> dict[str, str]:
     values = [str(item or "").strip() for item in entry if str(item or "").strip()]
     if not values:
-        raise ValueError("空邮箱记录")
+        raise ValueError("Empty mailbox record")
     if len(values) < 3:
-        raise ValueError(f"邮箱记录字段不足: {values}")
+        raise ValueError(f"Insufficient email record fields: {values}")
     if len(values) >= 4:
         email, password, client_id, refresh_token = values[:4]
         record = {
@@ -124,7 +124,7 @@ def _normalize_sequence_record(entry: list[Any] | tuple[Any, ...]) -> dict[str, 
 def _normalize_text_record(line: str) -> dict[str, str]:
     text = str(line or "").strip()
     if not text:
-        raise ValueError("空邮箱记录")
+        raise ValueError("Empty mailbox record")
 
     if "----" in text:
         return _normalize_sequence_record(text.split("----"))
@@ -141,13 +141,13 @@ def _unwrap_json_records(payload: Any) -> list[Any]:
             if isinstance(payload.get(key), list):
                 return payload[key]
         return [payload]
-    raise ValueError(f"JSON 根节点必须是对象或数组，当前为 {type(payload).__name__}")
+    raise ValueError(f"JSON The root node must be an object or array, currently it is {type(payload).__name__}")
 
 
 def parse_applemail_pool_content(content: str) -> list[dict[str, str]]:
     text = str(content or "").strip()
     if not text:
-        raise ValueError("邮箱池内容为空")
+        raise ValueError("The mailbox pool content is empty")
 
     if text[:1] in {"[", "{"}:
         payload = json.loads(text)
@@ -162,7 +162,7 @@ def parse_applemail_pool_content(content: str) -> list[dict[str, str]]:
         records = [_normalize_text_record(line) for line in lines]
 
     if not records:
-        raise ValueError("邮箱池内容为空")
+        raise ValueError("The mailbox pool content is empty")
     return records
 
 
@@ -186,7 +186,7 @@ def resolve_applemail_pool_path(
                 if fallback.exists():
                     resolved = fallback
         if not resolved.exists():
-            raise RuntimeError(f"小苹果邮箱池文件不存在: {resolved}")
+            raise RuntimeError(f"Little Apple mailbox pool file does not exist: {resolved}")
         return resolved
 
     candidates = [
@@ -196,7 +196,7 @@ def resolve_applemail_pool_path(
         if path.is_file()
     ]
     if not candidates:
-        raise RuntimeError(f"mail 目录下未找到可用的小苹果邮箱池文件: {base_dir}")
+        raise RuntimeError(f"mail The available Little Apple mailbox pool file was not found in the directory.: {base_dir}")
     candidates.sort(key=lambda item: (item.stat().st_mtime, item.name), reverse=True)
     return candidates[0]
 

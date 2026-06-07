@@ -24,19 +24,22 @@ function resolveEffectiveMailProvider(mailProvider: string, mailImportSource: st
 
 const SELECT_FIELDS: Record<string, { label: string; value: string }[]> = {
   mail_provider: [
-    { label: 'LuckMail（订单接码 / 已购邮箱）', value: 'luckmail' },
-    { label: '邮箱导入', value: 'mail_import' },
-    { label: 'Laoudo（固定邮箱）', value: 'laoudo' },
-    { label: 'TempMail.lol（自动生成）', value: 'tempmail_lol' },
-    { label: 'SkyMail（CloudMail 接口）', value: 'skymail' },
-    { label: 'CloudMail（genToken 口令模式）', value: 'cloudmail' },
-    { label: 'DuckMail（自动生成）', value: 'duckmail' },
+    { label: 'LuckMail (order-based SMS / purchased mailboxes)', value: 'luckmail' },
+    { label: 'Mailbox Import', value: 'mail_import' },
+    { label: 'Laoudo (fixed mailbox)', value: 'laoudo' },
+    { label: 'TempMail.lol (auto-generated)', value: 'tempmail_lol' },
+    { label: 'SkyMail (CloudMail API)', value: 'skymail' },
+    { label: 'CloudMail (genToken token mode)', value: 'cloudmail' },
+    { label: 'DuckMail (auto-generated)', value: 'duckmail' },
     { label: 'MoeMail (sall.cc)', value: 'moemail' },
     { label: 'YYDS Mail / MaliAPI', value: 'maliapi' },
     { label: 'GPTMail', value: 'gptmail' },
     { label: 'OpenTrashMail', value: 'opentrashmail' },
-    { label: 'Freemail（自建 CF Worker）', value: 'freemail' },
-    { label: 'CF Worker（自建域名）', value: 'cfworker' },
+    { label: 'Freemail (self-hosted CF Worker)', value: 'freemail' },
+    { label: 'CF Worker (self-hosted domain)', value: 'cfworker' },
+    { label: 'IMAP Catchall (generic IMAP)', value: 'imap_catchall' },
+    { label: 'CatchMail.io (free temporary email)', value: 'catchmail' },
+    { label: 'Mail.tm (free temporary email with multi-domains)', value: 'mailtm' },
   ],
   maliapi_auto_domain_strategy: [
     { label: 'balanced', value: 'balanced' },
@@ -44,213 +47,242 @@ const SELECT_FIELDS: Record<string, { label: string; value: string }[]> = {
     { label: 'prefer_public', value: 'prefer_public' },
   ],
   default_executor: [
-    { label: 'API 协议（无浏览器）', value: 'protocol' },
-    { label: '无头浏览器', value: 'headless' },
-    { label: '有头浏览器', value: 'headed' },
+    { label: 'API protocol (no browser)', value: 'protocol' },
+    { label: 'Headless browser', value: 'headless' },
+    { label: 'Headed browser', value: 'headed' },
   ],
   default_captcha_solver: [
     { label: 'YesCaptcha', value: 'yescaptcha' },
-    { label: '本地 Solver (Camoufox)', value: 'local_solver' },
-    { label: '手动', value: 'manual' },
+    { label: 'Local Solver (Camoufox)', value: 'local_solver' },
+    { label: 'Manual', value: 'manual' },
   ],
   outlook_backend: [
-    { label: 'Graph（默认）', value: 'graph' },
+    { label: 'Graph (default)', value: 'graph' },
     { label: 'IMAP', value: 'imap' },
   ],
   luckmail_email_type: [
-    { label: '自动 / 留空', value: '' },
-    { label: '微软邮箱 - Graph', value: 'ms_graph' },
-    { label: '微软邮箱 - IMAP', value: 'ms_imap' },
-    { label: '自建邮箱', value: 'self_built' },
+    { label: 'Auto / leave blank', value: '' },
+    { label: 'Microsoft mailbox - Graph', value: 'ms_graph' },
+    { label: 'Microsoft mailbox - IMAP', value: 'ms_imap' },
+    { label: 'Self-hosted mailbox', value: 'self_built' },
   ],
   cpa_cleanup_enabled: [
-    { label: '关闭', value: '0' },
-    { label: '开启', value: '1' },
+    { label: 'Off', value: '0' },
+    { label: 'On', value: '1' },
   ],
   codex_proxy_upload_type: [
-    { label: 'AT（Access Token，推荐）', value: 'at' },
-    { label: 'RT（Refresh Token）', value: 'rt' },
+    { label: 'AT (Access Token, recommended)', value: 'at' },
+    { label: 'RT (Refresh Token)', value: 'rt' },
   ],
   external_apps_update_mode: [
-    { label: 'latest semver tag（推荐）', value: 'tag' },
-    { label: '分支 HEAD', value: 'branch' },
+    { label: 'latest semver tag (recommended)', value: 'tag' },
+    { label: 'Branch HEAD', value: 'branch' },
   ],
 }
 
 const TAB_ITEMS = [
   {
     key: 'register',
-    label: '注册设置',
+    label: 'Registration Settings',
     icon: <ApiOutlined />,
     sections: [
       {
-        title: '默认注册方式',
-        desc: '控制注册任务如何执行',
-        fields: [{ key: 'default_executor', label: '执行器类型', type: 'select' }],
+        title: 'Default registration method',
+        desc: 'Control how registration tasks are executed',
+        fields: [
+          { key: 'default_executor', label: 'Executor type', type: 'select' },
+          { key: 'default_phone_number', label: 'Default phone number', placeholder: 'e.g. +1234567890' },
+        ],
       },
     ],
   },
   {
     key: 'mailbox',
-    label: '邮箱服务',
+    label: 'Mailbox Service',
     icon: <MailOutlined />,
     sections: [
       {
-        title: '默认邮箱服务',
-        desc: '选择注册时使用的邮箱类型',
+        title: 'Default mailbox service',
+        desc: 'Choose the mailbox type used during registration',
         fields: [
-          { key: 'mail_provider', label: '邮箱服务', type: 'select' },
-          { key: 'mailbox_otp_timeout_seconds', label: '邮箱验证码等待秒数', placeholder: '例如 60 / 90 / 120' },
+          { key: 'mail_provider', label: 'Mailbox Service', type: 'select' },
+          { key: 'mailbox_otp_timeout_seconds', label: 'Mailbox captcha wait time (seconds)', placeholder: 'e.g. 60 / 90 / 120' },
         ],
       },
       {
         title: 'Laoudo',
-        desc: '固定邮箱，手动配置',
+        desc: 'Fixed mailbox, manual configuration',
         fields: [
-          { key: 'laoudo_email', label: '邮箱地址', placeholder: 'xxx@laoudo.com' },
+          { key: 'laoudo_email', label: 'Email address', placeholder: 'xxx@laoudo.com' },
           { key: 'laoudo_account_id', label: 'Account ID', placeholder: '563' },
           { key: 'laoudo_auth', label: 'JWT Token', placeholder: 'eyJ...', secret: true },
         ],
       },
       {
         title: 'Freemail',
-        desc: '基于 Cloudflare Worker 的自建邮箱，支持管理员令牌或账号密码认证',
+        desc: 'Self-hosted mailbox based on Cloudflare Worker, supporting admin token or username/password authentication',
         fields: [
           { key: 'freemail_api_url', label: 'API URL', placeholder: 'https://mail.example.com' },
-          { key: 'freemail_admin_token', label: '管理员令牌', secret: true },
-          { key: 'freemail_username', label: '用户名（可选）' },
-          { key: 'freemail_password', label: '密码（可选）', secret: true },
-          { key: 'freemail_domain', label: '邮箱域名（可选）', placeholder: 'example.com' },
+          { key: 'freemail_admin_token', label: 'Admin token', secret: true },
+          { key: 'freemail_username', label: 'Username (optional)' },
+          { key: 'freemail_password', label: 'Password (optional)', secret: true },
+          { key: 'freemail_domain', label: 'Mailbox domain (optional)', placeholder: 'example.com' },
         ],
       },
       {
         title: 'MoeMail',
-        desc: '自动注册账号并生成临时邮箱',
+        desc: 'Automatically register an account and generate a temporary mailbox',
         fields: [
           { key: 'moemail_api_url', label: 'API URL', placeholder: 'https://sall.cc' },
-          { key: 'moemail_api_key', label: 'API Key', secret: true },
+          { key: 'moemail_api_key', label: 'API key', secret: true },
         ],
       },
       {
         title: 'SkyMail',
-        desc: 'CloudMail 兼容接口（addUser / emailList）',
+        desc: 'CloudMail-compatible API (addUser / emailList)',
         fields: [
           { key: 'skymail_api_base', label: 'API Base', placeholder: 'https://api.skymail.ink' },
-          { key: 'skymail_token', label: 'Authorization Token', secret: true },
-          { key: 'skymail_domain', label: '邮箱域名', placeholder: 'mail.example.com' },
+          { key: 'skymail_token', label: 'Authorization token', secret: true },
+          { key: 'skymail_domain', label: 'Mailbox domain', placeholder: 'mail.example.com' },
         ],
       },
       {
         title: 'CloudMail',
-        desc: 'CloudMail 口令模式（genToken + emailList）',
+        desc: 'CloudMail token mode (genToken + emailList)',
         fields: [
           { key: 'cloudmail_api_base', label: 'API Base', placeholder: 'https://cloudmail.example.com' },
-          { key: 'cloudmail_admin_email', label: '管理员邮箱（可选）', placeholder: 'admin@example.com' },
-          { key: 'cloudmail_admin_password', label: '管理员密码', secret: true },
-          { key: 'cloudmail_domain', label: '邮箱域名（可选）', placeholder: 'mail.example.com,mail2.example.com' },
-          { key: 'cloudmail_subdomain', label: '子域名（可选）', placeholder: 'pool-a' },
-          { key: 'cloudmail_timeout', label: '请求超时秒数', placeholder: '30' },
+          { key: 'cloudmail_admin_email', label: 'Admin email (optional)', placeholder: 'admin@example.com' },
+          { key: 'cloudmail_admin_password', label: 'Admin password', secret: true },
+          { key: 'cloudmail_domain', label: 'Mailbox domain (optional)', placeholder: 'mail.example.com,mail2.example.com' },
+          { key: 'cloudmail_subdomain', label: 'Subdomain (optional)', placeholder: 'pool-a' },
+          { key: 'cloudmail_timeout', label: 'Request timeout (seconds)', placeholder: '30' },
         ],
       },
       {
         title: 'YYDS Mail / MaliAPI',
-        desc: '基于 API Key 创建临时邮箱并轮询收件箱消息',
+        desc: 'Create temporary mailboxes with an API key and poll inbox messages',
         fields: [
           { key: 'maliapi_base_url', label: 'API URL', placeholder: 'https://maliapi.215.im/v1' },
-          { key: 'maliapi_api_key', label: 'API Key', secret: true },
-          { key: 'maliapi_domain', label: '邮箱域名（可选）', placeholder: 'example.com' },
-          { key: 'maliapi_auto_domain_strategy', label: '自动域名策略', type: 'select' },
+          { key: 'maliapi_api_key', label: 'API key', secret: true },
+          { key: 'maliapi_domain', label: 'Mailbox domain (optional)', placeholder: 'example.com' },
+          { key: 'maliapi_auto_domain_strategy', label: 'Auto domain strategy', type: 'select' },
         ],
       },
       {
-        title: '邮箱导入（微软 / Outlook / Hotmail）',
-        desc: '使用本地导入的微软账号池，运行时支持 Graph / IMAP 轮询（默认 Graph）',
+        title: 'Mailbox import (Microsoft / Outlook / Hotmail)',
+        desc: 'Use a locally imported Microsoft account pool; Graph / IMAP polling is supported at runtime (Graph by default)',
         fields: [
-          { key: 'outlook_backend', label: '微软收信方式', type: 'select' },
+          { key: 'outlook_backend', label: 'Microsoft receiving method', type: 'select' },
         ],
       },
       {
-        title: '邮箱导入（AppleMail / 小苹果）',
-        desc: '读取本地邮箱池文件，通过 refresh_token + client_id 调用小苹果取件接口；支持在本页直接导入 JSON',
+        title: 'Mailbox import (AppleMail / Xiaopingguo)',
+        desc: 'Read a local mailbox pool file and call the Xiaopingguo mailbox API with refresh_token + client_id; JSON import is supported directly on this page',
         fields: [
           { key: 'applemail_base_url', label: 'API URL', placeholder: 'https://www.appleemail.top' },
-          { key: 'applemail_pool_dir', label: '邮箱池目录', placeholder: 'mail' },
-          { key: 'applemail_pool_file', label: '当前邮箱池文件（可选）', placeholder: '留空则自动读取目录中最新文件' },
-          { key: 'applemail_mailboxes', label: '轮询文件夹', placeholder: 'INBOX,Junk' },
+          { key: 'applemail_pool_dir', label: 'Mailbox pool directory', placeholder: 'mail' },
+          { key: 'applemail_pool_file', label: 'Current mailbox pool file (optional)', placeholder: 'Leave blank to automatically read the latest file in the directory' },
+          { key: 'applemail_mailboxes', label: 'Polling folders', placeholder: 'INBOX,Junk' },
         ],
       },
       {
         title: 'GPTMail',
-        desc: '基于 GPTMail API 生成临时邮箱并轮询邮件；若已知本站可用域名，也可本地拼装随机地址',
+        desc: 'Generate temporary mailboxes via the GPTMail API and poll for mail; if a usable domain is known, a random address can also be assembled locally',
         fields: [
           { key: 'gptmail_base_url', label: 'API URL', placeholder: 'https://mail.chatgpt.org.uk' },
-          { key: 'gptmail_api_key', label: 'API Key', secret: true, placeholder: 'gpt-test' },
-          { key: 'gptmail_domain', label: '邮箱域名（可选）', placeholder: 'example.com' },
+          { key: 'gptmail_api_key', label: 'API key', secret: true, placeholder: 'gpt-test' },
+          { key: 'gptmail_domain', label: 'Mailbox domain (optional)', placeholder: 'example.com' },
         ],
       },
       {
         title: 'OpenTrashMail',
-        desc: '对接 opentrashmail 服务；可直接轮询 /json/<email>，也支持已知域名时本地拼装随机地址',
+        desc: 'Integrate with the opentrashmail service; poll /json/<email> directly, or assemble a random local address when the domain is known',
         fields: [
           { key: 'opentrashmail_api_url', label: 'API URL', placeholder: 'http://mail.example.com:8085' },
-          { key: 'opentrashmail_domain', label: '邮箱域名（可选）', placeholder: 'xiyoufm.com' },
-          { key: 'opentrashmail_password', label: '站点密码（可选）', secret: true, placeholder: '启用 PASSWORD 时填写' },
+          { key: 'opentrashmail_domain', label: 'Mailbox domain (optional)', placeholder: 'xiyoufm.com' },
+          { key: 'opentrashmail_password', label: 'Site password (optional)', secret: true, placeholder: 'Enter this when PASSWORD is enabled' },
         ],
       },
       {
         title: 'TempMail.lol',
-        desc: '自动生成邮箱，无需配置，需要代理访问（CN IP 被封）',
+        desc: 'Automatically generate mailboxes without configuration; proxy access is required (CN IPs are blocked)',
         fields: [],
       },
       {
         title: 'DuckMail',
-        desc: '自动生成邮箱，随机创建账号',
+        desc: 'Automatically generate mailboxes and create accounts at random',
         fields: [
           { key: 'duckmail_api_url', label: 'Web URL', placeholder: 'https://www.duckmail.sbs' },
           { key: 'duckmail_provider_url', label: 'Provider URL', placeholder: 'https://api.duckmail.sbs' },
-          { key: 'duckmail_bearer', label: 'Bearer Token', placeholder: 'kevin273945', secret: true },
-          { key: 'duckmail_domain', label: '自定义域名', placeholder: '留空则从 Provider URL 推导' },
-          { key: 'duckmail_api_key', label: 'API Key（私有域名）', placeholder: 'dk_xxx（domain.duckmail.sbs 获取）', secret: true },
+          { key: 'duckmail_bearer', label: 'Bearer token', placeholder: 'kevin273945', secret: true },
+          { key: 'duckmail_domain', label: 'Custom domain', placeholder: 'Leave blank to derive from Provider URL' },
+          { key: 'duckmail_api_key', label: 'API key (private domain)', placeholder: 'dk_xxx (available from domain.duckmail.sbs)', secret: true },
         ],
       },
       {
-        title: 'CF Worker 自建邮箱',
-        desc: '基于 Cloudflare Worker 的自建临时邮箱服务',
+        title: 'CF Worker self-hosted mailbox',
+        desc: 'Self-hosted temporary mailbox service based on Cloudflare Worker',
         fields: [
           { key: 'cfworker_api_url', label: 'API URL', placeholder: 'https://apimail.example.com' },
-          { key: 'cfworker_admin_token', label: '管理员 Token', secret: true },
-          { key: 'cfworker_custom_auth', label: '站点密码', secret: true },
-          { key: 'cfworker_subdomain', label: '固定子域名', placeholder: 'mail / pool-a' },
-          { key: 'email_domain_rule_enabled', label: '启用域名规则', type: 'boolean' },
-          { key: 'email_domain_level_count', label: '域名级数（N 级）', placeholder: '例如 2 / 3 / 4' },
-          { key: 'cfworker_random_subdomain', label: '随机子域名', type: 'boolean' },
-          { key: 'cfworker_random_name_subdomain', label: '随机姓名子域名', type: 'boolean' },
+          { key: 'cfworker_admin_token', label: 'Admin token', secret: true },
+          { key: 'cfworker_custom_auth', label: 'Site password', secret: true },
+          { key: 'cfworker_subdomain', label: 'Fixed subdomain', placeholder: 'mail / pool-a' },
+          { key: 'email_domain_rule_enabled', label: 'Enable domain rules', type: 'boolean' },
+          { key: 'email_domain_level_count', label: 'Domain level count (N-level)', placeholder: 'e.g. 2 / 3 / 4' },
+          { key: 'cfworker_random_subdomain', label: 'Random subdomain', type: 'boolean' },
+          { key: 'cfworker_random_name_subdomain', label: 'Random name subdomain', type: 'boolean' },
           { key: 'cfworker_fingerprint', label: 'Fingerprint', placeholder: '6703363b...' },
         ],
       },
       {
         title: 'LuckMail',
-        desc: 'ChatGPT 走购买邮箱，其他平台继续走订单接码老逻辑',
+        desc: 'ChatGPT uses purchased mailboxes, while other platforms continue to use the existing order-based SMS flow',
         fields: [
-          { key: 'luckmail_base_url', label: '平台地址', placeholder: 'https://mails.luckyous.com' },
-          { key: 'luckmail_api_key', label: 'API Key', secret: true },
-          { key: 'luckmail_email_type', label: '邮箱类型（可选）', type: 'select' },
-          { key: 'luckmail_domain', label: '邮箱域名（可选）', placeholder: 'outlook.com / gmail.com' },
+          { key: 'luckmail_base_url', label: 'Platform URL', placeholder: 'https://mails.luckyous.com' },
+          { key: 'luckmail_api_key', label: 'API key', secret: true },
+          { key: 'luckmail_email_type', label: 'Mailbox type (optional)', type: 'select' },
+          { key: 'luckmail_domain', label: 'Mailbox domain (optional)', placeholder: 'outlook.com / gmail.com' },
+        ],
+      },
+      {
+        title: 'IMAP Catchall',
+        desc: 'Generic IMAP login for a catchall domain; generates random addresses and polls the inbox via IMAP',
+        fields: [
+          { key: 'imap_catchall_server', label: 'IMAP Server', placeholder: 'imap.titan.email' },
+          { key: 'imap_catchall_port', label: 'IMAP Port', placeholder: '993' },
+          { key: 'imap_catchall_username', label: 'Username (login email)', placeholder: 'admin@example.com' },
+          { key: 'imap_catchall_password', label: 'Password', secret: true },
+          { key: 'imap_catchall_domain', label: 'Catchall domain', placeholder: 'example.com' },
+          { key: 'imap_catchall_folders', label: 'Polling folders', placeholder: 'INBOX,Spam' },
+        ],
+      },
+      {
+        title: 'CatchMail.io',
+        desc: 'Free temporary email service with API access; no configuration required, automatically generates mailboxes',
+        fields: [
+          { key: 'catchmail_api_url', label: 'API URL', placeholder: 'https://api.catchmail.io' },
+        ],
+      },
+      {
+        title: 'Mail.tm / Mail.gw',
+        desc: 'Free temporary email service with API access and multiple domains; automatically generates mailboxes',
+        fields: [
+          { key: 'mailtm_api_url', label: 'API URL', placeholder: 'https://api.mail.tm' },
         ],
       },
     ],
   },
   {
     key: 'captcha',
-    label: '验证码',
+    label: 'Captcha',
     icon: <SafetyOutlined />,
     sections: [
       {
-        title: '验证码服务',
-        desc: '用于绕过注册页面的人机验证',
+        title: 'Captcha service',
+        desc: 'Used to bypass human verification on registration pages',
         fields: [
-          { key: 'default_captcha_solver', label: '默认服务', type: 'select' },
-          { key: 'yescaptcha_key', label: 'YesCaptcha Key', secret: true },
+          { key: 'default_captcha_solver', label: 'Default service', type: 'select' },
+          { key: 'yescaptcha_key', label: 'YesCaptcha key', secret: true },
         ],
       },
     ],
@@ -261,62 +293,62 @@ const TAB_ITEMS = [
     icon: <ApiOutlined />,
     sections: [
       {
-        title: 'CPA 面板',
-        desc: '注册完成后自动上传到 CPA 管理平台',
+        title: 'CPA panel',
+        desc: 'Automatically upload to the CPA management platform after registration completes',
         fields: [
-          { key: 'cpa_enabled', label: '启用自动上传', type: 'boolean' },
+          { key: 'cpa_enabled', label: 'Enable automatic upload', type: 'boolean' },
           { key: 'cpa_api_url', label: 'API URL', placeholder: 'https://your-cpa.example.com' },
-          { key: 'cpa_api_key', label: 'API Key', secret: true },
+          { key: 'cpa_api_key', label: 'API key', secret: true },
         ],
       },
       {
-        title: 'Sub2API 面板',
-        desc: '注册完成后自动上传到 Sub2API 管理后台',
+        title: 'Sub2API panel',
+        desc: 'Automatically upload to the Sub2API admin backend after registration completes',
         fields: [
-          { key: 'sub2api_enabled', label: '启用自动上传', type: 'boolean' },
+          { key: 'sub2api_enabled', label: 'Enable automatic upload', type: 'boolean' },
           { key: 'sub2api_api_url', label: 'API URL', placeholder: 'https://your-sub2api.example.com' },
-          { key: 'sub2api_api_key', label: 'API Key', secret: true },
-          { key: 'sub2api_group_ids', label: '分组 ID', placeholder: '多个分组用英文逗号分隔，例如 2,4,8' },
+          { key: 'sub2api_api_key', label: 'API key', secret: true },
+          { key: 'sub2api_group_ids', label: 'Group IDs', placeholder: 'Separate multiple groups with commas, e.g. 2,4,8' },
         ],
       },
       {
-        title: 'CPA 自动维护',
-        desc: '定时删除 status=error 的凭证，剩余数量低于阈值时自动按现有配置补注册 ChatGPT',
+        title: 'CPA auto maintenance',
+        desc: 'Periodically delete credentials with status=error; when the remaining count falls below the threshold, automatically create new ChatGPT registrations using the current configuration',
         fields: [
-          { key: 'cpa_cleanup_enabled', label: '自动维护', type: 'select' },
-          { key: 'cpa_cleanup_interval_minutes', label: '检查间隔（分钟）', placeholder: '60' },
-          { key: 'cpa_cleanup_threshold', label: '最低凭证阈值', placeholder: '5' },
-          { key: 'cpa_cleanup_concurrency', label: '补注册并发数', placeholder: '1' },
-          { key: 'cpa_cleanup_register_delay_seconds', label: '每个注册延迟（秒）', placeholder: '0' },
+          { key: 'cpa_cleanup_enabled', label: 'Auto maintenance', type: 'select' },
+          { key: 'cpa_cleanup_interval_minutes', label: 'Check interval (minutes)', placeholder: '60' },
+          { key: 'cpa_cleanup_threshold', label: 'Minimum credential threshold', placeholder: '5' },
+          { key: 'cpa_cleanup_concurrency', label: 'Re-registration concurrency', placeholder: '1' },
+          { key: 'cpa_cleanup_register_delay_seconds', label: 'Delay per registration (seconds)', placeholder: '0' },
         ],
       },
       {
         title: 'Team Manager',
-        desc: '上传到自建 Team Manager 系统',
+        desc: 'Upload to a self-hosted Team Manager system',
         fields: [
           { key: 'team_manager_url', label: 'API URL', placeholder: 'https://your-tm.example.com' },
-          { key: 'team_manager_key', label: 'API Key', secret: true },
+          { key: 'team_manager_key', label: 'API key', secret: true },
         ],
       },
       {
         title: 'CodexProxy',
-        desc: '注册完成后自动上传到 CodexProxy 管理平台',
+        desc: 'Automatically upload to the CodexProxy management platform after registration completes',
         fields: [
           { key: 'codex_proxy_url', label: 'API URL', placeholder: 'https://your-codex-proxy.example.com' },
-          { key: 'codex_proxy_key', label: 'Admin Key', secret: true },
-          { key: 'codex_proxy_upload_type', label: '上传类型' },
+          { key: 'codex_proxy_key', label: 'Admin key', secret: true },
+          { key: 'codex_proxy_upload_type', label: 'Upload type' },
         ],
       },
       {
-        title: 'SMSToMe 手机验证',
-        desc: 'ChatGPT add_phone 阶段自动取号并轮询短信验证码',
+        title: 'SMSToMe phone verification',
+        desc: 'Automatically obtain a number and poll SMS codes during the ChatGPT add_phone stage',
         fields: [
-          { key: 'smstome_cookie', label: 'SMSToMe Cookie', secret: true },
-          { key: 'smstome_country_slugs', label: '国家列表', placeholder: 'united-kingdom,poland' },
-          { key: 'smstome_phone_attempts', label: '手机号尝试次数', placeholder: '3' },
-          { key: 'smstome_otp_timeout_seconds', label: '短信等待秒数', placeholder: '45' },
-          { key: 'smstome_poll_interval_seconds', label: '轮询间隔秒数', placeholder: '5' },
-          { key: 'smstome_sync_max_pages_per_country', label: '每国同步页数', placeholder: '5' },
+          { key: 'smstome_cookie', label: 'SMSToMe cookie', secret: true },
+          { key: 'smstome_country_slugs', label: 'Country list', placeholder: 'united-kingdom,poland' },
+          { key: 'smstome_phone_attempts', label: 'Phone number attempts', placeholder: '3' },
+          { key: 'smstome_otp_timeout_seconds', label: 'SMS wait time (seconds)', placeholder: '45' },
+          { key: 'smstome_poll_interval_seconds', label: 'Polling interval (seconds)', placeholder: '5' },
+          { key: 'smstome_sync_max_pages_per_country', label: 'Sync pages per country', placeholder: '5' },
         ],
       },
     ],
@@ -327,11 +359,11 @@ const TAB_ITEMS = [
     icon: <ApiOutlined />,
     sections: [
       {
-        title: '管理面板',
-        desc: '用于 CLIProxyAPI 管理页登录',
+        title: 'Admin panel',
+        desc: 'Used to sign in to the CLIProxyAPI management page',
         fields: [
           { key: 'cliproxyapi_base_url', label: 'API URL', placeholder: 'http://127.0.0.1:8317' },
-          { key: 'cliproxyapi_management_key', label: '管理口令', secret: true, placeholder: '默认 cliproxyapi' },
+          { key: 'cliproxyapi_management_key', label: 'Admin secret', secret: true, placeholder: 'Defaults to cliproxyapi' },
         ],
       },
     ],
@@ -343,12 +375,12 @@ const TAB_ITEMS = [
     sections: [
       {
         title: 'grok2api',
-        desc: '注册成功后自动导入到 grok2api 管理后台',
+        desc: 'Automatically import into the grok2api admin backend after registration succeeds',
         fields: [
           { key: 'grok2api_url', label: 'API URL', placeholder: 'http://127.0.0.1:7860' },
-          { key: 'grok2api_app_key', label: 'App Key', secret: true },
-          { key: 'grok2api_pool', label: 'Token Pool', placeholder: 'ssoBasic 或 ssoSuper' },
-          { key: 'grok2api_quota', label: 'Quota（可选）', placeholder: '留空按池默认值' },
+          { key: 'grok2api_app_key', label: 'App key', secret: true },
+          { key: 'grok2api_pool', label: 'Token pool', placeholder: 'ssoBasic or ssoSuper' },
+          { key: 'grok2api_quota', label: 'Quota (optional)', placeholder: 'Leave blank to use the pool default' },
         ],
       },
     ],
@@ -360,37 +392,63 @@ const TAB_ITEMS = [
     sections: [
       {
         title: 'Kiro Account Manager',
-        desc: '注册成功后自动写入 kiro-account-manager 的 accounts.json',
+        desc: "Automatically write to kiro-account-manager's accounts.json after registration succeeds",
         fields: [
           {
             key: 'kiro_manager_path',
-            label: 'accounts.json 路径（可选）',
-            placeholder: '留空则自动使用系统默认路径',
+            label: 'accounts.json path (optional)',
+            placeholder: 'Leave blank to use the system default path',
           },
           {
             key: 'kiro_manager_exe',
-            label: 'Kiro Manager 可执行文件（可选）',
-            placeholder: '未安装 Rust 时可填写已安装的 KiroAccountManager.exe',
+            label: 'Kiro Manager executable (optional)',
+            placeholder: 'If Rust is not installed, you can provide the installed KiroAccountManager.exe',
           },
         ],
       },
     ],
   },
   {
+    key: 'omniroute',
+    label: 'OmniRoute',
+    icon: <ApiOutlined />,
+    sections: [
+      {
+        title: 'OmniRoute Connection',
+        desc: 'Push newly created accounts directly to your OmniRoute instance as provider connections',
+        fields: [
+          { key: 'omniroute_api_url', label: 'OmniRoute URL', placeholder: 'https://admin.aikompute.com' },
+          { key: 'omniroute_admin_password', label: 'Dashboard Password', secret: true, placeholder: 'Used to bypass API key bug via automated login' },
+          { key: 'omniroute_chatgpt_enabled', label: 'Auto-push ChatGPT accounts (as Codex)', type: 'boolean' },
+          { key: 'omniroute_kiro_enabled', label: 'Auto-push Kiro accounts', type: 'boolean' },
+          { key: 'omniroute_cloudflare_enabled', label: 'Auto-push Cloudflare accounts', type: 'boolean' },
+          { key: 'omniroute_cursor_enabled', label: 'Auto-push Cursor accounts', type: 'boolean' },
+          { key: 'omniroute_grok_enabled', label: 'Auto-push Grok accounts', type: 'boolean' },
+          { key: 'omniroute_mistral_enabled', label: 'Auto-push Mistral accounts', type: 'boolean' },
+          { key: 'omniroute_nvidia_nim_enabled', label: 'Auto-push Nvidia NIM accounts', type: 'boolean' },
+          { key: 'omniroute_openblocklabs_enabled', label: 'Auto-push OpenBlockLabs accounts', type: 'boolean' },
+          { key: 'omniroute_openrouter_enabled', label: 'Auto-push OpenRouter accounts', type: 'boolean' },
+          { key: 'omniroute_tavily_enabled', label: 'Auto-push Tavily accounts', type: 'boolean' },
+          { key: 'omniroute_cerebras_enabled', label: 'Auto-push Cerebras accounts', type: 'boolean' },
+        ],
+      },
+    ],
+  },
+  {
     key: 'contribution',
-    label: '贡献',
+    label: 'Contribution',
     icon: <PlusOutlined />,
     sections: [],
   },
   {
     key: 'integrations',
-    label: '插件',
+    label: 'Integrations',
     icon: <ApiOutlined />,
     sections: [],
   },
   {
     key: 'security',
-    label: '安全',
+    label: 'Security',
     icon: <LockOutlined />,
     sections: [],
   },
@@ -431,6 +489,9 @@ const MAILBOX_SECTION_FIELD_KEY_BY_PROVIDER: Record<string, string> = {
   duckmail: 'duckmail_api_url',
   cfworker: 'cfworker_api_url',
   luckmail: 'luckmail_base_url',
+  imap_catchall: 'imap_catchall_server',
+  catchmail: 'catchmail_api_url',
+  mailtm: 'mailtm_api_url',
 }
 
 const MAILBOX_SECTION_INDEX_BY_PROVIDER: Record<string, number> = {
@@ -571,11 +632,11 @@ function ConfigField({ field }: { field: FieldConfig }) {
   const isBooleanField = field.type === 'boolean'
   const helpText =
     field.key === 'default_executor'
-      ? '仅对支持的平台生效；ChatGPT、Cursor、Grok、Kiro、Tavily 支持浏览器模式，OpenBlockLabs 仅支持纯协议。'
+      ? 'Only takes effect on supported platforms; ChatGPT, Cursor, Grok, Kiro, and Tavily support browser mode, while OpenBlockLabs supports protocol mode only.'
       : field.key === 'email_domain_rule_enabled'
-      ? '仅 CF Worker 生效：开启后会校验域名级数，以及域名至少包含 2 个字母和 2 个数字。'
+      ? 'CF Worker only: when enabled, the domain level count is validated and each domain must contain at least 2 letters and 2 digits.'
       : field.key === 'email_domain_level_count'
-      ? '例如 2=example.com，3=a.example.com，4=a.b.example.com。'
+      ? 'For example: 2=example.com, 3=a.example.com, 4=a.b.example.com.'
       : undefined
 
   return (
@@ -588,7 +649,7 @@ function ConfigField({ field }: { field: FieldConfig }) {
       {options ? (
         <Select options={options} style={{ width: '100%' }} />
       ) : isBooleanField ? (
-        <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+        <Switch checkedChildren="On" unCheckedChildren="Off" />
       ) : field.secret ? (
         <Input.Password
           placeholder={field.placeholder}
@@ -635,8 +696,8 @@ function CFWorkerDomainPoolSection({ form }: { form: any }) {
 
   return (
     <Card
-      title="CF Worker 域名池"
-      extra={<span style={{ fontSize: 12, color: '#7a8ba3' }}>注册时会从已启用域名中随机选择一个</span>}
+      title="CF Worker domain pool"
+      extra={<span style={{ fontSize: 12, color: '#7a8ba3' }}>A random enabled domain will be selected during registration</span>}
       style={{ marginBottom: 16 }}
     >
       <Form.List name="cfworker_domains">
@@ -648,13 +709,13 @@ function CFWorkerDomainPoolSection({ form }: { form: any }) {
                 <Space key={key} align="start" style={{ display: 'flex' }}>
                   <Form.Item
                     {...restField}
-                    label={field.name === 0 ? '全部域名' : ''}
+                    label={field.name === 0 ? 'All domains' : ''}
                     style={{ flex: 1, marginBottom: 0 }}
                     rules={[
                       {
                         validator: async (_, value) => {
                           if (!String(value || '').trim()) {
-                            throw new Error('请输入域名')
+                            throw new Error('Please enter a domain')
                           }
                         },
                       },
@@ -678,15 +739,15 @@ function CFWorkerDomainPoolSection({ form }: { form: any }) {
                     )
                   }}
                 >
-                  删除
+                  Delete
                 </Button>
               </Space>
             )})}
             {fields.length === 0 ? (
-              <Typography.Text type="secondary">还没有配置域名。添加后即可在下方选择启用项。</Typography.Text>
+              <Typography.Text type="secondary">No domains configured yet. Add one to enable it below.</Typography.Text>
             ) : null}
             <Button type="dashed" onClick={() => add('')} icon={<PlusOutlined />} block>
-              添加域名
+              Add domain
             </Button>
           </div>
         )}
@@ -697,7 +758,7 @@ function CFWorkerDomainPoolSection({ form }: { form: any }) {
       </Form.Item>
 
       <div style={{ marginTop: 16 }}>
-        <div style={{ marginBottom: 8, fontWeight: 500 }}>已启用域名</div>
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>Enabled domains</div>
         {enabledDomains.length > 0 ? (
           <Space wrap>
             {enabledDomains.map((domain) => (
@@ -715,12 +776,12 @@ function CFWorkerDomainPoolSection({ form }: { form: any }) {
             ))}
           </Space>
         ) : (
-          <Typography.Text type="secondary">暂无启用域名，点击下方域名即可启用。</Typography.Text>
+          <Typography.Text type="secondary">No enabled domains yet; click a domain below to enable it.</Typography.Text>
         )}
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <div style={{ marginBottom: 8, fontWeight: 500 }}>点击切换启用状态</div>
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>Click to toggle enabled status</div>
         {normalizedDomains.length > 0 ? (
           <Space wrap>
             {normalizedDomains.map((domain) => (
@@ -734,11 +795,11 @@ function CFWorkerDomainPoolSection({ form }: { form: any }) {
             ))}
           </Space>
         ) : (
-          <Typography.Text type="secondary">请先在上方添加域名。</Typography.Text>
+          <Typography.Text type="secondary">Add a domain above first.</Typography.Text>
         )}
       </div>
       <Typography.Text type="secondary" style={{ display: 'block', marginTop: 12 }}>
-        仅已启用域名会参与注册；点击已启用标签可直接移除。
+        Only enabled domains participate in registration; click an enabled tag to remove it directly.
       </Typography.Text>
     </Card>
   )
@@ -788,11 +849,11 @@ function SolverStatus() {
             <CloseCircleOutlined style={{ color: '#ef4444' }} />
           )}
           <span style={{ color: running ? '#10b981' : '#7a8ba3', fontWeight: 500 }}>
-            {running === null ? '检测中' : running ? '运行中' : '未运行'}
+            {running === null ? 'Checking' : running ? 'Running' : 'Not running'}
           </span>
         </Space>
         <Button size="small" onClick={restartSolver}>
-          重启 Solver
+          Restart Solver
         </Button>
       </div>
     </Card>
@@ -847,11 +908,11 @@ function IntegrationsPanel() {
     try {
       const result = await request
       await load()
-      message.success('操作完成')
-      showResultModal('操作结果', result, true)
+      message.success('Operation completed')
+      showResultModal('Operation result', result, true)
     } catch (e: any) {
-      message.error(e?.message || '操作失败')
-      showResultModal('操作结果', e?.message || e || '操作失败', false)
+      message.error(e?.message || 'Operation failed')
+      showResultModal('Operation result', e?.message || e || 'Operation failed', false)
       await load()
     } finally {
       setBusy('')
@@ -865,11 +926,11 @@ function IntegrationsPanel() {
         method: 'POST',
         body: JSON.stringify({ platforms }),
       })
-      message.success(`${label} 回填完成：成功 ${d.success} / ${d.total}`)
-      showResultModal(`${label} 回填结果`, d, true)
+      message.success(`${label} backfill completed: success ${d.success} / ${d.total}`)
+      showResultModal(`${label} backfill result`, d, true)
     } catch (e: any) {
-      message.error(e?.message || `${label} 回填失败`)
-      showResultModal(`${label} 回填结果`, e?.message || e || `${label} 回填失败`, false)
+      message.error(e?.message || `${label} backfill failed`)
+      showResultModal(`${label} backfill result`, e?.message || e || `${label} backfill failed`, false)
     } finally {
       setBusy('')
     }
@@ -883,9 +944,9 @@ function IntegrationsPanel() {
         body: JSON.stringify({ data: { external_apps_update_mode: nextMode } }),
       })
       setUpdateMode(nextMode)
-      message.success(nextMode === 'tag' ? '已切换到 tag 模式' : '已切换到分支模式')
+      message.success(nextMode === 'tag' ? 'Switched to tag mode' : 'Switched to branch mode')
     } catch (e: any) {
-      message.error(e?.message || '切换失败')
+      message.error(e?.message || 'Switch failed')
     } finally {
       setBusy('')
     }
@@ -918,7 +979,7 @@ function IntegrationsPanel() {
             }}
           >
             <Button type="primary" icon={<SaveOutlined />} onClick={() => {}} loading={false} block size="large">
-              {saved ? '已保存 ✓' : '保存配置'}
+              {saved ? 'Saved ✓' : 'Save configuration'}
             </Button>
           </div>
         </div>
@@ -928,12 +989,12 @@ function IntegrationsPanel() {
         title={resultModal.title}
         onCancel={() => setResultModal((v) => ({ ...v, open: false }))}
         onOk={() => setResultModal((v) => ({ ...v, open: false }))}
-        okText="确定"
-        cancelText="取消"
+        okText="OK"
+        cancelText="Cancel"
         width={760}
       >
         <Typography.Paragraph style={{ marginBottom: 8, color: resultModal.ok ? '#10b981' : '#ef4444' }}>
-          {resultModal.ok ? '操作已完成。' : '操作失败。'}
+          {resultModal.ok ? 'Operation completed.' : 'Operation failed.'}
         </Typography.Paragraph>
         <pre
           style={{
@@ -953,7 +1014,7 @@ function IntegrationsPanel() {
         </pre>
       </Modal>
 
-      <Card title="安装/更新策略">
+      <Card title="Install/Update Strategy">
         <Space wrap align="center">
           <Select
             style={{ width: 320 }}
@@ -966,21 +1027,21 @@ function IntegrationsPanel() {
             loading={busy === 'update-mode'}
             onClick={() => updateInstallMode(updateMode)}
           >
-            保存策略
+            Save strategy
           </Button>
         </Space>
       </Card>
 
-      <Card title="批量操作">
+      <Card title="Batch operations">
         <Space wrap>
           <Button loading={busy === 'start-all'} onClick={() => doAction('start-all', apiFetch('/integrations/services/start-all', { method: 'POST' }))}>
-            启动全部（已安装）
+            Start all (installed)
           </Button>
           <Button loading={busy === 'stop-all'} onClick={() => doAction('stop-all', apiFetch('/integrations/services/stop-all', { method: 'POST' }))}>
-            停止全部
+            Stop all
           </Button>
           <Button loading={loading} onClick={load}>
-            刷新状态
+            Refresh status
           </Button>
         </Space>
       </Card>
@@ -989,25 +1050,25 @@ function IntegrationsPanel() {
         <Card key={item.name} title={item.label}>
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
-              状态：
+              Status: 
               <Tag color={item.running ? 'green' : 'default'} style={{ marginLeft: 8 }}>
-                {item.running ? '运行中' : '未运行'}
+                {item.running ? 'Running' : 'Not running'}
               </Tag>
               <Tag color={item.repo_exists ? 'blue' : 'orange'} style={{ marginLeft: 8 }}>
-                {item.repo_exists ? '已安装' : '未安装'}
+                {item.repo_exists ? 'Installed' : 'Not installed'}
               </Tag>
               {item.pid ? <span style={{ marginLeft: 8 }}>PID: {item.pid}</span> : null}
             </div>
-            <div>插件目录：<Typography.Text copyable>{item.repo_path}</Typography.Text></div>
-            {item.url ? <div>地址：<Typography.Text copyable>{item.url}</Typography.Text></div> : null}
-            {item.management_url ? <div>管理页：<Typography.Text copyable>{item.management_url}</Typography.Text></div> : null}
-            {item.management_key ? <div>登录口令：<Typography.Text copyable>{item.management_key}</Typography.Text></div> : null}
-            <div>日志：<Typography.Text copyable>{item.log_path}</Typography.Text></div>
-            {item.last_error ? <div style={{ color: '#ef4444' }}>最近错误：{item.last_error}</div> : null}
+            <div>Integrations directory: <Typography.Text copyable>{item.repo_path}</Typography.Text></div>
+            {item.url ? <div>URL: <Typography.Text copyable>{item.url}</Typography.Text></div> : null}
+            {item.management_url ? <div>Management page: <Typography.Text copyable>{item.management_url}</Typography.Text></div> : null}
+            {item.management_key ? <div>Login token: <Typography.Text copyable>{item.management_key}</Typography.Text></div> : null}
+            <div>Log: <Typography.Text copyable>{item.log_path}</Typography.Text></div>
+            {item.last_error ? <div style={{ color: '#ef4444' }}>Latest error: {item.last_error}</div> : null}
             <Space wrap>
               {item.management_url ? (
                 <Button onClick={() => window.open(item.management_url, '_blank')}>
-                  打开管理页
+                  Open management page
                 </Button>
               ) : null}
               {!item.repo_exists ? (
@@ -1016,14 +1077,14 @@ function IntegrationsPanel() {
                   loading={busy === `install-${item.name}`}
                   onClick={() => doAction(`install-${item.name}`, apiFetch(`/integrations/services/${item.name}/install`, { method: 'POST' }))}
                 >
-                  安装最新版
+                  Install latest version
                 </Button>
               ) : (
                 <Button
                   loading={busy === `install-${item.name}`}
                   onClick={() => doAction(`install-${item.name}`, apiFetch(`/integrations/services/${item.name}/install`, { method: 'POST' }))}
                 >
-                  更新到最新版
+                  Update to latest version
                 </Button>
               )}
               <Button
@@ -1031,20 +1092,20 @@ function IntegrationsPanel() {
                 disabled={!item.repo_exists}
                 onClick={() => doAction(`start-${item.name}`, apiFetch(`/integrations/services/${item.name}/start`, { method: 'POST' }))}
               >
-                启动
+                Start
               </Button>
               <Button
                 loading={busy === `stop-${item.name}`}
                 onClick={() => doAction(`stop-${item.name}`, apiFetch(`/integrations/services/${item.name}/stop`, { method: 'POST' }))}
               >
-                停止
+                Stop
               </Button>
               <Button
                 danger
                 loading={busy === `uninstall-${item.name}`}
                 disabled={!item.repo_exists}
                 onClick={() => {
-                  const ok = window.confirm(`确认卸载 ${item.label}？\n会停止服务并删除本地插件目录。`)
+                  const ok = window.confirm(`Uninstall ${item.label}?\nThis will stop the service and delete the local integrations directory.`)
                   if (!ok) return
                   doAction(
                     `uninstall-${item.name}`,
@@ -1052,14 +1113,14 @@ function IntegrationsPanel() {
                   )
                 }}
               >
-                卸载
+                Uninstall
               </Button>
               {item.name === 'grok2api' ? (
                 <Button
                   loading={busy === 'backfill-grok'}
                   onClick={() => backfill(['grok'], 'Grok', 'backfill-grok')}
                 >
-                  回填现有 Grok 账号
+                  Backfill existing Grok accounts
                 </Button>
               ) : null}
               {item.name === 'kiro-manager' ? (
@@ -1067,7 +1128,7 @@ function IntegrationsPanel() {
                   loading={busy === 'backfill-kiro'}
                   onClick={() => backfill(['kiro'], 'Kiro', 'backfill-kiro')}
                 >
-                  回填现有 Kiro 账号
+                  Backfill existing Kiro accounts
                 </Button>
               ) : null}
             </Space>
@@ -1138,16 +1199,16 @@ function ContributionPanel({
   const redeemedAmountUSD = pickNumber(redeemData, ['redeemed_amount_usd', 'redeemed_amount', 'amount_usd'])
   const redeemSuccessText =
     redeemResponse
-      ? `提现成功！额度：${redeemedAmountUSD !== null ? formatDisplayNumber(redeemedAmountUSD, 2) : '-'} 兑换码：${redeemCode || '-'}`
+      ? `Withdraw success! Amount: ${redeemedAmountUSD !== null ? formatDisplayNumber(redeemedAmountUSD, 2) : '-'} Redeem code: ${redeemCode || '-'}`
       : ''
 
   const fetchStats = async (silent = false, keyOverride?: string) => {
     if (!contributionEnabled) {
-      if (!silent) message.warning('请先开启贡献功能')
+      if (!silent) message.warning('Enable the Contribution feature first')
       return
     }
     if (!contributionServerUrl) {
-      if (!silent) message.error('请先填写服务器地址')
+      if (!silent) message.error('Please enter the server address first')
       return
     }
 
@@ -1163,10 +1224,10 @@ function ContributionPanel({
       })
       setStatsResponse(asRecord(data))
       if (!silent) {
-        message.success('额度信息已刷新')
+        message.success('Quota information refreshed')
       }
     } catch (e: any) {
-      const detail = String(e?.message || '获取额度信息失败')
+      const detail = String(e?.message || 'Failed to fetch quota information')
       setStatsError(detail)
       if (!silent) {
         message.error(detail)
@@ -1178,19 +1239,19 @@ function ContributionPanel({
 
   const doRedeem = async () => {
     if (!contributionEnabled) {
-      message.warning('请先开启贡献功能')
+      message.warning('Enable the Contribution feature first')
       return
     }
     if (!contributionServerUrl) {
-      message.error('请先填写服务器地址')
+      message.error('Please enter the server address first')
       return
     }
     if (!contributionKey) {
-      message.error('请先填写 API Key')
+      message.error('Please enter the API key first')
       return
     }
 
-    const confirmed = window.confirm(`确认提现吗？\n将按 ${redeemAmount} 发起提现请求`)
+    const confirmed = window.confirm(`Withdraw now?\nA withdraw request will be sent for ${redeemAmount}.`)
     if (!confirmed) return
 
     setRedeeming(true)
@@ -1209,13 +1270,13 @@ function ContributionPanel({
       const amount = pickNumber(payload, ['redeemed_amount_usd', 'redeemed_amount', 'amount_usd'])
       setRedeemResponse(result)
       if (amount !== null || code) {
-        message.success(`提现成功！额度：${amount !== null ? formatDisplayNumber(amount, 2) : '-'} 兑换码：${code || '-'}`)
+        message.success(`Withdraw success! Amount: ${amount !== null ? formatDisplayNumber(amount, 2) : '-'} Redeem code: ${code || '-'}`)
       } else {
-        message.success('提现成功')
+        message.success('WithdrawSuccess')
       }
       await fetchStats(true)
     } catch (e: any) {
-      const detail = String(e?.message || '提现失败')
+      const detail = String(e?.message || 'WithdrawFailed')
       setRedeemResponse({ ok: false, error: detail })
       message.error(detail)
     } finally {
@@ -1225,7 +1286,7 @@ function ContributionPanel({
 
   const doGenerateKey = async () => {
     if (!contributionServerUrl) {
-      message.error('请先填写服务器地址')
+      message.error('Please enter the server address first')
       return
     }
     setCreatingKey(true)
@@ -1239,15 +1300,15 @@ function ContributionPanel({
       const payload = asRecord(asRecord(result)?.data)
       const generated = pickString(payload, ['key', 'api_key', 'public_key'])
       if (!generated) {
-        throw new Error('服务端未返回可用 key')
+        throw new Error('The server did not return a usable key')
       }
       form.setFieldValue('contribution_key', generated)
-      message.success('已新建并填充 API Key，请点击保存配置')
+      message.success('Created and filled in the API key. Please click Save configuration.')
       if (contributionEnabled) {
         await fetchStats(true, generated)
       }
     } catch (e: any) {
-      message.error(String(e?.message || '请求新建 key 失败'))
+      message.error(String(e?.message || 'Failed to request a new key'))
     } finally {
       setCreatingKey(false)
     }
@@ -1255,11 +1316,11 @@ function ContributionPanel({
 
   const doBindCustom = async () => {
     if (!customEmail.trim()) {
-      message.error('请输入邮箱')
+      message.error('Please enter an email address')
       return
     }
     if (!customContributionUrl) {
-      message.error('请先填写自定义服务器地址')
+      message.error('Please enter the custom server address first')
       return
     }
     setBindingCustom(true)
@@ -1274,13 +1335,13 @@ function ContributionPanel({
       const token = pickString(asRecord(data), ['token'])
       if (token) {
         form.setFieldValue('custom_contribution_token', token)
-        message.success('绑定成功！token 已自动填充，请点击保存配置')
+        message.success('Binding succeeded! The token has been filled in automatically. Please click Save configuration.')
         setCustomEmail('')
       } else {
-        message.success('绑定成功')
+        message.success('Binding succeeded')
       }
     } catch (e: any) {
-      message.error(String(e?.message || '绑定失败'))
+      message.error(String(e?.message || 'Binding failed'))
     } finally {
       setBindingCustom(false)
     }
@@ -1288,15 +1349,15 @@ function ContributionPanel({
 
   const fetchCustomStats = async () => {
     if (!contributionEnabled) {
-      message.warning('请先开启贡献功能')
+      message.warning('Enable the Contribution feature first')
       return
     }
     if (!customContributionUrl) {
-      message.error('请先填写自定义服务器地址')
+      message.error('Please enter the custom server address first')
       return
     }
     if (!customContributionToken) {
-      message.error('请先绑定邮箱获取 token')
+      message.error('Bind an email address to obtain the token first')
       return
     }
     setLoadingCustomStats(true)
@@ -1307,9 +1368,9 @@ function ContributionPanel({
       ])
       setCustomStatsResponse(asRecord(status))
       setCustomBalanceResponse(asRecord(balance))
-      message.success('信息已刷新')
+      message.success('Information refreshed')
     } catch (e: any) {
-      message.error(String(e?.message || '获取信息失败'))
+      message.error(String(e?.message || 'Failed to fetch information'))
     } finally {
       setLoadingCustomStats(false)
     }
@@ -1317,28 +1378,28 @@ function ContributionPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card title="配置">
+      <Card title="Configuration">
         <Alert
           type="warning"
           showIcon
           banner
           style={{ marginBottom: 12 }}
-          message="开启贡献模式后，注册成功账号将只上传到贡献服务器"
+          message="When Contribution mode is enabled, newly registered successful accounts will only be uploaded to the Contribution server"
           description={(
             <>
-              <div>CPA / CodexProxy / Sub2API 自动上传会被停用，避免重复上报。</div>
-              <div>目前该功能在xem中转站测试中 有兴趣可以进群了解</div>
-              <div>中转站https://ai.xem8k5.top/ 群号634758974</div>
+              <div>Automatic uploads for CPA / CodexProxy / Sub2API will be disabled to avoid duplicate reporting.</div>
+              <div>This feature is currently being tested on the xem relay service; join the group if you're interested.</div>
+              <div>Relay service: https://ai.xem8k5.top/  Group: 634758974</div>
             </>
           )}
         />
-        <Form.Item name="contribution_enabled" label="是否开启" valuePropName="checked">
-          <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+        <Form.Item name="contribution_enabled" label="Enabled" valuePropName="checked">
+          <Switch checkedChildren="On" unCheckedChildren="Off" />
         </Form.Item>
-        <Form.Item name="contribution_mode" label="贡献模式">
+        <Form.Item name="contribution_mode" label="Contribution mode">
           <Select>
-            <Select.Option value="codex">Codex2API（xem中转站）</Select.Option>
-            <Select.Option value="custom">自定义贡献系统</Select.Option>
+            <Select.Option value="codex">Codex2API (xem relay)</Select.Option>
+            <Select.Option value="custom">Custom Contribution system</Select.Option>
           </Select>
         </Form.Item>
 
@@ -1346,14 +1407,14 @@ function ContributionPanel({
           <>
             <Form.Item
               name="contribution_server_url"
-              label="服务器地址"
-              rules={[{ required: true, message: '请输入服务器地址' }]}
+              label="Server address"
+              rules={[{ required: true, message: 'Please enter the server address' }]}
             >
               <Input placeholder="http://new.xem8k5.top:7317/" />
             </Form.Item>
-            <Form.Item name="contribution_key" label="API Key">
+            <Form.Item name="contribution_key" label="API key">
               <Input
-                placeholder="留空可点击右侧按钮自动创建"
+                placeholder="Leave blank and click the button on the right to create one automatically"
                 addonAfter={(
                   <Button
                     type="link"
@@ -1362,7 +1423,7 @@ function ContributionPanel({
                     onClick={() => { void doGenerateKey() }}
                     style={{ paddingInline: 0 }}
                   >
-                    没有key?请求新建
+                    No key? Request a new one
                   </Button>
                 )}
               />
@@ -1372,64 +1433,64 @@ function ContributionPanel({
           <>
             <Form.Item
               name="custom_contribution_url"
-              label="自定义服务器地址"
-              rules={[{ required: true, message: '请输入服务器地址' }]}
+              label="Custom server address"
+              rules={[{ required: true, message: 'Please enter the server address' }]}
             >
               <Input placeholder="http://127.0.0.1:5000" />
             </Form.Item>
-            <Form.Item label="绑定邮箱">
+            <Form.Item label="Bind email">
               <Space.Compact style={{ width: '100%' }}>
                 <Input
-                  placeholder="输入邮箱以绑定账号"
+                  placeholder="Enter an email address to bind the account"
                   value={customEmail}
                   onChange={(e) => setCustomEmail(e.target.value)}
                   onPressEnter={() => { void doBindCustom() }}
                 />
                 <Button type="primary" loading={bindingCustom} onClick={() => { void doBindCustom() }}>
-                  绑定
+                  Bind
                 </Button>
               </Space.Compact>
             </Form.Item>
             <Form.Item name="custom_contribution_token" label="Token">
-              <Input.TextArea placeholder="绑定邮箱后自动填充" rows={3} />
+              <Input.TextArea placeholder="Automatically filled after binding an email" rows={3} />
             </Form.Item>
           </>
         )}
 
         <Button type="primary" icon={<SaveOutlined />} onClick={onSave} loading={saving} block>
-          {saved ? '已保存 ✓' : '保存配置'}
+          {saved ? 'Saved ✓' : 'Save configuration'}
         </Button>
       </Card>
 
       {!isCustomMode ? (
         <>
           <Card
-            title="信息"
+            title="Information"
             extra={(
               <Button loading={loadingStats} onClick={() => { void fetchStats() }}>
-                刷新信息
+                Refresh information
               </Button>
             )}
           >
             {!contributionEnabled ? (
-              <Alert type="info" showIcon message="贡献功能已关闭，开启后可获取服务器与 key 信息。" />
+              <Alert type="info" showIcon message="Contribution is off. Enable it to view server and key information." />
             ) : (
               <Space direction="vertical" style={{ width: '100%' }} size={12}>
                 {statsError ? <Alert type="error" showIcon message={statsError} /> : null}
                 <div>
-                  <Typography.Text strong>服务器信息</Typography.Text>
+                  <Typography.Text strong>Server information</Typography.Text>
                   <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
-                    <Tag color="blue">账号数: {formatDisplayNumber(serverQuotaAccountCount)}</Tag>
-                    <Tag color="geekblue">总额度: {formatDisplayNumber(serverQuotaTotal)}</Tag>
-                    <Tag color="volcano">已用额度: {formatDisplayNumber(serverQuotaUsed)}</Tag>
-                    <Tag color="green">剩余额度: {formatDisplayNumber(serverQuotaRemaining)}</Tag>
-                    <Tag color="orange">已用占比: {formatDisplayPercent(serverQuotaUsedPercent)}</Tag>
-                    <Tag color="cyan">剩余占比: {formatDisplayPercent(serverQuotaRemainingPercent)}</Tag>
-                    <Tag color="purple">折算账号数: {formatDisplayNumber(serverQuotaRemainingAccounts, 2)}</Tag>
+                    <Tag color="blue">Accounts: {formatDisplayNumber(serverQuotaAccountCount)}</Tag>
+                    <Tag color="geekblue">Total quota: {formatDisplayNumber(serverQuotaTotal)}</Tag>
+                    <Tag color="volcano">Used quota: {formatDisplayNumber(serverQuotaUsed)}</Tag>
+                    <Tag color="green">Remaining quota: {formatDisplayNumber(serverQuotaRemaining)}</Tag>
+                    <Tag color="orange">Used percentage: {formatDisplayPercent(serverQuotaUsedPercent)}</Tag>
+                    <Tag color="cyan">Remaining percentage: {formatDisplayPercent(serverQuotaRemainingPercent)}</Tag>
+                    <Tag color="purple">Equivalent accounts: {formatDisplayNumber(serverQuotaRemainingAccounts, 2)}</Tag>
                   </div>
                 </div>
                 <div>
-                  <Typography.Text strong>API Key</Typography.Text>
+                  <Typography.Text strong>API key</Typography.Text>
                   <Space style={{ marginLeft: 8 }}>
                     <Typography.Text copyable={keyFromStats ? { text: keyFromStats } : undefined}>
                       {keyFromStats || '-'}
@@ -1437,22 +1498,22 @@ function ContributionPanel({
                   </Space>
                 </div>
                 <div>
-                  <Typography.Text strong>key 信息</Typography.Text>
+                  <Typography.Text strong>Key information</Typography.Text>
                   <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
-                    <Tag color="blue">余额: {keyBalance ?? '-'}</Tag>
-                    <Tag color="geekblue">来源: {keySource}</Tag>
-                    <Tag color="cyan">绑定账号数: {boundAccounts ?? '-'}</Tag>
-                    <Tag color="purple">结算金额: {settlementAmount ?? '-'}</Tag>
+                    <Tag color="blue">Balance: {keyBalance ?? '-'}</Tag>
+                    <Tag color="geekblue">Source: {keySource}</Tag>
+                    <Tag color="cyan">Bound accounts: {boundAccounts ?? '-'}</Tag>
+                    <Tag color="purple">Settlement amount: {settlementAmount ?? '-'}</Tag>
                   </div>
                 </div>
               </Space>
             )}
           </Card>
 
-          <Card title="提现">
+          <Card title="Withdraw">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Typography.Text>key 当前额度：{keyBalance ?? '-'}</Typography.Text>
-              <Form.Item label="提现金额" style={{ marginBottom: 0 }}>
+              <Typography.Text>Current key balance: {keyBalance ?? '-'}</Typography.Text>
+              <Form.Item label="Withdraw amount" style={{ marginBottom: 0 }}>
                 <Select
                   value={redeemAmount}
                   onChange={setRedeemAmount}
@@ -1461,13 +1522,13 @@ function ContributionPanel({
                 />
               </Form.Item>
               <Button type="primary" danger onClick={() => { void doRedeem() }} loading={redeeming}>
-                提现确认
+                Withdrawal confirmation
               </Button>
               {redeemResponse ? (
                 <Alert
                   type={redeemResponse.ok === false ? 'error' : 'success'}
                   showIcon
-                  message={redeemResponse.ok === false ? `提现失败：${String(redeemResponse.error || '-')}` : redeemSuccessText}
+                  message={redeemResponse.ok === false ? `WithdrawFailed:${String(redeemResponse.error || '-')}` : redeemSuccessText}
                   description={<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{formatResultText(redeemResponse)}</pre>}
                 />
               ) : null}
@@ -1476,31 +1537,31 @@ function ContributionPanel({
         </>
       ) : (
         <Card
-          title="信息"
+          title="Information"
           extra={(
             <Button loading={loadingCustomStats} onClick={() => { void fetchCustomStats() }}>
-              刷新信息
+              Refresh information
             </Button>
           )}
         >
           {!contributionEnabled ? (
-            <Alert type="info" showIcon message="贡献功能已关闭，开启后可获取信息。" />
+            <Alert type="info" showIcon message="Contribution is off. Enable it to view information." />
           ) : !customContributionToken ? (
-            <Alert type="warning" showIcon message="请先绑定邮箱获取 token" />
+            <Alert type="warning" showIcon message="Bind an email address to obtain the token first" />
           ) : (
             <Space direction="vertical" style={{ width: '100%' }} size={12}>
               <div>
-                <Typography.Text strong>余额信息</Typography.Text>
+                <Typography.Text strong>Balance information</Typography.Text>
                 <div style={{ marginTop: 8 }}>
-                  <Tag color="blue">余额: {pickNumber(asRecord(customBalanceResponse), ['balance']) ?? '-'}</Tag>
+                  <Tag color="blue">Balance: {pickNumber(asRecord(customBalanceResponse), ['balance']) ?? '-'}</Tag>
                 </div>
               </div>
               <div>
-                <Typography.Text strong>贡献记录</Typography.Text>
+                <Typography.Text strong>Contribution records</Typography.Text>
                 <div style={{ marginTop: 8 }}>
-                  <Tag color="green">成功: {pickNumber(asRecord(customStatsResponse), ['success_count']) ?? '-'}</Tag>
-                  <Tag color="orange">待处理: {pickNumber(asRecord(customStatsResponse), ['pending_count']) ?? '-'}</Tag>
-                  <Tag color="red">失败: {pickNumber(asRecord(customStatsResponse), ['failed_count']) ?? '-'}</Tag>
+                  <Tag color="green">Success: {pickNumber(asRecord(customStatsResponse), ['success_count']) ?? '-'}</Tag>
+                  <Tag color="orange">Pending: {pickNumber(asRecord(customStatsResponse), ['pending_count']) ?? '-'}</Tag>
+                  <Tag color="red">Failed: {pickNumber(asRecord(customStatsResponse), ['failed_count']) ?? '-'}</Tag>
                 </div>
               </div>
             </Space>
@@ -1537,7 +1598,7 @@ function SecurityPanel() {
 
   const handleEnable = async (values: { password: string; confirm: string }) => {
     if (values.password !== values.confirm) {
-      msg.error('两次输入的密码不一致')
+      msg.error('The two passwords do not match')
       return
     }
     setLoading(true)
@@ -1547,7 +1608,7 @@ function SecurityPanel() {
         body: JSON.stringify({ password: values.password }),
       })
       localStorage.setItem('auth_token', d.access_token)
-      msg.success('密码保护已启用')
+      msg.success('Password protection enabled')
       enableForm.resetFields()
       await loadStatus()
     } catch (e: any) {
@@ -1562,7 +1623,7 @@ function SecurityPanel() {
     try {
       await apiFetch('/auth/disable', { method: 'POST' })
       localStorage.removeItem('auth_token')
-      msg.success('密码保护已关闭')
+      msg.success('Password protection disabled')
       await loadStatus()
     } catch (e: any) {
       msg.error(e.message)
@@ -1573,7 +1634,7 @@ function SecurityPanel() {
 
   const handleChangePassword = async (values: { current_password: string; new_password: string; confirm: string }) => {
     if (values.new_password !== values.confirm) {
-      msg.error('两次输入的新密码不一致')
+      msg.error('The two new passwords do not match')
       return
     }
     setLoading(true)
@@ -1582,7 +1643,7 @@ function SecurityPanel() {
         method: 'POST',
         body: JSON.stringify({ current_password: values.current_password, new_password: values.new_password }),
       })
-      msg.success('密码已更新')
+      msg.success('Password updated')
       pwForm.resetFields()
     } catch (e: any) {
       msg.error(e.message)
@@ -1612,7 +1673,7 @@ function SecurityPanel() {
         method: 'POST',
         body: JSON.stringify({ secret: totpSecret, code: values.code }),
       })
-      msg.success('双因素认证已启用')
+      msg.success('Two-factor authentication enabled')
       setTotpSetupState('idle')
       codeForm.resetFields()
       await loadStatus()
@@ -1627,7 +1688,7 @@ function SecurityPanel() {
     setLoading(true)
     try {
       await apiFetch('/auth/2fa/disable', { method: 'POST' })
-      msg.success('双因素认证已关闭')
+      msg.success('Two-factor authentication disabled')
       await loadStatus()
     } catch (e: any) {
       msg.error(e.message)
@@ -1639,37 +1700,37 @@ function SecurityPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card
-        title="访问密码保护"
+        title="Password protection"
         extra={
           status?.has_password
-            ? <Tag color="green"><CheckCircleOutlined /> 已启用</Tag>
-            : <Tag color="default"><CloseCircleOutlined /> 未启用</Tag>
+            ? <Tag color="green"><CheckCircleOutlined /> Enabled</Tag>
+            : <Tag color="default"><CloseCircleOutlined /> Disabled</Tag>
         }
       >
         {!status?.has_password ? (
           <Space direction="vertical" style={{ width: '100%' }}>
             <Typography.Text type="secondary">
-              启用后，访问页面需要输入密码。默认不开启，任何能访问此地址的人均可使用。
+              When enabled, users must enter a password to access the page. It is disabled by default, so anyone who can reach this address can use it.
             </Typography.Text>
             <Form form={enableForm} layout="vertical" onFinish={handleEnable} requiredMark={false} style={{ maxWidth: 360, marginTop: 8 }}>
-              <Form.Item name="password" label="设置访问密码" rules={[{ required: true, message: '请输入密码' }, { min: 6, message: '至少 6 位' }]}>
-                <Input.Password placeholder="至少 6 位" />
+              <Form.Item name="password" label="Set access password" rules={[{ required: true, message: 'Please enter a password' }, { min: 6, message: 'At least 6 characters' }]}>
+                <Input.Password placeholder="At least 6 characters" />
               </Form.Item>
-              <Form.Item name="confirm" label="确认密码" rules={[{ required: true, message: '请再次输入' }]}>
-                <Input.Password placeholder="再次输入密码" />
+              <Form.Item name="confirm" label="Confirm password" rules={[{ required: true, message: 'Please enter it again' }]}>
+                <Input.Password placeholder="Enter the password again" />
               </Form.Item>
               <Form.Item style={{ marginBottom: 0 }}>
                 <Button type="primary" htmlType="submit" loading={loading} icon={<LockOutlined />}>
-                  启用密码保护
+                  Enable password protection
                 </Button>
               </Form.Item>
             </Form>
           </Space>
         ) : (
           <Space direction="vertical" style={{ width: '100%' }}>
-            <Typography.Text type="secondary">当前已启用密码保护，关闭后任何人无需密码即可访问。</Typography.Text>
+            <Typography.Text type="secondary">Password protection is currently enabled. After disabling it, anyone can access the page without a password.</Typography.Text>
             <Button danger loading={loading} onClick={handleDisableAuth}>
-              关闭密码保护
+              Disable password protection
             </Button>
           </Space>
         )}
@@ -1677,73 +1738,73 @@ function SecurityPanel() {
 
       {status?.has_password && (
         <>
-          <Card title="修改密码">
+          <Card title="Change password">
             <Form form={pwForm} layout="vertical" onFinish={handleChangePassword} requiredMark={false} style={{ maxWidth: 360 }}>
-              <Form.Item name="current_password" label="当前密码" rules={[{ required: true, message: '请输入当前密码' }]}>
-                <Input.Password placeholder="当前密码" />
+              <Form.Item name="current_password" label="Current password" rules={[{ required: true, message: 'Please enter the current password' }]}>
+                <Input.Password placeholder="Current password" />
               </Form.Item>
-              <Form.Item name="new_password" label="新密码" rules={[{ required: true, message: '请输入新密码' }, { min: 6, message: '至少 6 位' }]}>
-                <Input.Password placeholder="新密码（至少 6 位）" />
+              <Form.Item name="new_password" label="New password" rules={[{ required: true, message: 'Please enter a new password' }, { min: 6, message: 'At least 6 characters' }]}>
+                <Input.Password placeholder="New password (at least 6 characters)" />
               </Form.Item>
-              <Form.Item name="confirm" label="确认新密码" rules={[{ required: true, message: '请再次输入' }]}>
-                <Input.Password placeholder="再次输入新密码" />
+              <Form.Item name="confirm" label="Confirm new password" rules={[{ required: true, message: 'Please enter it again' }]}>
+                <Input.Password placeholder="Enter the new password again" />
               </Form.Item>
               <Form.Item style={{ marginBottom: 0 }}>
                 <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
-                  更新密码
+                  Update password
                 </Button>
               </Form.Item>
             </Form>
           </Card>
 
           <Card
-            title="双因素认证 (2FA)"
+            title="Two-factor authentication (2FA)"
             extra={
               status?.has_totp
-                ? <Tag color="green"><CheckCircleOutlined /> 已启用</Tag>
-                : <Tag color="default"><CloseCircleOutlined /> 未启用</Tag>
+                ? <Tag color="green"><CheckCircleOutlined /> Enabled</Tag>
+                : <Tag color="default"><CloseCircleOutlined /> Disabled</Tag>
             }
           >
             {status?.has_totp ? (
               <Space direction="vertical">
                 <Typography.Text type="secondary">
-                  登录时需输入 Google Authenticator / Authy 等 App 中的 6 位验证码。
+                  You will need to enter the 6-digit code from apps such as Google Authenticator or Authy when signing in.
                 </Typography.Text>
                 <Button danger loading={loading} onClick={handleDisableTotp}>
-                  关闭双因素认证
+                  Disable 2FA
                 </Button>
               </Space>
             ) : totpSetupState === 'idle' ? (
               <Space direction="vertical">
                 <Typography.Text type="secondary">
-                  启用后，登录时除密码外还需输入验证器 App 中的 6 位验证码，大幅提升安全性。
+                  When enabled, sign-in requires the 6-digit code from an authenticator app in addition to your password, greatly improving security.
                 </Typography.Text>
                 <Button type="primary" loading={loading} onClick={handleSetupTotp} icon={<SafetyOutlined />}>
-                  开启双因素认证
+                  Enable 2FA
                 </Button>
               </Space>
             ) : (
               <Space direction="vertical" style={{ width: '100%' }}>
-                <Typography.Text strong>1. 用验证器 App 扫描下方二维码</Typography.Text>
+                <Typography.Text strong>1. Scan the QR code below with your authenticator app</Typography.Text>
                 <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <QRCode value={totpUri} size={180} />
                   <div style={{ flex: 1 }}>
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>无法扫码？手动输入密钥：</Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>Can't scan it? Enter the secret key manually:</Typography.Text>
                     <Typography.Paragraph copyable style={{ fontFamily: 'monospace', fontSize: 13, marginTop: 4 }}>
                       {totpSecret}
                     </Typography.Paragraph>
                   </div>
                 </div>
-                <Typography.Text strong>2. 输入 App 中显示的 6 位验证码以确认绑定</Typography.Text>
+                <Typography.Text strong>2. Enter the 6-digit code shown in the app to confirm the binding</Typography.Text>
                 <Form form={codeForm} layout="inline" onFinish={handleEnableTotp}>
-                  <Form.Item name="code" rules={[{ required: true, message: '请输入验证码' }, { len: 6, message: '6 位数字' }]}>
+                  <Form.Item name="code" rules={[{ required: true, message: 'Please enter the code' }, { len: 6, message: '6 digits' }]}>
                     <Input placeholder="000000" maxLength={6} style={{ width: 140, letterSpacing: 4, textAlign: 'center' }} />
                   </Form.Item>
                   <Form.Item>
-                    <Button type="primary" htmlType="submit" loading={loading}>确认启用</Button>
+                    <Button type="primary" htmlType="submit" loading={loading}>Confirm enablement</Button>
                   </Form.Item>
                   <Form.Item>
-                    <Button onClick={() => setTotpSetupState('idle')}>取消</Button>
+                    <Button onClick={() => setTotpSetupState('idle')}>Cancel</Button>
                   </Form.Item>
                 </Form>
               </Space>
@@ -1795,6 +1856,12 @@ export default function Settings() {
       if (!data.luckmail_base_url) {
         data.luckmail_base_url = 'https://mails.luckyous.com/'
       }
+      if (!data.catchmail_api_url) {
+        data.catchmail_api_url = 'https://api.catchmail.io'
+      }
+      if (!data.mailtm_api_url) {
+        data.mailtm_api_url = 'https://api.mail.tm'
+      }
       if (!String(data.contribution_enabled ?? '').trim()) {
         data.contribution_enabled = false
       }
@@ -1824,6 +1891,50 @@ export default function Settings() {
       data.cfworker_random_name_subdomain = parseBooleanConfigValue(data.cfworker_random_name_subdomain)
       data.contribution_enabled = parseBooleanConfigValue(data.contribution_enabled)
       data.email_domain_rule_enabled = parseBooleanConfigValue(data.email_domain_rule_enabled)
+      data.omniroute_chatgpt_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_chatgpt_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_kiro_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_kiro_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_cloudflare_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_cloudflare_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_cursor_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_cursor_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_grok_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_grok_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_mistral_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_mistral_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_nvidia_nim_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_nvidia_nim_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_openblocklabs_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_openblocklabs_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_openrouter_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_openrouter_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_tavily_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_tavily_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
+      data.omniroute_cerebras_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_cerebras_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
       if (!String(data.email_domain_level_count ?? '').trim()) {
         data.email_domain_level_count = 2
       }
@@ -1877,7 +1988,7 @@ export default function Settings() {
 
       if (domains.length > 0 && enabledDomains.length === 0) {
         setActiveTab('mailbox')
-        message.error('CF Worker 至少需要启用一个域名')
+        message.error('CF Worker must have at least one enabled domain')
         return
       }
 
@@ -1892,11 +2003,14 @@ export default function Settings() {
       values.cfworker_random_name_subdomain = parseBooleanConfigValue(values.cfworker_random_name_subdomain)
       values.contribution_enabled = parseBooleanConfigValue(values.contribution_enabled)
       values.email_domain_rule_enabled = parseBooleanConfigValue(values.email_domain_rule_enabled)
+      values.omniroute_chatgpt_enabled = parseBooleanConfigValue(values.omniroute_chatgpt_enabled)
+      values.omniroute_kiro_enabled = parseBooleanConfigValue(values.omniroute_kiro_enabled)
+      values.omniroute_cerebras_enabled = parseBooleanConfigValue(values.omniroute_cerebras_enabled)
       const rawDomainLevelCount = Number.parseInt(String(values.email_domain_level_count ?? '').trim(), 10)
       if (values.mail_provider === 'cfworker' && values.email_domain_rule_enabled) {
         if (!Number.isInteger(rawDomainLevelCount) || rawDomainLevelCount < 2) {
           setActiveTab('mailbox')
-          message.error('域名级数必须是大于等于 2 的整数')
+          message.error('The domain level count must be an integer greater than or equal to 2')
           return
         }
       }
@@ -1923,7 +2037,7 @@ export default function Settings() {
         email_domain_rule_enabled: values.email_domain_rule_enabled,
         email_domain_level_count: values.email_domain_level_count,
       })
-      message.success('保存成功')
+      message.success('Saved successfully')
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally {
@@ -1968,14 +2082,14 @@ export default function Settings() {
             }}
           >
             <Button type="primary" icon={<SaveOutlined />} onClick={save} loading={saving} block>
-              {saved ? '已保存 ✓' : '保存配置'}
+              {saved ? 'Saved ✓' : 'Save configuration'}
             </Button>
           </div>
         </div>
       ) : null}
       <div>
-        <h1 style={{ fontSize: 24, fontWeight: 'bold', margin: 0 }}>全局配置</h1>
-        <p style={{ color: '#7a8ba3', marginTop: 4 }}>配置将持久化保存，注册任务自动使用</p>
+        <h1 style={{ fontSize: 24, fontWeight: 'bold', margin: 0 }}>Global configuration</h1>
+        <p style={{ color: '#7a8ba3', marginTop: 4 }}>Configuration is saved persistently and used automatically by registration tasks.</p>
       </div>
 
       <div style={{ display: 'flex', gap: 24 }}>
@@ -2031,7 +2145,7 @@ export default function Settings() {
                   {showFloatingSaveButton ? <div style={{ height: 8 }} /> : null}
                   {!showFloatingSaveButton ? (
                     <Button type="primary" icon={<SaveOutlined />} onClick={save} loading={saving} block>
-                    {saved ? '已保存 ✓' : '保存配置'}
+                    {saved ? 'Saved ✓' : 'Save configuration'}
                     </Button>
                   ) : null}
                 </>

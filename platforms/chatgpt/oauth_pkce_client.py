@@ -1,8 +1,8 @@
 """
-OAuth PKCE 注册客户端
+OAuth PKCE Register client
 
-完整实现 auth.openai.com 注册状态机 + 登录获取 Token 的全生命周期。
-每个步骤封装为独立方法，调用方按编号依次调用即可完成整个注册流程。
+Complete implementation auth.openai.com Register state machine + Log in to get Token the whole life cycle.
+Each step is encapsulated as an independent method, and the caller can complete the entire registration process by calling it in sequence.
 """
 
 import json
@@ -31,21 +31,21 @@ CLOUDFLARE_TRACE = "https://cloudflare.com/cdn-cgi/trace"
 
 class OAuthPkceClient:
     """
-    OAuth PKCE 注册客户端
+    OAuth PKCE Register client
 
-    完整注册流程（12 步）：
-      1.  检查 IP 地区
-      2.  访问 OAuth 授权 URL，获取 oai-did Cookie
-      3.  获取 Sentinel Token
-      4.  提交邮箱 (authorize/continue)
-      5.  提交密码 (user/register)
-      6.  发送 OTP (email-otp/send)
-      7.  验证 OTP (email-otp/validate)
-      8.  创建账户 (create_account)
-      9.  注册后重新 OAuth 登录
-      10. 解析 workspace_id
-      11. 选择 workspace
-      12. 跟踪重定向链，交换 OAuth code → access_token
+    Complete registration process (12 step):
+      1.  examine IP area
+      2.  access OAuth Authorize URL, get oai-did Cookie
+      3.  get Sentinel Token
+      4.  Submit email (authorize/continue)
+      5.  Submit password (user/register)
+      6.  send OTP (email-otp/send)
+      7.  verify OTP (email-otp/validate)
+      8.  create Account (create_account)
+      9.  Register again OAuth Log in
+      10. parse workspace_id
+      11. choose workspace
+      12. Tracking redirect chains, exchanges OAuth code → access_token
     """
 
     def __init__(self, proxy: Optional[str] = None, log_fn=None):
@@ -53,7 +53,7 @@ class OAuthPkceClient:
         self._log = log_fn or (lambda msg: None)
         self._proxies = build_requests_proxy_config(self.proxy)
 
-        # 主会话：贯穿整个注册 + 登录流程
+        # Main session: throughout registration + Login process
         self.session = curl_requests.Session(
             proxies=self._proxies,
             impersonate="chrome",
@@ -63,20 +63,20 @@ class OAuthPkceClient:
         self._sentinel: Optional[str] = None
 
     # ══════════════════════════════════════════════════════════════════
-    # 内部方法：获取 Sentinel Token（极简模式）
+    # Internal method: Get Sentinel Token(minimalist mode)
     # ══════════════════════════════════════════════════════════════════
 
     def _fetch_sentinel_token(
         self, device_id: str, flow: str = "authorize_continue"
     ) -> str:
         """
-        获取 Sentinel Token。
+        get Sentinel Token.
 
-        使用独立连接（不复用 session cookie），请求体 p 字段留空，
-        只取响应中的 token 字段拼装为 openai-sentinel-token header 值。
+        Use independent connections (no multiplexing) session cookie), request body p Leave the field blank,
+        Only get the response token The fields are assembled into openai-sentinel-token header value.
 
         Returns:
-            JSON 格式的 sentinel token 字符串。
+            JSON Formatted sentinel token string.
         """
         req_body = json.dumps({"p": "", "id": device_id, "flow": flow})
 
@@ -94,11 +94,11 @@ class OAuthPkceClient:
         )
 
         if resp.status_code != 200:
-            raise RuntimeError(f"Sentinel 获取失败: HTTP {resp.status_code}")
+            raise RuntimeError(f"Sentinel Failed to obtain: HTTP {resp.status_code}")
 
         c_value = resp.json().get("token", "")
         if not c_value:
-            raise RuntimeError("Sentinel 响应缺少 token 字段")
+            raise RuntimeError("Sentinel Response missing token Field")
 
         return json.dumps(
             {
@@ -112,61 +112,61 @@ class OAuthPkceClient:
         )
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 1：检查 IP 地区
+    # step 1:examine IP area
     # ══════════════════════════════════════════════════════════════════
 
     def check_ip_region(self) -> str:
-        """检查当前 IP 地区，CN/HK 不支持。"""
+        """Check current IP area,CN/HK Not supported."""
         try:
             resp = self.session.get(CLOUDFLARE_TRACE, timeout=10)
             match = re.search(r"^loc=(.+)$", resp.text, re.MULTILINE)
             loc = match.group(1).strip() if match else "UNKNOWN"
-            self._log(f"当前 IP 地区: {loc}")
+            self._log(f"current IP area: {loc}")
             if loc in ("CN", "HK"):
-                raise RuntimeError(f"IP 地区不支持: {loc}")
+                raise RuntimeError(f"IP Region not supported: {loc}")
             return loc
         except RuntimeError:
             raise
         except Exception as e:
-            raise RuntimeError(f"IP 地区检查失败: {e}") from e
+            raise RuntimeError(f"IP Region check failed: {e}") from e
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 2：访问 OAuth 授权 URL，获取 oai-did Cookie
+    # step 2:access OAuth Authorize URL, get oai-did Cookie
     # ══════════════════════════════════════════════════════════════════
 
     def init_oauth_session(self) -> OAuthStart:
-        """生成 OAuth PKCE URL 并访问，建立 auth.openai.com 会话。"""
+        """generate OAuth PKCE URL and access, build auth.openai.com session."""
         oauth = generate_oauth_url()
-        self._log("访问 OAuth 授权 URL...")
+        self._log("access OAuth Authorize URL...")
         self.session.get(oauth.auth_url, timeout=15)
         self._device_id = self.session.cookies.get("oai-did") or ""
         self._log(
             f"oai-did: {self._device_id[:16]}..."
             if self._device_id
-            else "oai-did: (未获取到)"
+            else "oai-did: (Not obtained)"
         )
         return oauth
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 3：获取 Sentinel Token
+    # step 3: get Sentinel Token
     # ══════════════════════════════════════════════════════════════════
 
     def refresh_sentinel(self) -> str:
-        """获取新的 Sentinel Token 并缓存。"""
+        """get new Sentinel Token and cache."""
         if not self._device_id:
-            raise RuntimeError("尚未初始化 oai-did（请先调用 init_oauth_session）")
+            raise RuntimeError("Not initialized yet oai-did(Please call first init_oauth_session)")
         self._sentinel = self._fetch_sentinel_token(self._device_id)
-        self._log("Sentinel Token 已获取")
+        self._log("Sentinel Token Obtained")
         return self._sentinel
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 4：提交邮箱
+    # step 4:Submit email
     # ══════════════════════════════════════════════════════════════════
 
     def submit_email(self, email: str) -> dict:
-        """向 authorize/continue 提交邮箱，触发注册状态机。"""
+        """Towards authorize/continue Submit the email address and trigger the registration state machine."""
         if not self._sentinel:
-            raise RuntimeError("Sentinel Token 未初始化")
+            raise RuntimeError("Sentinel Token not initialized")
 
         payload = json.dumps(
             {
@@ -174,7 +174,7 @@ class OAuthPkceClient:
                 "screen_hint": "signup",
             }
         )
-        self._log(f"提交邮箱: {email}")
+        self._log(f"Submit email: {email}")
 
         resp = self.session.post(
             f"{AUTH_BASE}/api/accounts/authorize/continue",
@@ -189,21 +189,21 @@ class OAuthPkceClient:
         )
         if resp.status_code != 200:
             raise RuntimeError(
-                f"提交邮箱失败: HTTP {resp.status_code} {resp.text[:300]}"
+                f"Failed to submit email: HTTP {resp.status_code} {resp.text[:300]}"
             )
 
         data = resp.json()
-        self._log(f"邮箱提交成功")
+        self._log(f"Email submission successful")
         return data
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 5：提交密码
+    # step 5:Submit password
     # ══════════════════════════════════════════════════════════════════
 
     def submit_password(self, email: str, password: str) -> str:
-        """向 user/register 提交密码，返回 continue_url。"""
+        """Towards user/register Submit password and return continue_url."""
         payload = json.dumps({"password": password, "username": email})
-        self._log("提交密码...")
+        self._log("Submit password...")
 
         resp = self.session.post(
             f"{AUTH_BASE}/api/accounts/user/register",
@@ -218,21 +218,21 @@ class OAuthPkceClient:
         )
         if resp.status_code != 200:
             raise RuntimeError(
-                f"提交密码失败: HTTP {resp.status_code} {resp.text[:300]}"
+                f"Failed to submit password: HTTP {resp.status_code} {resp.text[:300]}"
             )
 
         continue_url = resp.json().get("continue_url") or ""
-        self._log(f"密码提交成功{', continue_url 已获取' if continue_url else ''}")
+        self._log(f"Password submitted successfully{', continue_url Obtained' if continue_url else ''}")
         return continue_url
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 6：发送 OTP
+    # step 6:send OTP
     # ══════════════════════════════════════════════════════════════════
 
     def send_otp(self, continue_url: str = "") -> bool:
-        """触发发送邮箱验证码。"""
+        """Trigger the sending of email verification code."""
         url = continue_url or f"{AUTH_BASE}/api/accounts/email-otp/send"
-        self._log(f"发送验证码: {url}")
+        self._log(f"Send verification code: {url}")
 
         try:
             resp = self.session.post(
@@ -245,19 +245,19 @@ class OAuthPkceClient:
                 },
                 timeout=30,
             )
-            self._log(f"验证码发送状态: {resp.status_code}")
+            self._log(f"Verification code sending status: {resp.status_code}")
             return resp.status_code == 200
         except Exception as e:
-            self._log(f"发送验证码异常（非致命）: {e}")
+            self._log(f"Exception when sending verification code (non-fatal): {e}")
             return False
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 7：验证 OTP
+    # step 7:verify OTP
     # ══════════════════════════════════════════════════════════════════
 
     def validate_otp(self, code: str) -> None:
-        """提交邮箱验证码。"""
-        self._log(f"验证 OTP: {code}")
+        """Submit the email verification code."""
+        self._log(f"verify OTP: {code}")
 
         resp = self.session.post(
             f"{AUTH_BASE}/api/accounts/email-otp/validate",
@@ -271,17 +271,17 @@ class OAuthPkceClient:
         )
         if resp.status_code != 200:
             raise RuntimeError(
-                f"OTP 验证失败: HTTP {resp.status_code} {resp.text[:300]}"
+                f"OTP Authentication failed: HTTP {resp.status_code} {resp.text[:300]}"
             )
-        self._log("OTP 验证通过")
+        self._log("OTP Verification passed")
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 8：创建账户
+    # step 8:create Account
     # ══════════════════════════════════════════════════════════════════
 
     def create_account(self, name: str, birthdate: str) -> None:
-        """提交姓名和生日完成账户创建。"""
-        self._log(f"创建账户: {name} ({birthdate})")
+        """Submit your name and birthday to complete account creation."""
+        self._log(f"create Account: {name} ({birthdate})")
 
         resp = self.session.post(
             f"{AUTH_BASE}/api/accounts/create_account",
@@ -295,43 +295,43 @@ class OAuthPkceClient:
         )
         if resp.status_code != 200:
             raise RuntimeError(
-                f"创建账户失败: HTTP {resp.status_code} {resp.text[:300]}"
+                f"Account creation failed: HTTP {resp.status_code} {resp.text[:300]}"
             )
-        self._log("账户创建成功")
+        self._log("Account created successfully")
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 9：注册后重新 OAuth 登录
+    # step 9:Re-register after OAuth Log in
     # ══════════════════════════════════════════════════════════════════
 
     def login_after_register(
         self, email: str, password: str, otp_code: str = ""
     ) -> OAuthStart:
         """
-        注册完成后重走 OAuth 登录流程。
+        Restart after registration is complete OAuth Login process.
 
-        注册阶段的 session 不含 workspace 信息，必须重新走一次
-        OAuth 登录获取 oai-client-auth-session Cookie。
+        registration stage session Does not contain workspace Information, must go again
+        OAuth Log in to get oai-client-auth-session Cookie.
 
         Returns:
-            登录阶段的 OAuthStart（含 code_verifier 等，用于步骤 12 Token 交换）。
+            Login phase OAuthStart(Including code_verifier etc. for steps 12 Token exchange).
         """
         self._log("=" * 40)
-        self._log("开始 OAuth 登录（获取 workspace）...")
+        self._log("start OAuth Login (get workspace)...")
 
-        # 9-1. 访问新 OAuth URL
+        # 9-1. Visit new OAuth URL
         login_oauth = generate_oauth_url()
         self.session.get(login_oauth.auth_url, timeout=15)
         login_did = self.session.cookies.get("oai-did") or self._device_id or ""
         self._log(
-            f"登录阶段 oai-did: {login_did[:16]}..."
+            f"Login phase oai-did: {login_did[:16]}..."
             if login_did
-            else "登录阶段 oai-did: (空)"
+            else "Login phase oai-did: (null)"
         )
 
-        # 9-2. 获取登录阶段 Sentinel
+        # 9-2. Get login stage Sentinel
         login_sentinel = self._fetch_sentinel_token(login_did)
 
-        # 9-3. 提交邮箱（screen_hint=login）
+        # 9-3. Submit email (screen_hint=login)
         login_email_resp = self.session.post(
             f"{AUTH_BASE}/api/accounts/authorize/continue",
             headers={
@@ -349,14 +349,14 @@ class OAuthPkceClient:
             timeout=30,
         )
         if login_email_resp.status_code != 200:
-            raise RuntimeError(f"登录提交邮箱失败: HTTP {login_email_resp.status_code}")
+            raise RuntimeError(f"Failed to log in and submit email: HTTP {login_email_resp.status_code}")
 
         page_type = (login_email_resp.json().get("page") or {}).get("type", "")
-        self._log(f"登录页面类型: {page_type}")
+        self._log(f"Login page type: {page_type}")
 
-        # 9-4. 提交密码（login_password 页面）
+        # 9-4. Submit password (login_password page)
         if "password" in page_type:
-            self._log("提交密码...")
+            self._log("Submit password...")
             pwd_resp = self.session.post(
                 f"{AUTH_BASE}/api/accounts/password/verify",
                 headers={
@@ -369,16 +369,16 @@ class OAuthPkceClient:
                 timeout=30,
             )
             if pwd_resp.status_code != 200:
-                raise RuntimeError(f"登录密码验证失败: HTTP {pwd_resp.status_code}")
+                raise RuntimeError(f"Login password verification failed: HTTP {pwd_resp.status_code}")
             page_type = (pwd_resp.json().get("page") or {}).get("type", "")
-            self._log(f"密码验证后页面类型: {page_type}")
+            self._log(f"Page type after password verification: {page_type}")
 
-        # 9-5. 二次 OTP（复用注册阶段验证码）
+        # 9-5. secondary OTP(Reuse the registration phase verification code)
         if "otp" in page_type or "verification" in page_type:
             if not otp_code:
-                raise RuntimeError("登录需要二次 OTP 验证，但未提供验证码")
-            self._log(f"提交登录二次验证码: {otp_code}")
-            # 触发发信请求以满足后端状态机（可忽略报错）
+                raise RuntimeError("Login required twice OTP Verified without providing verification code")
+            self._log(f"Submit login two-step verification code: {otp_code}")
+            # Trigger the sending request to satisfy the backend state machine (error reporting can be ignored)
             try:
                 self.session.post(
                     f"{AUTH_BASE}/api/accounts/passwordless/send-otp",
@@ -405,24 +405,24 @@ class OAuthPkceClient:
             )
             if otp_resp.status_code != 200:
                 raise RuntimeError(
-                    f"登录二次 OTP 失败: HTTP {otp_resp.status_code} {otp_resp.text[:200]}"
+                    f"Log in twice OTP fail: HTTP {otp_resp.status_code} {otp_resp.text[:200]}"
                 )
-            self._log("登录二次验证通过")
+            self._log("Login second verification passed")
 
-        self._log("OAuth 登录流程完成")
+        self._log("OAuth Login process completed")
         return login_oauth
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 10：解析 workspace_id
+    # step 10: parsing workspace_id
     # ══════════════════════════════════════════════════════════════════
 
     def extract_workspace_id(self) -> str:
-        """从 oai-client-auth-session Cookie（JWT）中解析 workspace_id。"""
+        """from oai-client-auth-session Cookie(JWT) parsed in workspace_id."""
         auth_cookie = self.session.cookies.get("oai-client-auth-session") or ""
         if not auth_cookie:
-            raise RuntimeError("未找到 oai-client-auth-session Cookie")
+            raise RuntimeError("not found oai-client-auth-session Cookie")
 
-        # JWT 段遍历（workspace 可能在第一段或第二段）
+        # JWT Segment traversal (workspace Probably in the first or second paragraph)
         segments = auth_cookie.split(".")
         for i in range(min(len(segments), 2)):
             data = _decode_jwt_segment(segments[i])
@@ -430,21 +430,21 @@ class OAuthPkceClient:
             if workspaces:
                 wid = str((workspaces[0] or {}).get("id") or "").strip()
                 if wid:
-                    self._log(f"成功解析 workspace_id: {wid}")
+                    self._log(f"Parsed successfully workspace_id: {wid}")
                     return wid
 
-        # 调试信息
+        # debugging information
         first_data = _decode_jwt_segment(segments[0]) if segments else {}
-        self._log(f"Cookie 字段: {list(first_data.keys())}")
-        raise RuntimeError("无法从 Cookie 中解析 workspace_id")
+        self._log(f"Cookie Field: {list(first_data.keys())}")
+        raise RuntimeError("Unable to access from Cookie Medium parsing workspace_id")
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 11：选择 workspace
+    # step 11:choose workspace
     # ══════════════════════════════════════════════════════════════════
 
     def select_workspace(self, workspace_id: str) -> str:
-        """选择 workspace，返回 continue_url。"""
-        self._log(f"选择 workspace: {workspace_id}")
+        """choose workspace,return continue_url."""
+        self._log(f"choose workspace: {workspace_id}")
 
         resp = self.session.post(
             f"{AUTH_BASE}/api/accounts/workspace/select",
@@ -457,23 +457,23 @@ class OAuthPkceClient:
         )
         if resp.status_code != 200:
             raise RuntimeError(
-                f"workspace/select 失败: HTTP {resp.status_code} {resp.text[:300]}"
+                f"workspace/select fail: HTTP {resp.status_code} {resp.text[:300]}"
             )
 
         continue_url = str((resp.json() or {}).get("continue_url") or "").strip()
         if not continue_url:
-            raise RuntimeError("workspace/select 响应缺少 continue_url")
-        self._log("workspace 选择成功，continue_url 已获取")
+            raise RuntimeError("workspace/select Response missing continue_url")
+        self._log("workspace Choose success,continue_url Obtained")
         return continue_url
 
     # ══════════════════════════════════════════════════════════════════
-    # 步骤 12：跟踪重定向链，交换 OAuth code → access_token
+    # step 12: Track redirect chains, exchanges OAuth code → access_token
     # ══════════════════════════════════════════════════════════════════
 
     def follow_redirects_and_exchange_token(
         self, continue_url: str, oauth_start: OAuthStart
     ) -> dict:
-        """跟踪重定向链，捕获 code= 回调 URL，交换 access_token。"""
+        """Follow redirect chain, capture code= callback URL,exchange access_token."""
         current_url = continue_url
 
         for hop in range(8):
@@ -484,10 +484,10 @@ class OAuthPkceClient:
                 break
 
             next_url = urllib.parse.urljoin(current_url, location)
-            self._log(f"重定向 [{hop + 1}] → {next_url[:100]}...")
+            self._log(f"Redirect [{hop + 1}] → {next_url[:100]}...")
 
             if "code=" in next_url and "state=" in next_url:
-                self._log("捕获到 OAuth 回调 URL，交换 Token...")
+                self._log("captured OAuth callback URL,exchange Token...")
                 token_json = submit_callback_url(
                     callback_url=next_url,
                     expected_state=oauth_start.state,
@@ -499,4 +499,4 @@ class OAuthPkceClient:
 
             current_url = next_url
 
-        raise RuntimeError("未能在重定向链中捕获到 OAuth 回调 URL（含 code= 参数）")
+        raise RuntimeError("Failed to catch in redirect chain OAuth callback URL(Including code= parameter)")

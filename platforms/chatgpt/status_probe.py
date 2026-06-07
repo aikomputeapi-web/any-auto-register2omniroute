@@ -1,4 +1,4 @@
-"""ChatGPT 本地真实状态探测。"""
+"""ChatGPT Local real state detection."""
 
 from __future__ import annotations
 
@@ -250,13 +250,13 @@ def probe_local_chatgpt_status(account: Any, proxy: Optional[str] = None) -> dic
         result["auth"].update(
             {
                 "state": "missing_access_token",
-                "message": "账号缺少 access_token",
+                "message": "Account missing access_token",
             }
         )
         result["codex"].update(
             {
                 "state": "skipped_auth_invalid",
-                "message": "缺少 access_token，跳过 Codex 探测",
+                "message": "Lack access_token,jump over Codex detection",
             }
         )
         return result
@@ -301,7 +301,7 @@ def probe_local_chatgpt_status(account: Any, proxy: Optional[str] = None) -> dic
             result["codex"].update(
                 {
                     "state": "probe_failed",
-                    "message": "缺少 Chatgpt-Account-Id，无法严格探测 Codex 状态",
+                    "message": "Lack Chatgpt-Account-Id, cannot be strictly detected Codex state",
                 }
             )
             return result
@@ -340,7 +340,7 @@ def probe_local_chatgpt_status(account: Any, proxy: Optional[str] = None) -> dic
         result["codex"].update(
             {
                 "state": "skipped_auth_invalid",
-                "message": "本地 access_token 未通过 /backend-api/me 校验，跳过 Codex 探测",
+                "message": "local access_token failed /backend-api/me Check, skip Codex detection",
             }
         )
         return result
@@ -354,7 +354,7 @@ def probe_local_chatgpt_status(account: Any, proxy: Optional[str] = None) -> dic
         result["codex"].update(
             {
                 "state": "skipped_auth_invalid",
-                "message": "本地 access_token 被拒绝，跳过 Codex 探测",
+                "message": "local access_token rejected, skipped Codex detection",
             }
         )
         return result
@@ -363,7 +363,7 @@ def probe_local_chatgpt_status(account: Any, proxy: Optional[str] = None) -> dic
     result["codex"].update(
         {
             "state": "not_checked",
-            "message": "本地认证探测失败，未执行 Codex 探测",
+            "message": "Local authentication detection failed and was not executed Codex detection",
         }
     )
     return result

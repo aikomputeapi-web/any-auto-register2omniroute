@@ -60,9 +60,9 @@ class SMSToMePhoneService:
         if self._has_pool_file():
             return
         if not self.cookie_header:
-            raise RuntimeError("未找到 SMSToMe 号码池文件，且未配置 smstome_cookie")
+            raise RuntimeError("not found SMSToMe Number pool file and not configured smstome_cookie")
 
-        self.log_fn("SMSToMe 号码池不存在，开始自动同步...")
+        self.log_fn("SMSToMe The number pool does not exist. Automatic synchronization starts....")
         count = update_global_phone_list(
             cookie_header=self.cookie_header,
             countries=self.country_slugs or None,
@@ -70,8 +70,8 @@ class SMSToMePhoneService:
             max_pages_per_country=self.sync_max_pages_per_country,
         )
         if count <= 0:
-            raise RuntimeError("SMSToMe 号码池同步后为空")
-        self.log_fn(f"SMSToMe 号码池同步完成，共 {count} 个号码")
+            raise RuntimeError("SMSToMe The number pool is empty after synchronization")
+        self.log_fn(f"SMSToMe Number pool synchronization completed, total {count} numbers")
 
     def acquire_phone(self, *, exclude_prefixes: Optional[Iterable[str]] = None) -> Optional[PhoneEntry]:
         self.ensure_pool_ready()

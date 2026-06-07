@@ -1,4 +1,4 @@
-"""grok2api 自动导入"""
+"""grok2api Automatic import"""
 
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ def build_grok2api_payload(
 ) -> dict:
     token = _extract_sso(account)
     if not token:
-        raise ValueError("账号缺少 sso token")
+        raise ValueError("Account missing sso token")
 
     pool_name = str(pool_name or _get_config_value("grok2api_pool") or DEFAULT_POOL).strip() or DEFAULT_POOL
     email = getattr(account, "email", "")
@@ -102,12 +102,12 @@ def _load_existing_tokens(api_url: str, headers: dict) -> dict:
         **_request_options(),
     )
     if resp.status_code != 200:
-        raise RuntimeError(f"读取现有 tokens 失败: HTTP {resp.status_code} - {resp.text[:200]}")
+        raise RuntimeError(f"Read existing tokens fail: HTTP {resp.status_code} - {resp.text[:200]}")
 
     data = resp.json()
     tokens = data.get("tokens", {})
     if not isinstance(tokens, dict):
-        raise RuntimeError("读取现有 tokens 失败: 响应格式异常")
+        raise RuntimeError("Read existing tokens fail: Response format exception")
     return tokens
 
 
@@ -145,7 +145,7 @@ def upload_to_grok2api(
     pool_name: str | None = None,
     quota=None,
 ) -> Tuple[bool, str]:
-    """上传 Grok 账号到 grok2api 管理接口。"""
+    """upload Grok Account arrived grok2api Management interface."""
     if not api_url:
         api_url = _get_config_value("grok2api_url")
     if not app_key:
@@ -154,9 +154,9 @@ def upload_to_grok2api(
     api_url = str(api_url or "").strip()
     app_key = str(app_key or "").strip()
     if not api_url:
-        return False, "grok2api URL 未配置"
+        return False, "grok2api URL Not configured"
     if not app_key:
-        return False, "grok2api App Key 未配置"
+        return False, "grok2api App Key Not configured"
 
     pool_name, token_item = _build_token_item(account, pool_name=pool_name, quota=quota)
     upload_url = f"{api_url.rstrip('/')}/v1/admin/tokens"
@@ -172,9 +172,9 @@ def upload_to_grok2api(
             **_request_options(),
         )
         if resp.status_code in (200, 201):
-            return True, "导入成功"
+            return True, "Import successful"
 
-        error_msg = f"导入失败: HTTP {resp.status_code}"
+        error_msg = f"Import failed: HTTP {resp.status_code}"
         try:
             detail = resp.json()
             if isinstance(detail, dict):
@@ -183,5 +183,5 @@ def upload_to_grok2api(
             error_msg = f"{error_msg} - {resp.text[:200]}"
         return False, error_msg
     except Exception as e:
-        logger.error(f"grok2api 导入异常: {e}")
-        return False, f"导入异常: {e}"
+        logger.error(f"grok2api Import exception: {e}")
+        return False, f"Import exception: {e}"

@@ -1,4 +1,4 @@
-"""ChatGPT / Codex CLI 平台插件"""
+"""ChatGPT / Codex CLI Platform plugin"""
 
 import random
 import string
@@ -25,15 +25,39 @@ class ChatGPTPlatform(BasePlatform):
     def check_valid(self, account: Account) -> bool:
         try:
             from platforms.chatgpt.payment import check_subscription_status
+            from platforms.chatgpt.token_refresh import TokenRefreshManager
+
+            extra = account.extra or {}
+            proxy = self.config.proxy if self.config else None
 
             class _A:
                 pass
 
             a = _A()
-            extra = account.extra or {}
+            a.email = account.email
             a.access_token = extra.get("access_token") or account.token
+            a.refresh_token = extra.get("refresh_token") or extra.get("refreshToken") or ""
+            a.id_token = extra.get("id_token") or extra.get("idToken") or ""
+            a.session_token = extra.get("session_token") or extra.get("sessionToken") or ""
+            a.client_id = extra.get("client_id") or extra.get("clientId") or "app_EMoamEEZ73f0CkXaXp7hrann"
             a.cookies = extra.get("cookies", "")
-            status = check_subscription_status(a, proxy=self.config.proxy if self.config else None)
+            a.user_id = account.user_id
+
+            manager = TokenRefreshManager(proxy_url=proxy)
+            result = manager.refresh_account(a)
+            if result.success:
+                new_access = result.access_token
+                new_refresh = result.refresh_token or a.refresh_token
+                account.token = new_access
+                extra["access_token"] = new_access
+                extra["accessToken"] = new_access
+                if new_refresh:
+                    extra["refresh_token"] = new_refresh
+                    extra["refreshToken"] = new_refresh
+                account.extra = extra
+                a.access_token = new_access
+
+            status = check_subscription_status(a, proxy=proxy)
             return status not in ("expired", "invalid", "banned", None)
         except Exception:
             return False
@@ -77,7 +101,7 @@ class ChatGPTPlatform(BasePlatform):
             def _resolve_email(candidate_email: str = "") -> str:
                 resolved_email = str(_fixed_email or candidate_email or "").strip()
                 if not resolved_email:
-                    raise RuntimeError("custom_provider 返回空邮箱地址")
+                    raise RuntimeError("custom_provider Returns an empty email address")
                 return resolved_email
 
             class GenericEmailService:
@@ -114,7 +138,7 @@ class ChatGPTPlatform(BasePlatform):
                     exclude_codes=None,
                 ):
                     if not self._acct:
-                        raise RuntimeError("邮箱账户尚未创建，无法获取验证码")
+                        raise RuntimeError("The email account has not been created yet and the verification code cannot be obtained.")
                     return _mailbox.wait_for_code(
                         self._acct,
                         keyword="",
@@ -151,7 +175,7 @@ class ChatGPTPlatform(BasePlatform):
                     self._before_ids = set(_tmail.get_current_ids(acct) or [])
                     resolved_email = str(getattr(acct, "email", "") or "").strip()
                     if not resolved_email:
-                        raise RuntimeError("tempmail_lol 返回空邮箱地址")
+                        raise RuntimeError("tempmail_lol Returns an empty email address")
                     return {"email": resolved_email, "service_id": acct.account_id, "token": acct.account_id}
 
                 def get_verification_code(
@@ -194,26 +218,27 @@ class ChatGPTPlatform(BasePlatform):
         )
         result = adapter.run(context)
         if not result or not result.success:
-            raise RuntimeError(result.error_message if result else "注册失败")
+            raise RuntimeError(result.error_message if result else "Registration failed")
 
         return adapter.build_account(result, password)
 
     def get_platform_actions(self) -> list:
         return [
-            {"id": "probe_local_status", "label": "探测本地状态", "params": []},
-            {"id": "sync_cliproxyapi_status", "label": "同步 CLIProxyAPI 状态", "params": []},
-            {"id": "refresh_token", "label": "刷新 Token", "params": []},
+            {"id": "probe_local_status", "label": "Detect local status", "params": []},
+            {"id": "sync_cliproxyapi_status", "label": "synchronous CLIProxyAPI state", "params": []},
+            {"id": "refresh_token", "label": "refresh Token", "params": []},
+            {"id": "upload_to_omniroute", "label": "Upload to OmniRoute", "params": []},
             {
                 "id": "payment_link",
-                "label": "生成支付链接",
+                "label": "Generate payment link",
                 "params": [
-                    {"key": "country", "label": "地区", "type": "select", "options": ["US", "SG", "TR", "HK", "JP", "GB", "AU", "CA"]},
-                    {"key": "plan", "label": "套餐", "type": "select", "options": ["plus", "team"]},
+                    {"key": "country", "label": "area", "type": "select", "options": ["US", "SG", "TR", "HK", "JP", "GB", "AU", "CA"]},
+                    {"key": "plan", "label": "combo", "type": "select", "options": ["plus", "team"]},
                 ],
             },
             {
                 "id": "upload_cpa",
-                "label": "上传 CPA",
+                "label": "upload CPA",
                 "params": [
                     {"key": "api_url", "label": "CPA API URL", "type": "text"},
                     {"key": "api_key", "label": "CPA API Key", "type": "text"},
@@ -221,7 +246,7 @@ class ChatGPTPlatform(BasePlatform):
             },
             {
                 "id": "upload_sub2api",
-                "label": "上传 Sub2API",
+                "label": "upload Sub2API",
                 "params": [
                     {"key": "api_url", "label": "Sub2API API URL", "type": "text"},
                     {"key": "api_key", "label": "Sub2API API Key", "type": "text"},
@@ -229,7 +254,7 @@ class ChatGPTPlatform(BasePlatform):
             },
             {
                 "id": "upload_tm",
-                "label": "上传 Team Manager",
+                "label": "upload Team Manager",
                 "params": [
                     {"key": "api_url", "label": "TM API URL", "type": "text"},
                     {"key": "api_key", "label": "TM API Key", "type": "text"},
@@ -237,7 +262,7 @@ class ChatGPTPlatform(BasePlatform):
             },
             {
                 "id": "upload_codex_proxy",
-                "label": "上传 CodexProxy",
+                "label": "upload CodexProxy",
                 "params": [
                     {"key": "api_url", "label": "API URL", "type": "text"},
                     {"key": "api_key", "label": "Admin Key", "type": "text"},
@@ -267,14 +292,14 @@ class ChatGPTPlatform(BasePlatform):
 
             probe_result = probe_local_chatgpt_status(a, proxy=proxy)
             summary = (
-                f"认证={probe_result.get('auth', {}).get('state', 'unknown')}, "
-                f"订阅={probe_result.get('subscription', {}).get('plan', 'unknown')}, "
+                f"Certification={probe_result.get('auth', {}).get('state', 'unknown')}, "
+                f"subscription={probe_result.get('subscription', {}).get('plan', 'unknown')}, "
                 f"Codex={probe_result.get('codex', {}).get('state', 'unknown')}"
             )
             return {
                 "ok": True,
                 "data": {
-                    "message": f"本地状态探测完成：{summary}",
+                    "message": f"Local status detection completed:{summary}",
                     "probe": probe_result,
                 },
                 "account_extra_patch": {
@@ -288,13 +313,13 @@ class ChatGPTPlatform(BasePlatform):
             sync_result = sync_chatgpt_cliproxyapi_status(a)
             ok = bool(sync_result.get("uploaded")) and sync_result.get("remote_state") not in {"unreachable", "not_found"}
             summary = (
-                f"远端状态={sync_result.get('status') or 'not_found'}, "
-                f"探测={sync_result.get('remote_state') or 'not_checked'}"
+                f"remote status={sync_result.get('status') or 'not_found'}, "
+                f"detection={sync_result.get('remote_state') or 'not_checked'}"
             )
             return {
                 "ok": ok,
                 "data": {
-                    "message": f"CLIProxyAPI 状态同步完成：{summary}",
+                    "message": f"CLIProxyAPI Status synchronization completed:{summary}",
                     "sync": sync_result,
                 },
                 "error": sync_result.get("message") if not ok else "",
@@ -394,4 +419,36 @@ class ChatGPTPlatform(BasePlatform):
                 )
             return {"ok": ok, "data": msg}
 
-        raise NotImplementedError(f"未知操作: {action_id}")
+        if action_id == "upload_to_omniroute":
+            from services.omniroute_sync import upload_to_omniroute, build_omniroute_payload
+            from core.config_store import config_store
+
+            api_url = str(config_store.get("omniroute_api_url", "") or "").strip()
+            admin_password = str(config_store.get("omniroute_admin_password", "") or "").strip()
+            if not api_url:
+                return {"ok": False, "error": "OmniRoute API URL is not configured (omniroute_api_url)"}
+
+            try:
+                payload = build_omniroute_payload(account)
+            except Exception as e:
+                payload = {}
+                return {"ok": False, "error": f"Failed to build OmniRoute payload: {e}"}
+
+            ok, msg = upload_to_omniroute(account, api_url=api_url, admin_password=admin_password)
+            return {
+                "ok": ok,
+                "data": {
+                    "message": msg,
+                    "payload_preview": {
+                        "provider": payload.get("provider", ""),
+                        "authType": payload.get("authType", ""),
+                        "email": payload.get("email", ""),
+                        "has_accessToken": bool(payload.get("accessToken")),
+                        "has_refreshToken": bool(payload.get("refreshToken")),
+                        "providerSpecificData": payload.get("providerSpecificData", {}),
+                    },
+                },
+                "error": "" if ok else msg,
+            }
+
+        raise NotImplementedError(f"Unknown operation: {action_id}")

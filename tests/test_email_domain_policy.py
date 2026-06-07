@@ -8,7 +8,7 @@ def test_policy_disabled_skips_validation():
 
 
 def test_policy_checks_domain_level_count():
-    with pytest.raises(ValueError, match="至少需要 4 级"):
+    with pytest.raises(ValueError, match="At least required 4 class"):
         validate_email_domain_policy(
             "user@a1b2.example.com",
             {
@@ -19,7 +19,7 @@ def test_policy_checks_domain_level_count():
 
 
 def test_policy_checks_letter_and_digit_count():
-    with pytest.raises(ValueError, match="至少包含 2 个英文字母和 2 个数字"):
+    with pytest.raises(ValueError, match="contains at least 2 English letters and 2 numbers"):
         validate_email_domain_policy(
             "user@ab.example.com",
             {

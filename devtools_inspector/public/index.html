@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevTools Inspector — AI Agent Dashboard</title>
+  <meta name="description" content="Real-time Chrome DevTools bridge dashboard. Monitor network traffic, DOM, console logs, and storage from a live Chrome tab." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">🔍</div>
+        <div class="logo-text">
+          <span class="logo-title">DevTools Inspector</span>
+          <span class="logo-subtitle">AI Agent Bridge</span>
+        </div>
+      </div>
+      <div class="status-bar">
+        <div class="status-indicator" id="status-dot"></div>
+        <span class="status-label" id="status-label">Connecting...</span>
+        <span class="status-page" id="status-page"></span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" id="btn-connect" title="Connect to Chrome tab">Connect</button>
+        <button class="btn btn-ghost btn-danger" id="btn-clear" title="Clear all captured data">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tab Bar -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="network" id="tab-network">
+      <span class="tab-icon">⇅</span> Network
+      <span class="tab-badge" id="badge-network">0</span>
+    </button>
+    <button class="tab-btn" data-tab="console" id="tab-console">
+      <span class="tab-icon">≫</span> Console
+      <span class="tab-badge hidden" id="badge-errors">0</span>
+    </button>
+    <button class="tab-btn" data-tab="dom" id="tab-dom">
+      <span class="tab-icon">⟨⟩</span> DOM
+    </button>
+    <button class="tab-btn" data-tab="storage" id="tab-storage">
+      <span class="tab-icon">◫</span> Storage
+    </button>
+    <button class="tab-btn" data-tab="tabs" id="tab-tabs">
+      <span class="tab-icon">⊞</span> Tabs
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- ── Network Tab ───────────────────────────────────────────────── -->
+    <section class="tab-panel active" id="panel-network">
+      <div class="toolbar">
+        <input class="filter-input" id="network-filter" placeholder="Filter by URL..." />
+        <select class="filter-select" id="network-method">
+          <option value="">All methods</option>
+          <option>GET</option><option>POST</option><option>PUT</option>
+          <option>PATCH</option><option>DELETE</option>
+        </select>
+        <select class="filter-select" id="network-type">
+          <option value="">All types</option>
+          <option value="XHR">XHR</option><option value="Fetch">Fetch</option>
+          <option value="Document">Document</option><option value="Script">Script</option>
+          <option value="Stylesheet">Stylesheet</option><option value="Image">Image</option>
+          <option value="Font">Font</option><option value="WebSocket">WebSocket</option>
+        </select>
+        <button class="btn btn-sm" id="btn-network-refresh">Refresh</button>
+      </div>
+      <div class="network-table-wrapper">
+        <table class="network-table">
+          <thead>
+            <tr>
+              <th class="col-status">Status</th>
+              <th class="col-method">Method</th>
+              <th class="col-type">Type</th>
+              <th class="col-url">URL</th>
+              <th class="col-time">Time</th>
+            </tr>
+          </thead>
+          <tbody id="network-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="network-empty">
+          <div class="empty-icon">⇅</div>
+          <p>No network requests captured yet.</p>
+          <p class="empty-hint">Navigate to a page in Chrome to see requests here.</p>
+        </div>
+      </div>
+      <!-- Request detail drawer -->
+      <div class="detail-drawer" id="network-detail">
+        <div class="drawer-header">
+          <span class="drawer-title" id="detail-url"></span>
+          <button class="drawer-close" id="detail-close">✕</button>
+        </div>
+        <div class="drawer-tabs">
+          <button class="drawer-tab active" data-dtab="headers">Headers</button>
+          <button class="drawer-tab" data-dtab="body">Response</button>
+          <button class="drawer-tab" data-dtab="request">Request</button>
+        </div>
+        <div class="drawer-content" id="detail-content"></div>
+      </div>
+    </section>
+
+    <!-- ── Console Tab ───────────────────────────────────────────────── -->
+    <section class="tab-panel" id="panel-console">
+      <div class="toolbar">
+        <div class="log-level-filters">
+          <button class="level-btn active" data-level="">All</button>
+          <button class="level-btn error" data-level="error">Errors</button>
+          <button class="level-btn warning" data-level="warning">Warnings</button>
+          <button class="level-btn log" data-level="log">Logs</button>
+          <button class="level-btn info" data-level="info">Info</button>
+        </div>
+        <input class="filter-input" id="console-filter" placeholder="Filter messages..." style="flex:1" />
+        <button class="btn btn-sm" id="btn-console-refresh">Refresh</button>
+      </div>
+      <div class="console-output" id="console-output">
+        <div class="empty-state" id="console-empty">
+          <div class="empty-icon">≫</div>
+          <p>No console messages yet.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── DOM Tab ───────────────────────────────────────────────────── -->
+    <section class="tab-panel" id="panel-dom">
+      <div class="toolbar">
+        <input class="filter-input" id="dom-selector" placeholder="CSS Selector (e.g. button.submit, #login-form)" style="flex:1" />
+        <button class="btn btn-sm" id="btn-dom-query">Query</button>
+        <button class="btn btn-sm" id="btn-dom-snapshot">Full DOM</button>
+      </div>
+      <div class="dom-content" id="dom-content">
+        <div class="empty-state">
+          <div class="empty-icon">⟨⟩</div>
+          <p>Enter a CSS selector and click Query, or click Full DOM to see the entire page structure.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Storage Tab ───────────────────────────────────────────────── -->
+    <section class="tab-panel" id="panel-storage">
+      <div class="toolbar">
+        <button class="btn btn-sm" id="btn-storage-refresh">Refresh</button>
+      </div>
+      <div class="storage-content" id="storage-content">
+        <div class="empty-state">
+          <div class="empty-icon">◫</div>
+          <p>Click Refresh to load storage data.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Tabs Tab ──────────────────────────────────────────────────── -->
+    <section class="tab-panel" id="panel-tabs">
+      <div class="toolbar">
+        <button class="btn btn-sm" id="btn-tabs-refresh">Refresh tabs</button>
+      </div>
+      <div class="tabs-list" id="tabs-list">
+        <div class="empty-state">
+          <div class="empty-icon">⊞</div>
+          <p>Click Refresh tabs to list open Chrome tabs.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Event counter bar -->
+  <div class="event-bar">
+    <div class="event-stat"><span id="stat-requests">0</span> requests</div>
+    <div class="event-stat"><span id="stat-errors">0</span> errors</div>
+    <div class="event-stat"><span id="stat-ws">0</span> WS frames</div>
+    <div class="event-stat" id="stat-page-info"></div>
+    <div class="event-stat sse-status" id="sse-status">⬤ SSE</div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

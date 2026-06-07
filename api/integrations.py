@@ -148,8 +148,31 @@ def backfill_integrations(body: BackfillRequest):
                     ok, msg = upload_to_kiro_manager(account, path=configured_path)
                     results.append({"name": "Kiro Manager", "ok": ok, "msg": msg})
 
+
+
+                # OmniRoute backfill for all platforms
+                from core.config_store import config_store
+                from services.external_sync import _is_config_enabled
+                from services.omniroute_sync import upload_to_omniroute
+                from services.chatgpt_sync import persist_omniroute_sync_result
+
+                omniroute_url = str(config_store.get("omniroute_api_url", "") or "").strip()
+                if omniroute_url:
+                    omniroute_enabled = _is_config_enabled(
+                        config_store.get(f"omniroute_{row.platform}_enabled", ""),
+                        default=True,
+                    )
+                    if omniroute_enabled:
+                        account = _to_account(row)
+                        omniroute_password = str(config_store.get("omniroute_admin_password", "") or "").strip()
+                        ok, msg = upload_to_omniroute(
+                            account, api_url=omniroute_url, admin_password=omniroute_password
+                        )
+                        persist_omniroute_sync_result(row, ok, msg)
+                        results.append({"name": "OmniRoute", "ok": ok, "msg": msg})
+
                 if not results:
-                    item["results"].append({"name": "skip", "ok": False, "msg": "未配置对应导入目标"})
+                    item["results"].append({"name": "skip", "ok": False, "msg": "The corresponding import target is not configured"})
                     summary["failed"] += 1
                 else:
                     item["results"] = results

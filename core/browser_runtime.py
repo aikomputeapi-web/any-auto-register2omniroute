@@ -27,7 +27,7 @@ def parse_env_bool(name: str) -> bool | None:
     if value in _FALSE_VALUES:
         return False
 
-    logger.warning("忽略无效布尔环境变量 %s=%r", name, raw)
+    logger.warning("Ignore invalid boolean environment variables %s=%r", name, raw)
     return None
 
 
@@ -59,6 +59,6 @@ def ensure_browser_display_available(headless: bool) -> None:
         return
 
     raise RuntimeError(
-        "当前为 Linux 有头浏览器模式，但未检测到 DISPLAY。"
-        "Docker 内请启用 Xvfb；本地 Linux 请先启动图形环境或改用无头模式。"
+        "Currently Linux Headed browser mode, but not detected DISPLAY."
+        "Docker Please enable within Xvfb;local Linux Please start the graphical environment or switch to headless mode."
     )

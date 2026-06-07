@@ -17,8 +17,9 @@ import {
   Alert,
   DatePicker,
   theme,
-} from 'antd'
-import type { MenuProps } from 'antd'
+} from 'antd';
+import { useTranslation } from 'react-i18next';
+import type { MenuProps } from 'antd';
 import {
   ReloadOutlined,
   CopyOutlined,
@@ -26,10 +27,9 @@ import {
   PlusOutlined,
   DownloadOutlined,
   UploadOutlined,
-  MoreOutlined,
   DeleteOutlined,
   SyncOutlined,
-} from '@ant-design/icons'
+} from '@ant-design/icons';
 import { ChatGPTRegistrationModeSwitch } from '@/components/ChatGPTRegistrationModeSwitch'
 import { TaskLogPanel } from '@/components/TaskLogPanel'
 import { usePersistentChatGPTRegistrationMode } from '@/hooks/usePersistentChatGPTRegistrationMode'
@@ -63,9 +63,10 @@ function normalizeAccount(account: any) {
   const syncStatuses = extra.sync_statuses && typeof extra.sync_statuses === 'object' ? extra.sync_statuses : {}
   const cpaSync = syncStatuses.cpa && typeof syncStatuses.cpa === 'object' ? syncStatuses.cpa : {}
   const sub2apiSync = syncStatuses.sub2api && typeof syncStatuses.sub2api === 'object' ? syncStatuses.sub2api : {}
+  const omnirouteSync = syncStatuses.omniroute && typeof syncStatuses.omniroute === 'object' ? syncStatuses.omniroute : {}
   const cliproxySync = syncStatuses.cliproxyapi && typeof syncStatuses.cliproxyapi === 'object' ? syncStatuses.cliproxyapi : {}
   const chatgptLocal = extra.chatgpt_local && typeof extra.chatgpt_local === 'object' ? extra.chatgpt_local : {}
-  return { ...account, extra, cpaSync, sub2apiSync, cliproxySync, chatgptLocal }
+  return { ...account, extra, cpaSync, sub2apiSync, omnirouteSync, cliproxySync, chatgptLocal }
 }
 
 function formatSyncTime(value?: string) {
@@ -89,44 +90,44 @@ function formatCreatedAt(value?: string) {
 function authStateMeta(state?: string) {
   switch (state) {
     case 'access_token_valid':
-      return { color: 'success', label: 'AT有效' }
+      return { color: 'success', label: 'Access token valid' }
     case 'account_deactivated':
-      return { color: 'error', label: '已失效' }
+      return { color: 'error', label: 'Deactivated' }
     case 'access_token_invalidated':
-      return { color: 'error', label: 'AT失效' }
+      return { color: 'error', label: 'Access token invalidated' }
     case 'unauthorized':
-      return { color: 'error', label: '未授权' }
+      return { color: 'error', label: 'Unauthorized' }
     case 'missing_access_token':
-      return { color: 'default', label: '缺少AT' }
+      return { color: 'default', label: 'Missing access token' }
     case 'banned_like':
-      return { color: 'error', label: '疑似封禁' }
+      return { color: 'error', label: 'Possibly banned' }
     case 'probe_failed':
-      return { color: 'warning', label: '探测失败' }
+      return { color: 'warning', label: 'Probe failed' }
     default:
-      return { color: 'default', label: '未探测' }
+      return { color: 'default', label: 'Not probed' }
   }
 }
 
 function codexStateMeta(state?: string) {
   switch (state) {
     case 'usable':
-      return { color: 'success', label: '可用' }
+      return { color: 'success', label: 'Usable' }
     case 'account_deactivated':
-      return { color: 'error', label: '已失效' }
+      return { color: 'error', label: 'Deactivated' }
     case 'access_token_invalidated':
-      return { color: 'error', label: 'AT失效' }
+      return { color: 'error', label: 'Access token invalidated' }
     case 'unauthorized':
-      return { color: 'error', label: '未授权' }
+      return { color: 'error', label: 'Unauthorized' }
     case 'payment_required':
-      return { color: 'warning', label: '需付费/权限' }
+      return { color: 'warning', label: 'Payment required / permission' }
     case 'quota_exhausted':
-      return { color: 'warning', label: '额度耗尽' }
+      return { color: 'warning', label: 'Quota exhausted' }
     case 'skipped_auth_invalid':
-      return { color: 'default', label: '未测' }
+      return { color: 'default', label: 'Not checked' }
     case 'probe_failed':
-      return { color: 'warning', label: '探测失败' }
+      return { color: 'warning', label: 'Probe failed' }
     default:
-      return { color: 'default', label: '未探测' }
+      return { color: 'default', label: 'Not probed' }
   }
 }
 
@@ -143,7 +144,7 @@ function planMeta(plan?: string) {
     case 'free':
       return { color: 'default', label: 'Free' }
     default:
-      return { color: 'default', label: '未知' }
+      return { color: 'default', label: 'Unknown' }
   }
 }
 
@@ -238,6 +239,7 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
 }
 
 function LocalProbeSummary({ probe }: { probe: any }) {
+  const { t } = useTranslation();
   const checkedAt = probe?.checked_at || probe?.auth?.checked_at || probe?.subscription?.checked_at || probe?.codex?.checked_at
   const auth = probe?.auth || {}
   const subscription = probe?.subscription || {}
@@ -246,99 +248,99 @@ function LocalProbeSummary({ probe }: { probe: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        <Tag color={authStateMeta(auth.state).color}>认证: {authStateMeta(auth.state).label}</Tag>
-        <Tag color={planMeta(subscription.plan).color}>订阅: {planMeta(subscription.plan).label}</Tag>
+        <Tag color={authStateMeta(auth.state).color}>Auth: {authStateMeta(auth.state).label}</Tag>
+        <Tag color={planMeta(subscription.plan).color}>Subscription: {planMeta(subscription.plan).label}</Tag>
         <Tag color={codexStateMeta(codex.state).color}>Codex: {codexStateMeta(codex.state).label}</Tag>
       </div>
-      <SummaryField label="探测时间" value={checkedAt ? formatSyncTime(checkedAt) : ''} />
-      <SummaryField label="认证信息" value={auth.message} code />
-      <SummaryField label="工作区套餐" value={subscription.workspace_plan_type} />
-      <SummaryField label="Codex 信息" value={codex.message} code />
+      <SummaryField label={t('probe_time')} value={checkedAt ? formatSyncTime(checkedAt) : ''} />
+      <SummaryField label={t('auth_information')} value={auth.message} code />
+      <SummaryField label={t('workspace_plan')} value={subscription.workspace_plan_type} />
+      <SummaryField label={t('codex_information')} value={codex.message} code />
     </div>
   )
 }
 
 function cliproxyStateMeta(sync: any) {
   if (!sync || Object.keys(sync).length === 0) {
-    return { color: 'default', label: '未同步' }
+    return { color: 'default', label: 'Not synced' }
   }
   if (sync.remote_state === 'unreachable') {
-    return { color: 'error', label: '不可连接' }
+    return { color: 'error', label: 'Unreachable' }
   }
   if (sync.remote_state === 'not_found') {
-    return { color: 'default', label: '远端未发现' }
+    return { color: 'default', label: 'Remote not found' }
   }
   if (!sync.uploaded) {
-    return { color: 'default', label: '未发现' }
+    return { color: 'default', label: 'Not found' }
   }
   if (sync.remote_state === 'usable') {
-    return { color: 'success', label: '远端可用' }
+    return { color: 'success', label: 'Remote usable' }
   }
   if (sync.remote_state === 'account_deactivated') {
-    return { color: 'error', label: '远端已失效' }
+    return { color: 'error', label: 'Remote deactivated' }
   }
   if (sync.remote_state === 'access_token_invalidated') {
-    return { color: 'error', label: '远端AT失效' }
+    return { color: 'error', label: 'Remote access token invalidated' }
   }
   if (sync.remote_state === 'unauthorized') {
-    return { color: 'error', label: '远端未授权' }
+    return { color: 'error', label: 'Remote unauthorized' }
   }
   if (sync.remote_state === 'payment_required') {
-    return { color: 'warning', label: '远端需付费/权限' }
+    return { color: 'warning', label: 'Remote payment required / permission' }
   }
   if (sync.remote_state === 'quota_exhausted') {
-    return { color: 'warning', label: '远端额度耗尽' }
+    return { color: 'warning', label: 'Remote quota exhausted' }
   }
   if (sync.status === 'active') {
-    return { color: 'processing', label: '远端Active' }
+    return { color: 'processing', label: 'Remote Active' }
   }
   if (sync.status === 'refreshing') {
-    return { color: 'processing', label: '远端刷新中' }
+    return { color: 'processing', label: 'Remote refreshing' }
   }
   if (sync.status === 'pending') {
-    return { color: 'default', label: '远端待处理' }
+    return { color: 'default', label: 'Remote pending' }
   }
   if (sync.status === 'error') {
-    return { color: 'error', label: '远端错误' }
+    return { color: 'error', label: 'Remote error' }
   }
   if (sync.status === 'disabled') {
-    return { color: 'default', label: '远端禁用' }
+    return { color: 'default', label: 'Remote disabled' }
   }
-  return { color: 'default', label: '未同步' }
+  return { color: 'default', label: 'Not synced' }
 }
 
 function uploadSyncMeta(sync: any) {
   if (!sync || Object.keys(sync).length === 0) {
-    return { color: 'default', label: '未上传' }
+    return { color: 'default', label: 'Not uploaded' }
   }
   if (sync.uploaded || sync.uploaded_at) {
-    return { color: 'success', label: '已上传' }
+    return { color: 'success', label: 'Uploaded' }
   }
   if (sync.last_attempt_ok === false) {
-    return { color: 'error', label: '失败' }
+    return { color: 'error', label: 'Failed' }
   }
   if (sync.last_attempt_ok === true || sync.last_attempt_at) {
-    return { color: 'processing', label: '已尝试' }
+    return { color: 'processing', label: 'Attempted' }
   }
-  return { color: 'default', label: '未上传' }
+  return { color: 'default', label: 'Not uploaded' }
 }
 
 function uploadSyncTitle(name: string, sync: any) {
   if (!sync || Object.keys(sync).length === 0) {
-    return `${name} 未上传`
+    return `${name} not uploaded`
   }
 
   const parts: string[] = []
   if (sync.uploaded_at) {
-    parts.push(`成功时间: ${formatSyncTime(sync.uploaded_at)}`)
+    parts.push(`Success time: ${formatSyncTime(sync.uploaded_at)}`)
   }
   if (sync.last_attempt_at) {
-    parts.push(`最近尝试: ${formatSyncTime(sync.last_attempt_at)}`)
+    parts.push(`Last attempt: ${formatSyncTime(sync.last_attempt_at)}`)
   }
   if (sync.last_message) {
-    parts.push(`结果: ${sync.last_message}`)
+    parts.push(`Result: ${sync.last_message}`)
   }
-  return parts.join('\n') || `${name} 已记录状态`
+  return parts.join('\n') || `${name} status recorded`
 }
 
 function CliproxySyncSummary({ sync }: { sync: any }) {
@@ -349,18 +351,19 @@ function CliproxySyncSummary({ sync }: { sync: any }) {
         <Tag color={meta.color}>{meta.label}</Tag>
         {sync?.status ? <Tag>{`status: ${sync.status}`}</Tag> : null}
       </div>
-      <SummaryField label="状态信息" value={sync?.status_message} code />
+      <SummaryField label="Status information" value={sync?.status_message} code />
       <SummaryField label="auth-file" value={sync?.name} />
       <SummaryField label="API URL" value={sync?.base_url} />
-      <SummaryField label="同步时间" value={sync?.last_synced_at ? formatSyncTime(sync.last_synced_at) : ''} />
-      <SummaryField label="远端刷新时间" value={sync?.last_refresh ? formatSyncTime(sync.last_refresh) : ''} />
-      <SummaryField label="下次重试时间" value={sync?.next_retry_after ? formatSyncTime(sync.next_retry_after) : ''} />
-      <SummaryField label="探测信息" value={sync?.last_probe_message} code />
+      <SummaryField label="Sync time" value={sync?.last_synced_at ? formatSyncTime(sync.last_synced_at) : ''} />
+      <SummaryField label="Remote refresh time" value={sync?.last_refresh ? formatSyncTime(sync.last_refresh) : ''} />
+      <SummaryField label="Next retry time" value={sync?.next_retry_after ? formatSyncTime(sync.next_retry_after) : ''} />
+      <SummaryField label="Probe information" value={sync?.last_probe_message} code />
     </div>
   )
 }
 
-function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => void; actions: any[] }) {
+function ActionButtons({ acc, onRefresh, actions, onDelete }: { acc: any; onRefresh: () => void; actions: any[]; onDelete: (id: number) => void }) {
+  const { token } = theme.useToken()
   const [resultOpen, setResultOpen] = useState(false)
   const [resultTitle, setResultTitle] = useState('')
   const [resultStatus, setResultStatus] = useState<'success' | 'error'>('success')
@@ -384,9 +387,9 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
     if (!resultUrl) return
     try {
       await navigator.clipboard.writeText(resultUrl)
-      message.success('链接已复制')
+      message.success('Link copied')
     } catch {
-      message.error('复制失败')
+      message.error('Copy failed')
     }
   }
 
@@ -395,7 +398,7 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
     const actionLabel = actions.find((item) => item.id === actionId)?.label || actionId
     const toastKey = `account-action:${acc?.id}:${actionId}`
     setRunningActionId(actionId)
-    message.loading({ content: `${actionLabel}运行中...`, key: toastKey, duration: 0 })
+    message.loading({ content: `${actionLabel} running...`, key: toastKey, duration: 0 })
 
     try {
       const r = await apiFetch(`/actions/${acc.platform}/${acc.id}/${actionId}`, {
@@ -406,35 +409,35 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
         const data = r.data || {}
         const probe = typeof data === 'object' && data ? data.probe || null : null
         const cliproxySync = typeof data === 'object' && data ? data.sync || null : null
-        message.error({ content: `${actionLabel}失败`, key: toastKey })
-        showResult(actionLabel, 'error', r.error || data.message || '操作失败', '', probe, cliproxySync)
+        message.error({ content: `${actionLabel} failed`, key: toastKey })
+        showResult(actionLabel, 'error', r.error || data.message || 'Action failed', '', probe, cliproxySync)
         onRefresh()
         return
       }
       const data = r.data || {}
       if (data.url || data.checkout_url || data.cashier_url) {
         const targetUrl = data.url || data.checkout_url || data.cashier_url
-        message.success({ content: `${actionLabel}完成`, key: toastKey })
-        showResult(actionLabel, 'success', '操作成功，请在弹窗中打开或复制链接。', targetUrl)
+        message.success({ content: `${actionLabel} completed`, key: toastKey })
+        showResult(actionLabel, 'success', 'Operation successful, please open or copy the link in the dialog.', targetUrl)
       } else {
-        message.success({ content: data.message || `${actionLabel}完成`, key: toastKey })
+        message.success({ content: data.message || `${actionLabel} completed`, key: toastKey })
         const probe = typeof data === 'object' && data ? data.probe || null : null
         const cliproxySync = typeof data === 'object' && data ? data.sync || null : null
         const text =
           probe
-            ? String(data.message || '操作成功')
+            ? String(data.message || 'Operation successful')
             : cliproxySync
-            ? String(data.message || '操作成功')
+            ? String(data.message || 'Operation successful')
             : typeof data === 'string'
             ? data
             : Object.keys(data).length > 0
               ? JSON.stringify(data, null, 2)
-              : '操作成功'
+              : 'Operation successful'
         showResult(actionLabel, 'success', text, '', probe, cliproxySync)
       }
       onRefresh()
     } catch (e: any) {
-      const detail = e?.message ? String(e.message) : '请求失败'
+      const detail = e?.message ? String(e.message) : 'Request failed'
       message.error({ content: detail, key: toastKey })
       showResult(actionLabel, 'error', detail)
     } finally {
@@ -442,29 +445,99 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
     }
   }
 
-  const menuItems: MenuProps['items'] = actions.map((a) => ({
-    key: a.id,
-    label: runningActionId === a.id ? `${a.label}（运行中）` : a.label,
-    disabled: Boolean(runningActionId),
-  }))
+  const btnStyle: React.CSSProperties = {
+    fontSize: 11,
+    minHeight: 34,
+    height: 'auto',
+    padding: '4px 8px',
+    lineHeight: '1.2',
+    borderRadius: 6,
+    width: '100%',
+    textAlign: 'center',
+    whiteSpace: 'normal',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: 'none',
+    transition: 'all 0.2s',
+  }
 
-  if (actions.length === 0) return null
+  // All buttons: platform actions + Details + Delete
+  const allButtons = [
+    ...actions.map((a) => ({
+      id: a.id,
+      label: a.label,
+      fullLabel: a.label,
+      isDelete: false,
+      isPlatformAction: true,
+    })),
+    { id: '__details__', label: 'Details', fullLabel: 'Details', isDelete: false, isPlatformAction: false },
+    { id: '__delete__', label: 'Delete', fullLabel: 'Delete', isDelete: true, isPlatformAction: false },
+  ]
 
   return (
     <>
-      <Dropdown
-        menu={{
-          items: menuItems,
-          onClick: ({ key }) => handleAction(String(key)),
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: 6,
+          width: '100%',
         }}
       >
-        <Button
-          type="link"
-          size="small"
-          icon={<MoreOutlined />}
-          loading={Boolean(runningActionId)}
-        />
-      </Dropdown>
+        {allButtons.map((btn) => {
+          if (btn.id === '__delete__') {
+            return (
+              <Popconfirm
+                key="__delete__"
+                title="Delete this account?"
+                onConfirm={() => onDelete(acc.id)}
+                okText="Delete"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
+              >
+                <Button
+                  danger
+                  style={btnStyle}
+                  title="Delete"
+                >
+                  Delete
+                </Button>
+              </Popconfirm>
+            )
+          }
+          if (btn.id === '__details__') {
+            return (
+              <Button
+                key="__details__"
+                type="default"
+                style={{ ...btnStyle, borderColor: token.colorPrimary, color: token.colorPrimary }}
+                title="Details"
+                onClick={() => {
+                  // Trigger detail modal via event — handled by parent via onRow or separate callback
+                  // We'll propagate via a custom event
+                  const evt = new CustomEvent('open-account-detail', { detail: { id: acc.id }, bubbles: true })
+                  document.dispatchEvent(evt)
+                }}
+              >
+                Details
+              </Button>
+            )
+          }
+          return (
+            <Button
+              key={btn.id}
+              style={btnStyle}
+              loading={runningActionId === btn.id}
+              disabled={Boolean(runningActionId) && runningActionId !== btn.id}
+              title={btn.fullLabel}
+              onClick={() => handleAction(btn.id)}
+            >
+              {btn.label}
+            </Button>
+          )
+        })}
+      </div>
       <Modal
         title={resultTitle}
         open={resultOpen}
@@ -472,7 +545,7 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
         footer={[
           resultUrl ? (
             <Button key="copy" onClick={copyResultUrl}>
-              复制链接
+              Copy link
             </Button>
           ) : null,
           resultUrl ? (
@@ -481,11 +554,11 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
               type="primary"
               onClick={() => window.open(resultUrl, '_blank', 'noopener,noreferrer')}
             >
-              打开链接
+              Open link
             </Button>
           ) : null,
           <Button key="ok" type={resultUrl ? 'default' : 'primary'} onClick={() => setResultOpen(false)}>
-            确定
+            OK
           </Button>,
         ].filter(Boolean)}
         maskClosable={false}
@@ -493,7 +566,7 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
         <Alert
           type={resultStatus}
           showIcon
-          message={resultStatus === 'success' ? '操作完成' : '操作失败'}
+          message={resultStatus === 'success' ? 'Action completed' : 'Action failed'}
           style={{ marginBottom: 12 }}
         />
         {resultProbe ? (
@@ -565,6 +638,7 @@ export default function Accounts() {
   const [cpaSyncLoading, setCpaSyncLoading] = useState<'pending' | 'selected' | ''>('')
   const [cpaUploadLoading, setCpaUploadLoading] = useState<'all' | 'selected' | ''>('')
   const [statusSyncLoading, setStatusSyncLoading] = useState<'probe_selected' | 'probe_all' | 'remote_selected' | 'remote_all' | ''>('')
+  const [batchActionLoading, setBatchActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     if (platform) setCurrentPlatform(platform)
@@ -580,7 +654,7 @@ export default function Accounts() {
 
   const load = useCallback(async () => {
     if (createdAtStart && createdAtEnd && new Date(createdAtStart).getTime() > new Date(createdAtEnd).getTime()) {
-      message.warning('开始时间不能晚于结束时间')
+      message.warning('Start time cannot be later than end time')
       setAccounts([])
       setTotal(0)
       return
@@ -611,9 +685,23 @@ export default function Accounts() {
       .catch(() => setPlatformActions([]))
   }, [currentPlatform])
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (!detail?.id) return
+      const found = accounts.find((a: any) => a.id === detail.id)
+      if (found) {
+        setCurrentAccount(found)
+        setDetailModalOpen(true)
+      }
+    }
+    document.addEventListener('open-account-detail', handler)
+    return () => document.removeEventListener('open-account-detail', handler)
+  }, [accounts])
+
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text)
-    message.success('已复制')
+    message.success('Copied')
   }
 
   const getRefreshToken = (record: any): string => {
@@ -642,7 +730,7 @@ export default function Accounts() {
     }
 
     if (currentPlatform === 'kiro') {
-      const header = ['邮箱', '昵称', '登录方式', 'RefreshToken', 'ClientId', 'ClientSecret', 'Region']
+      const header = ['Email', 'Nickname', 'Login method', 'RefreshToken', 'ClientId', 'ClientSecret', 'Region']
       const rows = accounts.map((a) => {
         const nickname = a.extra?.name || String(a.email || '').split('@')[0] || ''
         const provider = a.extra?.provider || 'BuilderId'
@@ -696,7 +784,7 @@ export default function Accounts() {
 
   const handleDelete = async (id: number) => {
     await apiFetch(`/accounts/${id}`, { method: 'DELETE' })
-    message.success('删除成功')
+    message.success('Delete successful')
     load()
   }
 
@@ -706,7 +794,7 @@ export default function Accounts() {
       method: 'POST',
       body: JSON.stringify({ ids: Array.from(selectedRowKeys) }),
     })
-    message.success('批量删除成功')
+    message.success('Batch delete successful')
     setSelectedRowKeys([])
     load()
   }
@@ -717,7 +805,7 @@ export default function Accounts() {
       method: 'POST',
       body: JSON.stringify({ ...values, platform: currentPlatform }),
     })
-    message.success('添加成功')
+    message.success('Add successful')
     setAddModalOpen(false)
     addForm.resetFields()
     load()
@@ -732,12 +820,12 @@ export default function Accounts() {
         method: 'POST',
         body: JSON.stringify({ platform: currentPlatform, lines }),
       })
-      message.success(`导入成功 ${res.created} 个`)
+      message.success(`Import successful ${res.created}  items`)
       setImportModalOpen(false)
       setImportText('')
       load()
     } catch (e: any) {
-      message.error(`导入失败: ${e.message}`)
+      message.error(`ImportFailed: ${e.message}`)
     } finally {
       setImportLoading(false)
     }
@@ -840,7 +928,7 @@ export default function Accounts() {
       method: 'PATCH',
       body: JSON.stringify(values),
     })
-    message.success('保存成功')
+    message.success('Save successful')
     setDetailModalOpen(false)
     load()
   }
@@ -857,7 +945,7 @@ export default function Accounts() {
         })),
       )
       .filter((item: any) => !item.ok)
-      .map((item: any) => `[${item.platform}] ${item.email || '-'} / ${item.name}: ${item.msg || '失败'}`)
+      .map((item: any) => `[${item.platform}] ${item.email || '-'} / ${item.name}: ${item.msg || 'Failed'}`)
 
     if (lines.length === 0) return
 
@@ -888,7 +976,7 @@ export default function Accounts() {
   const showBatchActionResult = (title: string, result: any) => {
     const lines = (result.items || [])
       .filter((item: any) => !item.ok)
-      .map((item: any) => `[${item.id || '-'}] ${item.email || '-'}: ${item.message || '失败'}`)
+      .map((item: any) => `[${item.id || '-'}] ${item.email || '-'}: ${item.message || 'Failed'}`)
 
     if (lines.length === 0) return
 
@@ -929,7 +1017,7 @@ export default function Accounts() {
         .filter((value) => Number.isInteger(value) && value > 0)
 
       if (accountIds.length === 0) {
-        message.warning('请先选择要上传的账号')
+        message.warning('Please select the accounts to upload first')
         return
       }
       body.account_ids = accountIds
@@ -946,23 +1034,23 @@ export default function Accounts() {
         body: JSON.stringify(body),
       })
 
-      const actionLabel = mode === 'selected' ? '所选账号远端补传' : '远端未发现账号补传'
+      const actionLabel = mode === 'selected' ? 'Selected accounts backfill' : 'Remote-not-found backfill'
       if (!result.total) {
-        message.info('没有可处理的账号')
+        message.info('No accounts to process')
       } else if (!result.failed && !result.skipped) {
-        message.success(`${actionLabel}完成：成功 ${result.success} / ${result.total}`)
+        message.success(`${actionLabel} completed: success ${result.success} / ${result.total}`)
       } else if (!result.failed) {
-        message.success(`${actionLabel}完成：成功 ${result.success}，跳过 ${result.skipped} / ${result.total}`)
+        message.success(`${actionLabel} completed: success ${result.success}, skipped ${result.skipped} / ${result.total}`)
       } else if (!result.success) {
-        message.error(`${actionLabel}失败：成功 ${result.success}，跳过 ${result.skipped} / ${result.total}`)
+        message.error(`${actionLabel} failed: success ${result.success}, skipped ${result.skipped} / ${result.total}`)
       } else {
-        message.warning(`${actionLabel}部分完成：成功 ${result.success}，跳过 ${result.skipped} / ${result.total}`)
+        message.warning(`${actionLabel} partially completed: success ${result.success}, skipped ${result.skipped} / ${result.total}`)
       }
 
-      showCpaSyncResult(`${actionLabel}结果`, result)
+      showCpaSyncResult(`${actionLabel} result`, result)
       await load()
     } catch (e: any) {
-      message.error(`CPA 上传失败: ${e.message}`)
+      message.error(`CPA upload failed: ${e.message}`)
     } finally {
       setCpaSyncLoading('')
     }
@@ -973,8 +1061,8 @@ export default function Accounts() {
 
     const loadingKey = `${kind}_${scope}` as typeof statusSyncLoading
     const actionId = kind === 'probe' ? 'probe_local_status' : 'sync_cliproxyapi_status'
-    const actionLabel = kind === 'probe' ? '本地状态同步' : 'CLIProxyAPI 状态同步'
-    const scopeLabel = scope === 'selected' ? '所选账号' : '当前筛选账号'
+    const actionLabel = kind === 'probe' ? 'Local status sync' : 'CLIProxyAPI status sync'
+    const scopeLabel = scope === 'selected' ? 'Selected accounts' : 'Currently filtered accounts'
     const toastKey = `status-sync:${loadingKey}`
 
     const body: Record<string, unknown> = {
@@ -987,7 +1075,7 @@ export default function Accounts() {
         .filter((value) => Number.isInteger(value) && value > 0)
 
       if (accountIds.length === 0) {
-        message.warning('请先选择要同步的账号')
+        message.warning('Please select the accounts to sync first')
         return
       }
       body.account_ids = accountIds
@@ -998,7 +1086,7 @@ export default function Accounts() {
     }
 
     setStatusSyncLoading(loadingKey)
-    message.loading({ content: `${scopeLabel}${actionLabel}进行中...`, key: toastKey, duration: 0 })
+    message.loading({ content: `${scopeLabel} ${actionLabel} in progress...`, key: toastKey, duration: 0 })
     try {
       const result = await apiFetch(`/actions/${currentPlatform}/${actionId}/batch`, {
         method: 'POST',
@@ -1006,19 +1094,19 @@ export default function Accounts() {
       })
 
       if (!result.total) {
-        message.info({ content: '没有可处理的账号', key: toastKey })
+        message.info({ content: 'No accounts to process', key: toastKey })
       } else if (!result.failed) {
-        message.success({ content: `${scopeLabel}${actionLabel}完成：成功 ${result.success} / ${result.total}`, key: toastKey })
+        message.success({ content: `${scopeLabel} ${actionLabel} completed: success ${result.success} / ${result.total}`, key: toastKey })
       } else if (!result.success) {
-        message.error({ content: `${scopeLabel}${actionLabel}失败：成功 ${result.success} / ${result.total}`, key: toastKey })
+        message.error({ content: `${scopeLabel} ${actionLabel} failed: success ${result.success} / ${result.total}`, key: toastKey })
       } else {
-        message.warning({ content: `${scopeLabel}${actionLabel}部分完成：成功 ${result.success} / ${result.total}`, key: toastKey })
+        message.warning({ content: `${scopeLabel} ${actionLabel} partially completed: success ${result.success} / ${result.total}`, key: toastKey })
       }
 
-      showBatchActionResult(`${scopeLabel}${actionLabel}结果`, result)
+      showBatchActionResult(`${scopeLabel} ${actionLabel} result`, result)
       await load()
     } catch (e: any) {
-      message.error({ content: `${actionLabel}失败: ${e.message}`, key: toastKey })
+      message.error({ content: `${actionLabel}Failed: ${e.message}`, key: toastKey })
     } finally {
       setStatusSyncLoading('')
     }
@@ -1026,7 +1114,7 @@ export default function Accounts() {
 
   const handleBatchUploadCpa = async (scope: 'selected' | 'all') => {
     const toastKey = `batch-upload-cpa:${scope}`
-    const scopeLabel = scope === 'selected' ? '所选账号' : '当前筛选账号'
+    const scopeLabel = scope === 'selected' ? 'Selected accounts' : 'Currently filtered accounts'
 
     const body: Record<string, unknown> = {
       params: {},
@@ -1038,7 +1126,7 @@ export default function Accounts() {
         .filter((value) => Number.isInteger(value) && value > 0)
 
       if (accountIds.length === 0) {
-        message.warning('请先选择要导入 CPA 的账号')
+        message.warning('Please select the accounts to import into CPA first')
         return
       }
       body.account_ids = accountIds
@@ -1049,7 +1137,7 @@ export default function Accounts() {
     }
 
     setCpaUploadLoading(scope)
-    message.loading({ content: `${scopeLabel}导入 CPA 进行中...`, key: toastKey, duration: 0 })
+    message.loading({ content: `${scopeLabel} importing into CPA...`, key: toastKey, duration: 0 })
     try {
       const result = await apiFetch(`/actions/${currentPlatform}/upload_cpa/batch`, {
         method: 'POST',
@@ -1057,21 +1145,68 @@ export default function Accounts() {
       })
 
       if (!result.total) {
-        message.info({ content: '没有可处理的账号', key: toastKey })
+        message.info({ content: 'No accounts to process', key: toastKey })
       } else if (!result.failed) {
-        message.success({ content: `${scopeLabel}导入 CPA 完成：成功 ${result.success} / ${result.total}`, key: toastKey })
+        message.success({ content: `${scopeLabel} import into CPA completed: success ${result.success} / ${result.total}`, key: toastKey })
       } else if (!result.success) {
-        message.error({ content: `${scopeLabel}导入 CPA 失败：成功 ${result.success} / ${result.total}`, key: toastKey })
+        message.error({ content: `${scopeLabel} import into CPA failed: success ${result.success} / ${result.total}`, key: toastKey })
       } else {
-        message.warning({ content: `${scopeLabel}导入 CPA 部分完成：成功 ${result.success} / ${result.total}`, key: toastKey })
+        message.warning({ content: `${scopeLabel} import into CPA partially completed: success ${result.success} / ${result.total}`, key: toastKey })
       }
 
-      showBatchActionResult(`${scopeLabel}导入 CPA 结果`, result)
+      showBatchActionResult(`${scopeLabel} import into CPA result`, result)
       await load()
     } catch (e: any) {
-      message.error({ content: `导入 CPA 失败: ${e.message}`, key: toastKey })
+      message.error({ content: `Import CPA Failed: ${e.message}`, key: toastKey })
     } finally {
       setCpaUploadLoading('')
+    }
+  }
+
+  const handleBatchAction = async (actionId: string, actionLabel: string) => {
+    const scope = selectedRowKeys.length > 0 ? 'selected' : 'all'
+    const scopeLabel = scope === 'selected' ? 'Selected accounts' : 'Currently filtered accounts'
+    const toastKey = `batch-action:${actionId}:${scope}`
+
+    const body: Record<string, unknown> = {
+      params: {},
+    }
+
+    if (scope === 'selected') {
+      const accountIds = Array.from(selectedRowKeys)
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+      body.account_ids = accountIds
+    } else {
+      body.all_filtered = true
+      if (search) body.email = search
+      if (filterStatus) body.status = filterStatus
+    }
+
+    setBatchActionLoading(actionId)
+    message.loading({ content: `${scopeLabel} ${actionLabel} in progress...`, key: toastKey, duration: 0 })
+    try {
+      const result = await apiFetch(`/actions/${currentPlatform}/${actionId}/batch`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+
+      if (!result.total) {
+        message.info({ content: 'No accounts to process', key: toastKey })
+      } else if (!result.failed) {
+        message.success({ content: `${scopeLabel} ${actionLabel} completed: success ${result.success} / ${result.total}`, key: toastKey })
+      } else if (!result.success) {
+        message.error({ content: `${scopeLabel} ${actionLabel} failed: success ${result.success} / ${result.total}`, key: toastKey })
+      } else {
+        message.warning({ content: `${scopeLabel} ${actionLabel} partially completed: success ${result.success} / ${result.total}`, key: toastKey })
+      }
+
+      showBatchActionResult(`${scopeLabel} ${actionLabel} result`, result)
+      await load()
+    } catch (e: any) {
+      message.error({ content: `${actionLabel} Failed: ${e.message}`, key: toastKey })
+    } finally {
+      setBatchActionLoading(null)
     }
   }
 
@@ -1084,13 +1219,13 @@ export default function Accounts() {
   const backfillButtonLabel = () => {
     const scope = getBackfillScope()
     const count = scope === 'selected' ? selectedRowKeys.length : total
-    return scope === 'selected' ? `补传所选远端未发现 (${count})` : `补传远端未发现 (${count})`
+    return scope === 'selected' ? `Backfill selected Remote not found (${count})` : `Backfill Remote not found (${count})`
   }
 
   const uploadCpaButtonLabel = () => {
     const scope = getUploadCpaScope()
     const count = scope === 'selected' ? selectedRowKeys.length : total
-    return scope === 'selected' ? `导入所选 CPA (${count})` : `导入筛选 CPA (${count})`
+    return scope === 'selected' ? `Import selected CPA (${count})` : `Import filtered CPA (${count})`
   }
 
   const isChatgptPlatform = currentPlatform === 'chatgpt'
@@ -1098,10 +1233,6 @@ export default function Accounts() {
   const monospaceStyle: React.CSSProperties = {
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
     fontSize: 12,
-  }
-  const secondaryTextStyle: React.CSSProperties = {
-    fontSize: 12,
-    color: token.colorTextSecondary,
   }
   const cellStackStyle: React.CSSProperties = {
     display: 'flex',
@@ -1127,221 +1258,154 @@ export default function Accounts() {
 
   const columns: any[] = [
     {
-      title: '邮箱',
-      dataIndex: 'email',
-      key: 'email',
-      width: 260,
-      render: (text: string, record: any) => (
-        <div style={cellStackStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <Text
-              style={{ ...monospaceStyle, flex: 1, minWidth: 0, whiteSpace: 'nowrap' }}
-              ellipsis={{ tooltip: text }}
-            >
-              {text}
-            </Text>
-            <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(text)} />
-          </div>
-          <Text type="secondary" style={secondaryTextStyle} ellipsis={{ tooltip: record.user_id || `账号 #${record.id}` }}>
-            {record.user_id ? `UID: ${record.user_id}` : `账号 #${record.id}`}
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: '密码',
-      dataIndex: 'password',
-      key: 'password',
-      width: 150,
-      render: (text: string) => (
-        <Space size={6} style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Text style={{ ...secretPreviewStyle, maxWidth: 90 }} title={text}>
-            {text}
-          </Text>
-          <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(text)} />
-        </Space>
-      ),
-    },
-    {
-      title: 'RT',
-      key: 'refresh_token',
-      width: 120,
+      title: 'Account',
+      key: 'account_card',
       render: (_: any, record: any) => {
         const rt = getRefreshToken(record)
-        if (!rt) return <span style={{ color: '#ccc' }}>-</span>
         return (
-          <Space size={6} style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Text style={{ ...secretPreviewStyle, fontSize: 11, maxWidth: 58 }} title={rt}>
-              {rt}
-            </Text>
-            <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(rt)} />
-          </Space>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+            {/* Action buttons grid — left side */}
+            <div style={{ flexShrink: 0, width: 300 }}>
+              <ActionButtons
+                acc={record}
+                onRefresh={load}
+                actions={platformActions}
+                onDelete={handleDelete}
+              />
+            </div>
+            {/* Identity info — right side, stacked */}
+            <div style={{ ...cellStackStyle, flex: 1, minWidth: 0 }}>
+              {/* Email row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                <Text
+                  style={{ ...monospaceStyle, flex: 1, minWidth: 0 }}
+                  ellipsis={{ tooltip: record.email }}
+                >
+                  {record.email}
+                </Text>
+                <Button type="text" size="small" icon={<CopyOutlined />} style={{ flexShrink: 0 }} onClick={() => copyText(record.email)} />
+              </div>
+              {/* Password row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                <Text style={{ ...secretPreviewStyle, flex: 1, minWidth: 0 }} title={record.password}>
+                  {record.password}
+                </Text>
+                <Button type="text" size="small" icon={<CopyOutlined />} style={{ flexShrink: 0 }} onClick={() => copyText(record.password)} />
+              </div>
+              {/* Refresh token row (if present) */}
+              {rt ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                  <Text style={{ ...secretPreviewStyle, fontSize: 11, flex: 1, minWidth: 0 }} title={rt}>
+                    {rt}
+                  </Text>
+                  <Button type="text" size="small" icon={<CopyOutlined />} style={{ flexShrink: 0 }} onClick={() => copyText(rt)} />
+                </div>
+              ) : null}
+              {/* Status + date row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Tag color={STATUS_COLORS[record.status] || 'default'} style={{ margin: 0, fontSize: 11 }}>{record.status}</Tag>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {formatCreatedAt(record.created_at).date}
+                </Text>
+                {record.user_id ? (
+                  <Text type="secondary" style={{ fontSize: 11 }} ellipsis={{ tooltip: record.user_id }}>
+                    UID: {record.user_id}
+                  </Text>
+                ) : null}
+              </div>
+            </div>
+          </div>
         )
       },
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 110,
-      render: (status: string) => <Tag color={STATUS_COLORS[status] || 'default'}>{status}</Tag>,
     },
   ]
 
   if (isChatgptPlatform) {
-    columns.push(
-      {
-        title: '本地状态',
-        key: 'chatgpt_local_state',
-        width: 320,
-        render: (_: any, record: any) => {
-          const auth = record.chatgptLocal?.auth || {}
-          const subscription = record.chatgptLocal?.subscription || {}
-          const codex = record.chatgptLocal?.codex || {}
-          const cpaSync = record.cpaSync || {}
-          const sub2apiSync = record.sub2apiSync || {}
-          const authMeta = authStateMeta(auth.state)
-          const planTag = planMeta(subscription.plan)
-          const codexMeta = codexStateMeta(codex.state)
-          const cpaMeta = uploadSyncMeta(cpaSync)
-          const sub2apiMeta = uploadSyncMeta(sub2apiSync)
-
-          return (
-            <div style={{ ...cellStackStyle, ...compactPanelStyle }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                <Tag color={authMeta.color}>{authMeta.label}</Tag>
-                <Tag color={planTag.color}>{planTag.label}</Tag>
-                <Tag color={codexMeta.color}>Codex {codexMeta.label}</Tag>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                <Tag color={cpaMeta.color} title={uploadSyncTitle('CPA', cpaSync)}>
-                  CPA {cpaMeta.label}
-                </Tag>
-                <Tag color={sub2apiMeta.color} title={uploadSyncTitle('Sub2API', sub2apiSync)}>
-                  Sub2API {sub2apiMeta.label}
-                </Tag>
-              </div>
+    columns.push({
+      title: 'Status',
+      key: 'chatgpt_status',
+      width: 240,
+      render: (_: any, record: any) => {
+        const auth = record.chatgptLocal?.auth || {}
+        const subscription = record.chatgptLocal?.subscription || {}
+        const codex = record.chatgptLocal?.codex || {}
+        const cpaSync = record.cpaSync || {}
+        const sub2apiSync = record.sub2apiSync || {}
+        const omnirouteSync = record.omnirouteSync || {}
+        const cliproxySync = record.cliproxySync || {}
+        const authMeta = authStateMeta(auth.state)
+        const planTag = planMeta(subscription.plan)
+        const codexMeta = codexStateMeta(codex.state)
+        const cpaMeta = uploadSyncMeta(cpaSync)
+        const sub2apiMeta = uploadSyncMeta(sub2apiSync)
+        const omnirouteMeta = uploadSyncMeta(omnirouteSync)
+        const cliproxyMeta = cliproxyStateMeta(cliproxySync)
+        return (
+          <div style={{ ...cellStackStyle, ...compactPanelStyle }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <Tag color={authMeta.color} style={{ fontSize: 11, margin: 0 }}>{authMeta.label}</Tag>
+              <Tag color={planTag.color} style={{ fontSize: 11, margin: 0 }}>{planTag.label}</Tag>
+              <Tag color={codexMeta.color} style={{ fontSize: 11, margin: 0 }}>Codex: {codexMeta.label}</Tag>
             </div>
-          )
-        },
-      },
-      {
-        title: 'CLIProxyAPI',
-        key: 'cliproxy_sync',
-        width: 170,
-        render: (_: any, record: any) => {
-          const sync = record.cliproxySync || {}
-          const meta = cliproxyStateMeta(sync)
-
-          return (
-            <div style={{ ...cellStackStyle, ...compactPanelStyle }}>
-              <Tag color={meta.color}>{meta.label}</Tag>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <Tag color={cpaMeta.color} title={uploadSyncTitle('CPA', cpaSync)} style={{ fontSize: 11, margin: 0 }}>CPA: {cpaMeta.label}</Tag>
+              <Tag color={sub2apiMeta.color} title={uploadSyncTitle('Sub2API', sub2apiSync)} style={{ fontSize: 11, margin: 0 }}>S2A: {sub2apiMeta.label}</Tag>
+              <Tag color={omnirouteMeta.color} title={uploadSyncTitle('OmniRoute', omnirouteSync)} style={{ fontSize: 11, margin: 0 }}>OR: {omnirouteMeta.label}</Tag>
+              <Tag color={cliproxyMeta.color} style={{ fontSize: 11, margin: 0 }}>CLI: {cliproxyMeta.label}</Tag>
             </div>
-          )
-        },
+          </div>
+        )
       },
-    )
+    })
   } else {
     if (hasUploadCpaAction) {
       columns.push({
         title: 'CPA',
         key: 'cpa_sync',
-        width: 120,
+        width: 110,
         render: (_: any, record: any) => {
           const cpaMeta = uploadSyncMeta(record.cpaSync || {})
           return (
-            <Tag color={cpaMeta.color} title={uploadSyncTitle('CPA', record.cpaSync || {})}>
+            <Tag color={cpaMeta.color} title={uploadSyncTitle('CPA', record.cpaSync || {})} style={{ fontSize: 11 }}>
               {cpaMeta.label}
             </Tag>
           )
         },
       })
     }
-
-    columns.push(
-      {
-        title: '地区',
-        dataIndex: 'region',
-        key: 'region',
-        width: 100,
-        render: (text: string) => text || '-',
-      },
-      {
-        title: '试用链接',
-        dataIndex: 'cashier_url',
-        key: 'cashier_url',
-        width: 120,
-        render: (url: string) =>
-          url ? (
-            <Space size={0}>
-              <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(url)} />
-              <Button type="text" size="small" icon={<LinkOutlined />} onClick={() => window.open(url, '_blank')} />
-            </Space>
-          ) : (
-            '-'
-          ),
-      },
-    )
-  }
-
-  columns.push(
-    {
-      title: '注册时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 132,
-      render: (text: string) => {
-        const formatted = formatCreatedAt(text)
-        return (
-          <div style={cellStackStyle}>
-            <Text style={{ fontSize: 13 }}>{formatted.date}</Text>
-            {formatted.time ? <Text type="secondary" style={secondaryTextStyle}>{formatted.time}</Text> : null}
-          </div>
-        )
-      },
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 150,
-      fixed: isChatgptPlatform ? 'right' : undefined,
+    columns.push({
+      title: 'Region / Trial',
+      key: 'region_trial',
+      width: 110,
       render: (_: any, record: any) => (
-        <Space size={4} wrap>
-          <Button type="link" size="small" onClick={() => { setCurrentAccount(record); setDetailModalOpen(true); }}>
-            详情
-          </Button>
-          <Popconfirm
-            title="确认删除该账号吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="删除"
-            cancelText="取消"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="link" size="small" danger>
-              删除
-            </Button>
-          </Popconfirm>
-          <ActionMenu acc={record} onRefresh={load} actions={platformActions} />
-        </Space>
+        <div style={cellStackStyle}>
+          <Text style={{ fontSize: 12 }}>{record.region || '-'}</Text>
+          {record.cashier_url ? (
+            <Space size={0}>
+              <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(record.cashier_url)} />
+              <Button type="text" size="small" icon={<LinkOutlined />} onClick={() => window.open(record.cashier_url, '_blank')} />
+            </Space>
+          ) : null}
+        </div>
       ),
-    },
-  )
+    })
+  }
 
   const statusSyncMenuItems: MenuProps['items'] = [
     {
       key: `probe:${getStatusSyncScope()}`,
       label:
         getStatusSyncScope() === 'selected'
-          ? `同步所选本地状态 (${selectedRowKeys.length})`
-          : `同步当前筛选本地状态 (${total})`,
+          ? `Sync local status for selected (${selectedRowKeys.length})`
+          : `Sync local status for current filter (${total})`,
       disabled: getStatusSyncScope() === 'selected' ? selectedRowKeys.length === 0 : total === 0,
     },
     {
       key: `remote:${getStatusSyncScope()}`,
       label:
         getStatusSyncScope() === 'selected'
-          ? `同步所选 CLIProxyAPI 状态 (${selectedRowKeys.length})`
-          : `同步当前筛选 CLIProxyAPI 状态 (${total})`,
+          ? `Sync CLIProxyAPI status for selected (${selectedRowKeys.length})`
+          : `Sync CLIProxyAPI status for current filter (${total})`,
       disabled: getStatusSyncScope() === 'selected' ? selectedRowKeys.length === 0 : total === 0,
     },
   ]
@@ -1351,39 +1415,39 @@ export default function Accounts() {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <Space>
           <Input.Search
-            placeholder="搜索邮箱..."
+            placeholder="Search email..."
             allowClear
             onSearch={(v) => { setPage(1); setSearch(v) }}
             style={{ width: 200 }}
           />
           <Select
-            placeholder="状态筛选"
+            placeholder="Filter by status"
             allowClear
             style={{ width: 120 }}
             onChange={(v) => { setPage(1); setFilterStatus(v) }}
             options={[
-              { value: 'registered', label: '已注册' },
-              { value: 'trial', label: '试用中' },
-              { value: 'subscribed', label: '已订阅' },
-              { value: 'expired', label: '已过期' },
-              { value: 'invalid', label: '已失效' },
+              { value: 'registered', label: 'Registered' },
+              { value: 'trial', label: 'Trial' },
+              { value: 'subscribed', label: 'Subscribed' },
+              { value: 'expired', label: 'Expired' },
+              { value: 'invalid', label: 'Deactivated' },
             ]}
           />
           <DatePicker
             showTime
             allowClear
-            placeholder="开始时间"
+            placeholder="Start time"
             onChange={(value) => { setPage(1); setCreatedAtStart(value ? value.toISOString() : '') }}
           />
           <DatePicker
             showTime
             allowClear
-            placeholder="结束时间"
+            placeholder="End time"
             onChange={(value) => { setPage(1); setCreatedAtEnd(value ? value.toISOString() : '') }}
           />
-          <Text type="secondary">{total} 个账号</Text>
+          <Text type="secondary">{total} accounts</Text>
           {selectedRowKeys.length > 0 && (
-            <Text type="success">已选 {selectedRowKeys.length} 个</Text>
+            <Text type="success">Selected {selectedRowKeys.length}  items</Text>
           )}
         </Space>
         <Space>
@@ -1403,7 +1467,7 @@ export default function Accounts() {
                 loading={statusSyncLoading !== ''}
                 disabled={total === 0}
               >
-                状态同步
+                Sync status
               </Button>
             </Dropdown>
           )}
@@ -1411,12 +1475,12 @@ export default function Accounts() {
             <Popconfirm
               title={
                 getBackfillScope() === 'selected'
-                  ? `确认补传所选 ${selectedRowKeys.length} 个账号中远端未发现的 auth-file？`
-                  : '确认补传当前筛选范围内远端未发现且本地状态有效的账号？'
+                  ? `Backfill auth-files for selected ${selectedRowKeys.length} Remote-not-found accounts?`
+                  : 'Backfill Remote-not-found accounts with valid local status in the current filter?'
               }
               onConfirm={() => handleCpaBackfill(getBackfillScope())}
-              okText="确认"
-              cancelText="取消"
+              okText="Confirm"
+              cancelText="Cancel"
             >
               <Button
                 loading={cpaSyncLoading === 'pending' || cpaSyncLoading === 'selected'}
@@ -1431,12 +1495,12 @@ export default function Accounts() {
             <Popconfirm
               title={
                 getUploadCpaScope() === 'selected'
-                  ? `确认导入所选 ${selectedRowKeys.length} 个账号到 CPA？`
-                  : `确认导入当前筛选范围内 ${total} 个账号到 CPA？`
+                  ? `Import selected ${selectedRowKeys.length} accounts into CPA?`
+                  : `Import ${total} accounts into CPA?`
               }
               onConfirm={() => handleBatchUploadCpa(getUploadCpaScope())}
-              okText="确认"
-              cancelText="取消"
+              okText="Confirm"
+              cancelText="Cancel"
             >
               <Button
                 loading={cpaUploadLoading === 'selected' || cpaUploadLoading === 'all'}
@@ -1447,21 +1511,65 @@ export default function Accounts() {
               </Button>
             </Popconfirm>
           )}
-          {selectedRowKeys.length > 0 && (
+          {platformActions.some((item) => item?.id === 'refresh_token') && (
             <Popconfirm
-              title={`确认删除选中的 ${selectedRowKeys.length} 个账号？`}
-              onConfirm={handleBatchDelete}
-              okText="删除"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
+              title={
+                selectedRowKeys.length > 0
+                  ? `Refresh token for selected ${selectedRowKeys.length} accounts?`
+                  : `Refresh token for all ${total} accounts?`
+              }
+              onConfirm={() => handleBatchAction('refresh_token', 'Refresh token')}
+              okText="Confirm"
+              cancelText="Cancel"
             >
-              <Button danger icon={<DeleteOutlined />}>删除 {selectedRowKeys.length} 个</Button>
+              <Button
+                loading={batchActionLoading === 'refresh_token'}
+                icon={<SyncOutlined />}
+                disabled={selectedRowKeys.length === 0 && total === 0}
+              >
+                {selectedRowKeys.length > 0
+                  ? `Refresh token selected (${selectedRowKeys.length})`
+                  : `Refresh token all (${total})`}
+              </Button>
             </Popconfirm>
           )}
-          <Button icon={<UploadOutlined />} onClick={() => setImportModalOpen(true)}>导入</Button>
-          <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={accounts.length === 0}>导出</Button>
-          <Button icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>新增</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setRegisterModalOpen(true)}>注册</Button>
+          {platformActions.some((item) => item?.id === 'upload_to_omniroute') && (
+            <Popconfirm
+              title={
+                selectedRowKeys.length > 0
+                  ? `Upload selected ${selectedRowKeys.length} accounts to OmniRoute?`
+                  : `Upload all ${total} accounts to OmniRoute?`
+              }
+              onConfirm={() => handleBatchAction('upload_to_omniroute', 'Upload to OmniRoute')}
+              okText="Confirm"
+              cancelText="Cancel"
+            >
+              <Button
+                loading={batchActionLoading === 'upload_to_omniroute'}
+                icon={<UploadOutlined />}
+                disabled={selectedRowKeys.length === 0 && total === 0}
+              >
+                {selectedRowKeys.length > 0
+                  ? `Upload selected OmniRoute (${selectedRowKeys.length})`
+                  : `Upload all OmniRoute (${total})`}
+              </Button>
+            </Popconfirm>
+          )}
+          {selectedRowKeys.length > 0 && (
+            <Popconfirm
+              title={`Delete the selected ${selectedRowKeys.length} accounts?`}
+              onConfirm={handleBatchDelete}
+              okText="Delete"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+            >
+              <Button danger icon={<DeleteOutlined />}>Delete {selectedRowKeys.length}  items</Button>
+            </Popconfirm>
+          )}
+          <Button icon={<UploadOutlined />} onClick={() => setImportModalOpen(true)}>Import</Button>
+          <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={accounts.length === 0}>Export</Button>
+          <Button icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>Add</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setRegisterModalOpen(true)}>Register</Button>
           <Button icon={<ReloadOutlined spin={loading} />} onClick={load} />
         </Space>
       </div>
@@ -1477,17 +1585,10 @@ export default function Accounts() {
           onChange: setSelectedRowKeys,
         }}
         pagination={{ total, current: page, pageSize, showSizeChanger: true, pageSizeOptions: ['20', '50', '100'], onChange: (p, ps) => { setPage(p); setPageSize(ps) } }}
-        scroll={{ x: isChatgptPlatform ? 1440 : 980 }}
-        onRow={(record) => ({
-          onDoubleClick: () => {
-            setCurrentAccount(record)
-            setDetailModalOpen(true)
-          },
-        })}
       />
 
       <Modal
-        title={`注册 ${currentPlatform}`}
+        title={`Register ${currentPlatform}`}
         open={registerModalOpen}
         onCancel={() => { setRegisterModalOpen(false); setTaskId(null); registerForm.resetFields(); }}
         footer={null}
@@ -1496,17 +1597,17 @@ export default function Accounts() {
       >
         {!taskId ? (
           <Form form={registerForm} layout="vertical" onFinish={handleRegister}>
-            <Form.Item name="count" label="注册数量" initialValue={1} rules={[{ required: true }]}>
+            <Form.Item name="count" label="Register count" initialValue={1} rules={[{ required: true }]}>
               <Input type="number" min={1} />
             </Form.Item>
-            <Form.Item name="concurrency" label="并发数" initialValue={1} rules={[{ required: true }]}>
+            <Form.Item name="concurrency" label="Concurrency" initialValue={1} rules={[{ required: true }]}>
               <Input type="number" min={1} />
             </Form.Item>
-            <Form.Item name="register_delay_seconds" label="每个注册延迟(秒)" initialValue={0}>
-              <InputNumber min={0} precision={1} step={0.5} style={{ width: '100%' }} placeholder="0 = 不延迟" />
+            <Form.Item name="register_delay_seconds" label="Delay per registration (seconds)" initialValue={0}>
+              <InputNumber min={0} precision={1} step={0.5} style={{ width: '100%' }} placeholder="0 = no delay" />
             </Form.Item>
             {currentPlatform === 'chatgpt' && (
-              <Form.Item label="ChatGPT Token 方案">
+              <Form.Item label="ChatGPT Token mode">
                 <ChatGPTRegistrationModeSwitch
                   mode={chatgptRegistrationMode}
                   onChange={setChatgptRegistrationMode}
@@ -1515,7 +1616,7 @@ export default function Accounts() {
             )}
             <Form.Item>
               <Button type="primary" htmlType="submit" block loading={registerLoading}>
-                开始注册
+                Start registration
               </Button>
             </Form.Item>
           </Form>
@@ -1525,33 +1626,33 @@ export default function Accounts() {
       </Modal>
 
       <Modal
-        title="手动新增账号"
+        title="Add account manually"
         open={addModalOpen}
         onCancel={() => { setAddModalOpen(false); addForm.resetFields(); }}
         onOk={handleAdd}
-        okText="确定"
-        cancelText="取消"
+        okText="OK"
+        cancelText="Cancel"
         maskClosable={false}
       >
         <Form form={addForm} layout="vertical">
-          <Form.Item name="email" label="邮箱" rules={[{ required: true }]}>
+          <Form.Item name="email" label="Email" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="password" label="密码" rules={[{ required: true }]}>
+          <Form.Item name="password" label="Password" rules={[{ required: true }]}>
             <Input.Password />
           </Form.Item>
           <Form.Item name="token" label="Token">
             <Input />
           </Form.Item>
-          <Form.Item name="cashier_url" label="试用链接">
+          <Form.Item name="cashier_url" label="Trial link">
             <Input />
           </Form.Item>
-          <Form.Item name="status" label="状态" initialValue="registered">
+          <Form.Item name="status" label="Status" initialValue="registered">
             <Select
               options={[
-                { value: 'registered', label: '已注册' },
-                { value: 'trial', label: '试用中' },
-                { value: 'subscribed', label: '已订阅' },
+                { value: 'registered', label: 'Registered' },
+                { value: 'trial', label: 'Trial' },
+                { value: 'subscribed', label: 'Subscribed' },
               ]}
             />
           </Form.Item>
@@ -1559,17 +1660,17 @@ export default function Accounts() {
       </Modal>
 
       <Modal
-        title="批量导入"
+        title="Bulk import"
         open={importModalOpen}
         onCancel={() => { setImportModalOpen(false); setImportText(''); }}
         onOk={handleImport}
-        okText="确定"
-        cancelText="取消"
+        okText="OK"
+        cancelText="Cancel"
         confirmLoading={importLoading}
         maskClosable={false}
       >
         <p style={{ marginBottom: 8, fontSize: 12, color: '#7a8ba3' }}>
-          每行格式: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>email password [cashier_url]</code>
+          Each line format: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>email password [cashier_url]</code>
         </p>
         <Input.TextArea
           value={importText}
@@ -1580,12 +1681,12 @@ export default function Accounts() {
       </Modal>
 
       <Modal
-        title="账号详情"
+        title="Account details"
         open={detailModalOpen}
         onCancel={() => setDetailModalOpen(false)}
         onOk={handleDetailSave}
-        okText="保存"
-        cancelText="取消"
+        okText="Save"
+        cancelText="Cancel"
         maskClosable={false}
         width={760}
         styles={{ body: { maxHeight: '72vh', overflowY: 'auto' } }}
@@ -1593,14 +1694,14 @@ export default function Accounts() {
         {currentAccount && (
           <>
             <Form form={detailForm} layout="vertical" initialValues={currentAccount}>
-              <Form.Item name="status" label="状态">
+              <Form.Item name="status" label="Status">
                 <Select
                   options={[
-                    { value: 'registered', label: '已注册' },
-                    { value: 'trial', label: '试用中' },
-                    { value: 'subscribed', label: '已订阅' },
-                    { value: 'expired', label: '已过期' },
-                    { value: 'invalid', label: '已失效' },
+                    { value: 'registered', label: 'Registered' },
+                    { value: 'trial', label: 'Trial' },
+                    { value: 'subscribed', label: 'Subscribed' },
+                    { value: 'expired', label: 'Expired' },
+                    { value: 'invalid', label: 'Deactivated' },
                   ]}
                 />
               </Form.Item>
@@ -1627,7 +1728,7 @@ export default function Accounts() {
                   >
                     <Text
                       style={{ fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all', flex: 1, userSelect: 'text' }}
-                      copyable={{ text: rt, tooltips: ['复制 RT', '已复制'] }}
+                      copyable={{ text: rt, tooltips: ['Copy RT', 'Copied'] }}
                     >
                       {rt}
                     </Text>
@@ -1636,26 +1737,26 @@ export default function Accounts() {
               )
             })()}
             {currentPlatform === 'kiro' && currentAccount?.extra ? (
-              <DetailSection title="Kiro 客户端信息">
+              <DetailSection title="Kiro client information">
                 <SummaryField label="Client ID" value={currentAccount.extra?.clientId} code />
                 <SummaryField label="Client Secret" value={currentAccount.extra?.clientSecret} code />
               </DetailSection>
             ) : null}
             {currentPlatform === 'chatgpt' ? (
-              <DetailSection title="本地真实状态">
+              <DetailSection title="Local probe status">
                 {currentAccount.chatgptLocal && Object.keys(currentAccount.chatgptLocal).length > 0 ? (
                   <LocalProbeSummary probe={currentAccount.chatgptLocal} />
                 ) : (
-                  <Text type="secondary">尚未探测。可在操作菜单中点击“探测本地状态”。</Text>
+                  <Text type="secondary">Not probed yet. Use the Actions menu to run "Probe local status".</Text>
                 )}
               </DetailSection>
             ) : null}
             {currentPlatform === 'chatgpt' ? (
-              <DetailSection title="CLIProxyAPI 状态">
+              <DetailSection title="CLIProxyAPI status">
                 {currentAccount.cliproxySync && Object.keys(currentAccount.cliproxySync).length > 0 ? (
                   <CliproxySyncSummary sync={currentAccount.cliproxySync} />
                 ) : (
-                  <Text type="secondary">尚未同步。可在操作菜单中点击“同步 CLIProxyAPI 状态”。</Text>
+                  <Text type="secondary">Not synced yet. Use the Actions menu to run "Sync CLIProxyAPI status".</Text>
                 )}
               </DetailSection>
             ) : null}

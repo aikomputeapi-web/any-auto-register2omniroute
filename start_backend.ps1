@@ -11,24 +11,24 @@ Set-Location $root
 
 $conda = Get-Command conda -ErrorAction SilentlyContinue
 if (-not $conda) {
-    Write-Error "未找到 conda 命令。请先安装 Miniconda/Anaconda，并确保 conda 可在终端中使用。"
+    Write-Error "not found conda Order. Please install first Miniconda/Anaconda, and ensure conda Available in Terminal."
     exit 1
 }
 
-Write-Host "[INFO] 项目目录: $root"
-Write-Host "[INFO] 使用 conda 环境: $EnvName"
+Write-Host "[INFO] Project directory: $root"
+Write-Host "[INFO] use conda environment: $EnvName"
 $displayHost = if ($BindHost -eq "0.0.0.0") { "localhost" } else { $BindHost }
-Write-Host "[INFO] 启动后端: http://$displayHost`:$Port"
-Write-Host "[INFO] 按 Ctrl+C 可停止服务"
+Write-Host "[INFO] Start backend: http://$displayHost`:$Port"
+Write-Host "[INFO] according to Ctrl+C Can stop service"
 
 if ($RestartExisting) {
-    Write-Host "[INFO] 启动前先清理旧的后端 / Solver 进程"
+    Write-Host "[INFO] Clean old backend before launching / Solver process"
     & "$root\stop_backend.ps1" -BackendPort $Port -SolverPort 8889 -FullStop 0
 }
 
 $pythonExe = (conda run --no-capture-output -n $EnvName python -c "import sys; print(sys.executable)").Trim()
 if (-not (Test-Path $pythonExe)) {
-    Write-Error "无法解析 conda 环境 '$EnvName' 对应的 python 路径。"
+    Write-Error "Unable to parse conda environment '$EnvName' Corresponding python path."
     exit 1
 }
 

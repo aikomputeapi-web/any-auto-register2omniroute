@@ -32,7 +32,7 @@ def list_proxies(session: Session = Depends(get_session)):
 def add_proxy(body: ProxyCreate, session: Session = Depends(get_session)):
     existing = session.exec(select(ProxyModel).where(ProxyModel.url == body.url)).first()
     if existing:
-        raise HTTPException(400, "代理已存在")
+        raise HTTPException(400, "Agent already exists")
     p = ProxyModel(url=body.url, region=body.region)
     session.add(p)
     session.commit()
@@ -59,7 +59,7 @@ def bulk_add_proxies(body: ProxyBulkCreate, session: Session = Depends(get_sessi
 def delete_proxy(proxy_id: int, session: Session = Depends(get_session)):
     p = session.get(ProxyModel, proxy_id)
     if not p:
-        raise HTTPException(404, "代理不存在")
+        raise HTTPException(404, "Agent does not exist")
     session.delete(p)
     session.commit()
     return {"ok": True}
@@ -68,10 +68,10 @@ def delete_proxy(proxy_id: int, session: Session = Depends(get_session)):
 @router.post("/batch-delete")
 def batch_delete_proxies(body: ProxyBatchDelete, session: Session = Depends(get_session)):
     if not body.ids:
-        raise HTTPException(400, "代理 ID 列表不能为空")
+        raise HTTPException(400, "acting ID List cannot be empty")
     ids = list(dict.fromkeys(int(i) for i in body.ids))
     if len(ids) > 1000:
-        raise HTTPException(400, "单次最多删除 1000 条代理")
+        raise HTTPException(400, "Maximum number of deletes at a time 1000 Article agent")
 
     proxies = session.exec(select(ProxyModel).where(ProxyModel.id.in_(ids))).all()
     found_ids = {p.id for p in proxies if p.id is not None}
@@ -90,7 +90,7 @@ def batch_delete_proxies(body: ProxyBatchDelete, session: Session = Depends(get_
 def toggle_proxy(proxy_id: int, session: Session = Depends(get_session)):
     p = session.get(ProxyModel, proxy_id)
     if not p:
-        raise HTTPException(404, "代理不存在")
+        raise HTTPException(404, "Agent does not exist")
     p.is_active = not p.is_active
     session.add(p)
     session.commit()
@@ -100,4 +100,4 @@ def toggle_proxy(proxy_id: int, session: Session = Depends(get_session)):
 @router.post("/check")
 def check_proxies(background_tasks: BackgroundTasks):
     background_tasks.add_task(proxy_pool.check_all)
-    return {"message": "检测任务已启动"}
+    return {"message": "The detection task has been started"}

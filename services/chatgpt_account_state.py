@@ -1,4 +1,4 @@
-"""ChatGPT 账号状态判定辅助逻辑。"""
+"""ChatGPT Account status determination auxiliary logic."""
 
 from __future__ import annotations
 

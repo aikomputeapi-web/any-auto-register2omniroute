@@ -48,7 +48,7 @@ def parse_id_list(raw: str) -> list[int]:
 
 
 def choose_account(items: list[AccountModel]) -> AccountModel:
-    print("\n可选 ChatGPT 账号:")
+    print("\nOptional ChatGPT account:")
     for idx, acc in enumerate(items, start=1):
         extra = acc.get_extra()
         print(
@@ -59,15 +59,15 @@ def choose_account(items: list[AccountModel]) -> AccountModel:
         )
 
     while True:
-        raw = input("\n选择序号: ").strip()
+        raw = input("\nSelect serial number: ").strip()
         try:
             pos = int(raw)
         except ValueError:
-            print("请输入数字序号。")
+            print("Please enter a numeric sequence number.")
             continue
         if 1 <= pos <= len(items):
             return items[pos - 1]
-        print("序号超出范围。")
+        print("The serial number is out of range.")
 
 
 def main() -> None:
@@ -75,39 +75,39 @@ def main() -> None:
     platform_cls = get("chatgpt")
     instance = platform_cls(config=RegisterConfig())
 
-    raw_ids = input("输入 ChatGPT 账号 id 列表，逗号分隔: ").strip()
+    raw_ids = input("enter ChatGPT account id list, comma separated: ").strip()
     if not raw_ids:
-        print("未输入账号 id。")
+        print("No account entered id.")
         return
 
     try:
         ids = parse_id_list(raw_ids)
     except ValueError:
-        print("账号 id 列表格式错误。示例: 22,21,18")
+        print("account id List format is wrong. Example: 22,21,18")
         return
 
     accounts = load_accounts(ids)
     if not accounts:
-        print("没有找到匹配的 ChatGPT 账号。")
+        print("No match found ChatGPT account.")
         return
 
     selected = choose_account(accounts)
-    plan = input("套餐 [plus/team]，默认 plus: ").strip().lower() or "plus"
+    plan = input("combo [plus/team],default plus: ").strip().lower() or "plus"
     if plan not in {"plus", "team"}:
-        print("不支持的套餐。")
+        print("Unsupported package.")
         return
 
-    country = input("地区代码，默认 US: ").strip().upper() or "US"
+    country = input("Area code, default US: ").strip().upper() or "US"
 
     params: dict[str, object] = {"plan": plan, "country": country}
     if plan == "team":
-        workspace_name = input("Workspace 名称，默认 MyTeam: ").strip() or "MyTeam"
-        price_interval = input("周期 [month/year]，默认 month: ").strip().lower() or "month"
-        seat_quantity_raw = input("席位数，默认 5: ").strip() or "5"
+        workspace_name = input("Workspace name, default MyTeam: ").strip() or "MyTeam"
+        price_interval = input("cycle [month/year],default month: ").strip().lower() or "month"
+        seat_quantity_raw = input("Number of seats, default 5: ").strip() or "5"
         try:
             seat_quantity = int(seat_quantity_raw)
         except ValueError:
-            print("席位数必须是整数。")
+            print("The number of seats must be an integer.")
             return
         params.update(
             {
@@ -118,9 +118,9 @@ def main() -> None:
         )
 
     account = to_account_model(selected)
-    print(f"\n使用账号 id={selected.id} email={selected.email}")
+    print(f"\nUse account id={selected.id} email={selected.email}")
 
-    refresh_answer = input("先刷新 token? [Y/n]: ").strip().lower()
+    refresh_answer = input("Refresh first token? [Y/n]: ").strip().lower()
     if refresh_answer in {"", "y", "yes"}:
         refresh_result = instance.execute_action("refresh_token", account, {})
         print("refresh_result =", refresh_result)
@@ -138,7 +138,7 @@ def main() -> None:
     if result.get("ok"):
         url = ((result.get("data") or {}).get("url") or "").strip()
         if url:
-            print("\n支付链接:")
+            print("\nPayment link:")
             print(url)
 
 

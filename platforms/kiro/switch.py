@@ -1,6 +1,6 @@
 """
-Kiro 账号切换 —— 写入 ~/.aws/sso/cache/ token 文件，Kiro IDE 自动识别
-参考 kiro-account-manager (Tauri/Rust) 的 switch_kiro_account 实现
+Kiro Account switching —— write ~/.aws/sso/cache/ token document,Kiro IDE automatic recognition
+refer to kiro-account-manager (Tauri/Rust) of switch_kiro_account accomplish
 """
 
 import os
@@ -21,7 +21,7 @@ DEFAULT_PROFILE_ARN = "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA
 
 
 def _calculate_client_id_hash(start_url: str) -> str:
-    """与 Kiro IDE 源码一致的 clientIdHash 计算"""
+    """and Kiro IDE Consistent source code clientIdHash calculate"""
     input_str = json.dumps({"startUrl": start_url}, separators=(",", ":"))
     return hashlib.sha1(input_str.encode()).hexdigest()
 
@@ -32,7 +32,7 @@ def _get_cache_dir() -> str:
 
 
 def _atomic_write(filepath: str, content: str):
-    """原子写入：先写临时文件，再 rename"""
+    """Atomic write: write to temporary file first, then rename"""
     dir_path = os.path.dirname(filepath)
     fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
     try:
@@ -51,9 +51,9 @@ def refresh_kiro_token(
     client_id: str,
     client_secret: str,
 ) -> Tuple[bool, dict]:
-    """刷新 Kiro OIDC token，返回 (ok, {accessToken, refreshToken, expiresIn})"""
+    """refresh Kiro OIDC token,return (ok, {accessToken, refreshToken, expiresIn})"""
     if not refresh_token or not client_id or not client_secret:
-        return False, {"error": "缺少 refreshToken / clientId / clientSecret"}
+        return False, {"error": "Lack refreshToken / clientId / clientSecret"}
     try:
         r = cffi_requests.post(
             f"{OIDC_ENDPOINT}/token",
@@ -93,11 +93,11 @@ def switch_kiro_account(
     start_url: str = "",
 ) -> Tuple[bool, str]:
     """
-    切换 Kiro 桌面应用账号（写入 token 文件，无需重启 IDE）。
+    switch Kiro Desktop application account (write token files, no need to restart IDE).
 
-    BuilderId 账号: auth_method="IdC", provider="BuilderId"
-    Social 账号:    auth_method="social", provider="Google"/"GitHub"
-    Enterprise:     auth_method="IdC", provider="Enterprise", 需提供 start_url
+    BuilderId account: auth_method="IdC", provider="BuilderId"
+    Social account:    auth_method="social", provider="Google"/"GitHub"
+    Enterprise:     auth_method="IdC", provider="Enterprise", Need to provide start_url
     """
     cache_dir = _get_cache_dir()
     os.makedirs(cache_dir, exist_ok=True)
@@ -149,15 +149,15 @@ def switch_kiro_account(
                 json.dumps(client_reg, indent=2, ensure_ascii=False),
             )
 
-        return True, "切换成功，Kiro IDE 将自动使用新账号"
+        return True, "The switch is successful,Kiro IDE A new account will be automatically used"
 
     except Exception as e:
-        logger.error(f"Kiro 账号切换失败: {e}")
-        return False, f"切换失败: {str(e)}"
+        logger.error(f"Kiro Account switching failed: {e}")
+        return False, f"Switch failed: {str(e)}"
 
 
 def restart_kiro_ide() -> Tuple[bool, str]:
-    """关闭并重启 Kiro IDE，使新 token 立即生效"""
+    """Shut down and restart Kiro IDE, make new token Effective immediately"""
     import subprocess
     import platform
     import time
@@ -171,8 +171,8 @@ def restart_kiro_ide() -> Tuple[bool, str]:
             kiro_app = "/Applications/Kiro.app"
             if os.path.exists(kiro_app):
                 subprocess.Popen(["open", "-a", "Kiro"])
-                return True, "Kiro IDE 已重启"
-            return True, "已关闭 Kiro IDE（未找到应用路径，请手动启动）"
+                return True, "Kiro IDE Restarted"
+            return True, "Closed Kiro IDE(Application path not found, please start manually)"
 
         elif sys == "Windows":
             subprocess.run(
@@ -185,8 +185,8 @@ def restart_kiro_ide() -> Tuple[bool, str]:
             kiro_exe = os.path.join(localappdata, "Programs", "Kiro", "Kiro.exe")
             if os.path.exists(kiro_exe):
                 subprocess.Popen([kiro_exe])
-                return True, "Kiro IDE 已重启"
-            return True, "已关闭 Kiro IDE（未找到应用路径，请手动启动）"
+                return True, "Kiro IDE Restarted"
+            return True, "Closed Kiro IDE(Application path not found, please start manually)"
 
         else:
             subprocess.run(["pkill", "-f", "kiro"], capture_output=True)
@@ -194,20 +194,20 @@ def restart_kiro_ide() -> Tuple[bool, str]:
             for path in ["/usr/bin/kiro", os.path.expanduser("~/.local/bin/kiro")]:
                 if os.path.exists(path):
                     subprocess.Popen([path])
-                    return True, "Kiro IDE 已重启"
+                    return True, "Kiro IDE Restarted"
             try:
                 subprocess.Popen(["kiro"])
-                return True, "Kiro IDE 已重启"
+                return True, "Kiro IDE Restarted"
             except FileNotFoundError:
-                return True, "已关闭 Kiro IDE（未找到应用路径，请手动启动）"
+                return True, "Closed Kiro IDE(Application path not found, please start manually)"
 
     except Exception as e:
-        logger.error(f"Kiro IDE 重启失败: {e}")
-        return False, f"重启失败: {str(e)}"
+        logger.error(f"Kiro IDE Restart failed: {e}")
+        return False, f"Restart failed: {str(e)}"
 
 
 def read_current_kiro_account() -> dict | None:
-    """读取当前 Kiro IDE 正在使用的账号 token"""
+    """Read current Kiro IDE Account in use token"""
     token_path = os.path.join(_get_cache_dir(), "kiro-auth-token.json")
     if not os.path.exists(token_path):
         return None

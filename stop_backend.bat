@@ -12,7 +12,7 @@ if "%CLIPROXYAPI_PORT%"=="" set "CLIPROXYAPI_PORT=8317"
 set "FULL_STOP=%FULL_STOP%"
 if "%FULL_STOP%"=="" set "FULL_STOP=1"
 
-echo [INFO] 准备停止后端相关服务
+echo [INFO] Prepare to stop backend related services
 if "%FULL_STOP%"=="1" (
   powershell -ExecutionPolicy Bypass -File "%~dp0stop_backend.ps1" -BackendPort %BACKEND_PORT% -SolverPort %SOLVER_PORT% -Grok2ApiPort %GROK2API_PORT% -CLIProxyAPIPort %CLIPROXYAPI_PORT% -FullStop 1
 ) else (

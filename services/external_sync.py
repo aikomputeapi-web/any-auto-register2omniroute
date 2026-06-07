@@ -1,4 +1,4 @@
-"""外部系统同步（自动导入 / 回填）"""
+"""External system synchronization (automatic import / backfill)"""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from services.chatgpt_sync import (
     _get_account_extra,
     persist_cpa_sync_result,
     persist_sub2api_sync_result,
+    persist_omniroute_sync_result,
     upload_chatgpt_account_to_cpa,
 )
 
@@ -33,7 +34,7 @@ def _pick_text(source: Any, *keys: str, default: str = "") -> str:
 
 
 def sync_account(account) -> list[dict[str, Any]]:
-    """根据平台将账号同步到外部系统。"""
+    """Synchronize accounts to external systems based on platform."""
     from core.config_store import config_store
 
     platform = getattr(account, "platform", "")
@@ -56,22 +57,22 @@ def sync_account(account) -> list[dict[str, Any]]:
     if platform == "chatgpt":
         upload_account = _build_chatgpt_upload_account()
 
-        # 贡献模式优先级最高：开启后仅上传到贡献服务器，避免重复上报到其它平台。
+        # The contribution mode has the highest priority: after it is turned on, it will only be uploaded to the contribution server to avoid repeated reporting to other platforms.
         contribution_enabled = _is_config_enabled(config_store.get("contribution_enabled", "0"))
         if contribution_enabled:
             contribution_mode = str(config_store.get("contribution_mode", "codex") or "codex").strip().lower()
 
             if contribution_mode == "custom":
-                # 自定义贡献系统模式
+                # Custom contribution system mode
                 custom_url = str(config_store.get("custom_contribution_url", "") or "").strip()
                 custom_token = str(config_store.get("custom_contribution_token", "") or "").strip()
                 if not custom_url:
-                    msg = "自定义贡献服务器地址未配置"
+                    msg = "Custom contribution server address is not configured"
                     persist_cpa_sync_result(account, False, msg)
                     results.append({"name": "CustomContribution", "ok": False, "msg": msg})
                     return results
                 if not custom_token:
-                    msg = "自定义贡献系统 token 未配置（请先绑定邮箱）"
+                    msg = "Custom contribution system token Not configured (please bind email first)"
                     persist_cpa_sync_result(account, False, msg)
                     results.append({"name": "CustomContribution", "ok": False, "msg": msg})
                     return results
@@ -80,11 +81,11 @@ def sync_account(account) -> list[dict[str, Any]]:
                     import requests
                     from platforms.chatgpt.cpa_upload import generate_token_json
 
-                    # 生成完整的 token JSON
+                    # Generate complete token JSON
                     extra = _get_account_extra(account)
                     token_json = generate_token_json(account)
 
-                    # 如果 token_json 中没有 refresh_token，从 extra 获取
+                    # if token_json None refresh_token,from extra get
                     if not token_json.get("refresh_token"):
                         refresh_token = _pick_text(extra, "refresh_token", "refreshToken")
                         print(f"[DEBUG] extra keys: {list(extra.keys())}")
@@ -107,11 +108,11 @@ def sync_account(account) -> list[dict[str, Any]]:
                     refresh_token = str(token_json.get("refresh_token") or "").strip()
                     access_token = str(token_json.get("access_token") or "").strip()
 
-                    # 验证必须有 refresh_token
+                    # Verification is required refresh_token
                     print(f"[DEBUG] Final token_json keys: {list(token_json.keys())}")
                     print(f"[DEBUG] Final refresh_token: {refresh_token[:20] if refresh_token else 'EMPTY'}")
                     if not refresh_token:
-                        msg = "账号缺少 refresh_token"
+                        msg = "Account missing refresh_token"
                         persist_cpa_sync_result(account, False, msg)
                         results.append({"name": "CustomContribution", "ok": False, "msg": msg})
                         return results
@@ -134,21 +135,21 @@ def sync_account(account) -> list[dict[str, Any]]:
                         results.append({"name": "CustomContribution", "ok": False, "msg": msg})
                         return results
 
-                    msg = f"上传成功: {data.get('message', '')}"
+                    msg = f"Upload successful: {data.get('message', '')}"
                     persist_cpa_sync_result(account, True, msg)
                     results.append({"name": "CustomContribution", "ok": True, "msg": msg})
                     return results
                 except Exception as exc:
-                    msg = f"上传到自定义贡献系统失败: {exc}"
+                    msg = f"Upload to custom contribution system failed: {exc}"
                     persist_cpa_sync_result(account, False, msg)
                     results.append({"name": "CustomContribution", "ok": False, "msg": msg})
                     return results
             else:
-                # codex2api 模式（原有逻辑）
+                # codex2api Mode (original logic)
                 contribution_url = str(config_store.get("contribution_server_url", "") or "").strip()
                 contribution_key = str(config_store.get("contribution_key", "") or "").strip()
                 if not contribution_url:
-                    msg = "Contribution 服务器地址未配置"
+                    msg = "Contribution Server address is not configured"
                     persist_cpa_sync_result(account, False, msg)
                     results.append({"name": "Contribution", "ok": False, "msg": msg})
                     return results
@@ -193,7 +194,7 @@ def sync_account(account) -> list[dict[str, Any]]:
                 ok, msg = upload_at_to_codex_proxy(cp)
                 results.append({"name": "CodexProxy(AT)", "ok": ok, "msg": msg})
 
-        # 关键逻辑：ChatGPT 现在支持同时回填 CPA 和 Sub2API，互不覆盖、分别上报结果。
+        # Key logic:ChatGPT Simultaneous backfill is now supported CPA and Sub2API, do not cover each other, and report results separately.
         sub2api_url = str(config_store.get("sub2api_api_url", "") or "").strip()
         sub2api_key = str(config_store.get("sub2api_api_key", "") or "").strip()
         sub2api_enabled = _is_config_enabled(
@@ -210,6 +211,8 @@ def sync_account(account) -> list[dict[str, Any]]:
             )
             persist_sub2api_sync_result(account, ok, msg)
             results.append({"name": "Sub2API", "ok": ok, "msg": msg})
+
+
 
     elif platform == "grok":
         grok2api_url = str(config_store.get("grok2api_url", "") or "").strip()
@@ -233,5 +236,21 @@ def sync_account(account) -> list[dict[str, Any]]:
         if configured_path or target_path.parent.exists() or target_path.exists():
             ok, msg = upload_to_kiro_manager(account, path=configured_path or None)
             results.append({"name": "Kiro Manager", "ok": ok, "msg": msg})
+
+
+
+    # OmniRoute: push any registered platform account to OmniRoute
+    omniroute_url = str(config_store.get("omniroute_api_url", "") or "").strip()
+    if omniroute_url:
+        omniroute_enabled = _is_config_enabled(
+            config_store.get(f"omniroute_{platform}_enabled", ""),
+            default=True,
+        )
+        if omniroute_enabled:
+            from services.omniroute_sync import upload_to_omniroute
+
+            ok, msg = upload_to_omniroute(account)
+            persist_omniroute_sync_result(account, ok, msg)
+            results.append({"name": "OmniRoute", "ok": ok, "msg": msg})
 
     return results

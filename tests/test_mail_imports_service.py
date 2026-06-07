@@ -30,7 +30,7 @@ class MailImportServiceTests(unittest.TestCase):
         rules_module = load_microsoft_import_rules_module()
         parse_microsoft_import_record = rules_module.parse_microsoft_import_record
 
-        with self.assertRaisesRegex(ValueError, "缺少 client_id 或 refresh_token"):
+        with self.assertRaisesRegex(ValueError, "Lack client_id or refresh_token"):
             parse_microsoft_import_record(1, "demo@outlook.com----password")
 
     def test_parse_microsoft_import_line_supports_mailapi_url(self):
@@ -93,7 +93,7 @@ class MailImportServiceTests(unittest.TestCase):
 
         result = rule.evaluate(record, {"existing_emails": {"demo@outlook.com"}})
         self.assertFalse(result["ok"])
-        self.assertEqual(result["message"], "行 2: 邮箱已存在: demo@outlook.com")
+        self.assertEqual(result["message"], "OK 2: Email already exists: demo@outlook.com")
 
     def test_microsoft_mailbox_availability_rule_rejects_service_abuse_mode(self):
         rules_module = load_microsoft_import_rules_module()
@@ -105,7 +105,7 @@ class MailImportServiceTests(unittest.TestCase):
                 return {
                     "ok": False,
                     "reason": "service_abuse_mode",
-                    "message": "微软邮箱可用性检测未通过，账号处于 service abuse mode",
+                    "message": "Microsoft mailbox availability test failed, the account is in service abuse mode",
                 }
 
         rule = MicrosoftMailboxAvailabilityRule(FakeMailbox())
@@ -119,7 +119,7 @@ class MailImportServiceTests(unittest.TestCase):
 
         result = rule.evaluate(record, {})
         self.assertFalse(result["ok"])
-        self.assertEqual(result["message"], "行 5: 微软邮箱可用性检测未通过，账号处于 service abuse mode")
+        self.assertEqual(result["message"], "OK 5: Microsoft mailbox availability test failed, the account is in service abuse mode")
 
     def test_applemail_strategy_saves_pool_and_returns_snapshot(self):
         from services.mail_imports.providers import AppleMailImportStrategy
@@ -173,7 +173,7 @@ class MailImportServiceTests(unittest.TestCase):
                     self.assertEqual(response.summary.total, 1)
                     self.assertEqual(response.summary.success, 0)
                     self.assertEqual(response.summary.failed, 1)
-                    self.assertIn("无效的 mailapi_url", response.errors[0])
+                    self.assertIn("Invalid mailapi_url", response.errors[0])
                     self.assertEqual(response.snapshot.count, 0)
             finally:
                 test_engine.dispose()
@@ -192,8 +192,8 @@ class MailImportServiceTests(unittest.TestCase):
                      patch("services.mail_imports.providers.OutlookMailbox") as mailbox_cls:
                     mailbox = mailbox_cls.return_value
                     mailbox.probe_oauth_availability.side_effect = [
-                        {"ok": True, "reason": "ok", "message": "微软邮箱可用性检测通过", "access_token": "token-a"},
-                        {"ok": False, "reason": "service_abuse_mode", "message": "微软邮箱可用性检测未通过，账号处于 service abuse mode"},
+                        {"ok": True, "reason": "ok", "message": "Microsoft mailbox availability test passed", "access_token": "token-a"},
+                        {"ok": False, "reason": "service_abuse_mode", "message": "Microsoft mailbox availability test failed, the account is in service abuse mode"},
                     ]
 
                     response = strategy.execute(
@@ -231,7 +231,7 @@ class MailImportServiceTests(unittest.TestCase):
                     mailbox.probe_oauth_availability.return_value = {
                         "ok": True,
                         "reason": "ok",
-                        "message": "微软邮箱可用性检测通过",
+                        "message": "Microsoft mailbox availability test passed",
                         "access_token": "token-a",
                     }
 
@@ -272,7 +272,7 @@ class MailImportServiceTests(unittest.TestCase):
                     mailbox.probe_oauth_availability.return_value = {
                         "ok": True,
                         "reason": "ok",
-                        "message": "微软邮箱可用性检测通过",
+                        "message": "Microsoft mailbox availability test passed",
                         "access_token": "token-a",
                     }
                     mock_choices.side_effect = [

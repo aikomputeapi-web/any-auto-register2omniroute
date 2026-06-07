@@ -1,4 +1,4 @@
-"""Grok (x.ai) 平台插件"""
+"""Grok (x.ai) Platform plugin"""
 
 from typing import Optional
 
@@ -27,7 +27,7 @@ class GrokPlatform(BasePlatform):
 
         log = getattr(self, "_log_fn", print)
 
-        # 优先从任务配置读取，兜底从全局配置读取
+        # Read from the task configuration first, and read from the global configuration first.
         yescaptcha_key = self.config.extra.get("yescaptcha_key") or config_store.get(
             "yescaptcha_key", ""
         )
@@ -52,7 +52,7 @@ class GrokPlatform(BasePlatform):
             if self.mailbox and not current_email:
                 mail_acct = self.mailbox.get_email()
                 current_email = mail_acct.email if mail_acct else None
-            log(f"邮箱: {current_email}")
+            log(f"Mail: {current_email}")
             before_ids = (
                 self.mailbox.get_current_ids(mail_acct)
                 if (self.mailbox and mail_acct)
@@ -60,7 +60,7 @@ class GrokPlatform(BasePlatform):
             )
 
             def otp_cb():
-                log("等待验证码...")
+                log("Wait for verification code...")
                 if not self.mailbox or not mail_acct:
                     return ""
                 code = self.mailbox.wait_for_code(
@@ -72,12 +72,12 @@ class GrokPlatform(BasePlatform):
                 )
                 if code:
                     code = code.replace("-", "").replace(" ", "")
-                    log(f"验证码: {code}")
+                    log(f"Verification code: {code}")
                 return code
 
             try:
                 if not current_email:
-                    raise RuntimeError("未获取到可用邮箱")
+                    raise RuntimeError("No available email address found")
                 result = reg.register(
                     email=current_email,
                     password=password,
@@ -87,14 +87,14 @@ class GrokPlatform(BasePlatform):
             except Exception as e:
                 last_error = e
                 msg = str(e)
-                if attempt < mailbox_attempts and "邮箱域名被拒绝" in msg:
+                if attempt < mailbox_attempts and "Email domain name was rejected" in msg:
                     log(
-                        f"Grok 邮箱域名被拒绝，切换新邮箱重试 {attempt + 1}/{mailbox_attempts}"
+                        f"Grok The email domain name was rejected. Please switch to a new email and try again. {attempt + 1}/{mailbox_attempts}"
                     )
                     continue
                 raise
         else:
-            raise last_error if last_error else RuntimeError("Grok 注册失败")
+            raise last_error if last_error else RuntimeError("Grok Registration failed")
 
         return Account(
             platform="grok",
@@ -114,7 +114,7 @@ class GrokPlatform(BasePlatform):
 
     def get_platform_actions(self) -> list:
         return [
-            {"id": "upload_grok2api", "label": "导入 grok2api", "params": []},
+            {"id": "upload_grok2api", "label": "import grok2api", "params": []},
         ]
 
     def execute_action(self, action_id: str, account: Account, params: dict) -> dict:
@@ -123,4 +123,4 @@ class GrokPlatform(BasePlatform):
 
             ok, msg = upload_to_grok2api(account)
             return {"ok": ok, "data": {"message": msg}}
-        raise NotImplementedError(f"未知操作: {action_id}")
+        raise NotImplementedError(f"Unknown operation: {action_id}")

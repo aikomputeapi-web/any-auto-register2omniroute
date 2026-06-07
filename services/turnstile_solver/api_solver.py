@@ -171,13 +171,13 @@ class TurnstileAPIServer:
         if self.browser_type in ['chromium', 'chrome', 'msedge']:
             if async_playwright is None:
                 raise RuntimeError(
-                    "当前浏览器模式需要 patchright，但未安装。请执行: pip install patchright"
+                    "Current browser mode requires patchright, but not installed. Please execute: pip install patchright"
                 )
             playwright = await async_playwright().start()
         elif self.browser_type == "camoufox":
             if AsyncCamoufox is None:
                 raise RuntimeError(
-                    "当前浏览器模式需要 camoufox，但未安装。请执行: pip install camoufox && python -m camoufox fetch"
+                    "Current browser mode requires camoufox, but not installed. Please execute: pip install camoufox && python -m camoufox fetch"
                 )
             camoufox = AsyncCamoufox(headless=self.headless)
 

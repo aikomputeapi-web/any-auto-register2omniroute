@@ -12,7 +12,7 @@ class MailImportRegistry:
     def get(self, provider_type: str) -> BaseMailImportStrategy:
         strategy = self._strategies.get(str(provider_type or "").strip())
         if not strategy:
-            raise ValueError(f"不支持的邮箱导入类型: {provider_type}")
+            raise ValueError(f"Unsupported mailbox import type: {provider_type}")
         return strategy
 
     def descriptors(self) -> list[MailImportProviderDescriptor]:

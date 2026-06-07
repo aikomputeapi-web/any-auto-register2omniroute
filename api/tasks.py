@@ -223,9 +223,9 @@ def _finalize_orphan_tasks() -> None:
             if _task_store.exists(row.id):
                 continue
             row.status = "stopped"
-            row.error = row.error or "任务因服务重启中断"
+            row.error = row.error or "Task interrupted due to service restart"
             logs = _json_loads(row.logs_json, [])
-            tip = "[SYSTEM] 任务因服务重启中断，已自动标记为已停止"
+            tip = "[SYSTEM] The task was interrupted due to service restart and was automatically marked as stopped."
             if tip not in logs:
                 ts = datetime.now().strftime("%H:%M:%S")
                 logs.append(f"[{ts}] {tip}")
@@ -241,7 +241,7 @@ def _ensure_task_exists(task_id: str) -> None:
     if _task_store.exists(task_id):
         return
     if _get_persisted_task(task_id) is None:
-        raise HTTPException(404, "任务不存在")
+        raise HTTPException(404, "Task does not exist")
 
 
 def _ensure_task_mutable(task_id: str) -> None:
@@ -251,7 +251,7 @@ def _ensure_task_mutable(task_id: str) -> None:
     else:
         snapshot = _get_persisted_task(task_id) or {}
     if snapshot.get("status") in {"done", "failed", "stopped"}:
-        raise HTTPException(409, "任务已结束，无法再执行控制操作")
+        raise HTTPException(409, "The task has ended and no more control operations can be performed")
 
 
 def _get_task_snapshot(task_id: str) -> dict:
@@ -262,7 +262,7 @@ def _get_task_snapshot(task_id: str) -> dict:
     if snapshot is None and _task_store.exists(task_id):
         snapshot = _normalize_snapshot(_task_store.snapshot(task_id))
     if snapshot is None:
-        raise HTTPException(404, "任务不存在")
+        raise HTTPException(404, "Task does not exist")
     return snapshot
 
 
@@ -276,7 +276,7 @@ def _prepare_register_request(req: RegisterTaskRequest) -> RegisterTaskRequest:
     prepared.platform = str(prepared.platform or "").strip().lower()
 
     if not is_platform_enabled(prepared.platform):
-        raise HTTPException(400, f"{prepared.platform} 平台已下线，不再支持注册")
+        raise HTTPException(400, f"{prepared.platform} The platform has been offline and registration is no longer supported.")
 
     mail_provider = prepared.extra.get("mail_provider") or config_store.get(
         "mail_provider", ""
@@ -284,7 +284,7 @@ def _prepare_register_request(req: RegisterTaskRequest) -> RegisterTaskRequest:
     if mail_provider == "luckmail":
         platform = prepared.platform
         if platform in ("tavily", "openblocklabs"):
-            raise HTTPException(400, f"LuckMail 渠道暂时不支持 {platform} 项目注册")
+            raise HTTPException(400, f"LuckMail The channel is temporarily not supported {platform} Project registration")
 
         mapping = {
             "cursor": "cursor",
@@ -337,7 +337,7 @@ def has_active_register_task(
 
 
 def _log(task_id: str, msg: str):
-    """向任务追加一条日志"""
+    """Add a log to the task"""
     ts = time.strftime("%H:%M:%S")
     entry = f"[{ts}] {msg}"
     _task_store.append_log(task_id, entry)
@@ -364,7 +364,7 @@ def _save_task_log(
 
 
 def _auto_upload_integrations(task_id: str, account):
-    """注册成功后自动导入外部系统（后台线程，不阻塞注册流程）。"""
+    """After successful registration, it will be automatically imported into the external system (background thread, without blocking the registration process)."""
     def _run():
         try:
             from services.external_sync import sync_account
@@ -375,7 +375,7 @@ def _auto_upload_integrations(task_id: str, account):
                 msg = result.get("msg", "")
                 _log(task_id, f"  [{name}] {'[OK] ' + msg if ok else '[FAIL] ' + msg}")
         except Exception as e:
-            _log(task_id, f"  [Auto Upload] 自动导入异常: {e}")
+            _log(task_id, f"  [Auto Upload] Automatically import exceptions: {e}")
     threading.Thread(target=_run, daemon=True).start()
 
 
@@ -410,14 +410,14 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
     try:
         PlatformCls = get(req.platform)
 
-        # 预先计算 merged_extra，所有线程共享只读副本，避免每线程重复调用 config_store
+        # precomputed merged_extra, all threads share a read-only copy to avoid repeated calls per thread config_store
         from core.config_store import config_store as _cs
         _base_extra = _cs.get_all().copy()
         _base_extra.update(
             {k: v for k, v in req.extra.items() if v is not None and v != ""}
         )
 
-        # 批量预取代理（无固定代理时），减少每线程单独查 DB
+        # Prefetch proxies in batches (when there is no fixed proxy), reducing the need for separate checks per thread DB
         from core.proxy_pool import proxy_pool as _proxy_pool
         _prefetched_proxies: list[str] = []
         _prefetch_lock = threading.Lock()
@@ -440,10 +440,15 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                         return random.choice(_prefetched_proxies)
             return _proxy_pool.get_next()
 
-        def _build_mailbox(proxy: Optional[str]):
+        def _build_mailbox(proxy: Optional[str], first_name: str = None, last_name: str = None):
+            mailbox_extra = _base_extra.copy()
+            if first_name:
+                mailbox_extra["first_name"] = first_name
+            if last_name:
+                mailbox_extra["last_name"] = last_name
             return create_mailbox(
                 provider=_base_extra.get("mail_provider", "luckmail"),
-                extra=_base_extra,
+                extra=mailbox_extra,
                 proxy=proxy,
             )
 
@@ -465,7 +470,7 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                         if wait_seconds > 0:
                             _log(
                                 task_id,
-                                f"第 {i + 1} 个账号启动前延迟 {wait_seconds:g} 秒",
+                                f"No. {i + 1} Delay before account activation {wait_seconds:g} Second",
                             )
                             _sleep_with_control(
                                 wait_seconds,
@@ -474,7 +479,15 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                         next_start_time = time.time() + req.register_delay_seconds
                 control.checkpoint(attempt_id=attempt_id)
 
-                merged_extra = _base_extra
+                merged_extra = _base_extra.copy()
+                merged_extra["task_index"] = i
+                merged_extra["task_id"] = task_id
+                if "phone_number" in merged_extra and merged_extra["phone_number"]:
+                    merged_extra["phone"] = merged_extra["phone_number"]
+                
+                # Generate names for this registration
+                from platforms.chatgpt.utils import generate_random_name
+                first_name, last_name = generate_random_name()
 
                 _config = RegisterConfig(
                     executor_type=req.executor_type,
@@ -482,7 +495,7 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                     proxy=_proxy,
                     extra=merged_extra,
                 )
-                _mailbox = _build_mailbox(_proxy)
+                _mailbox = _build_mailbox(_proxy, first_name, last_name)
                 _platform = PlatformCls(config=_config, mailbox=_mailbox)
                 _platform._task_attempt_token = attempt_id
                 _platform._log_fn = lambda msg: _log(task_id, msg)
@@ -492,9 +505,9 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                     _platform.mailbox._log_fn = _platform._log_fn
                 _task_store.set_progress(task_id, f"{i + 1}/{req.count}")
                 _persist_task_snapshot(task_id)
-                _log(task_id, f"开始注册第 {i + 1}/{req.count} 个账号")
+                _log(task_id, f"Start registration {i + 1}/{req.count} accounts")
                 if _proxy:
-                    _log(task_id, f"使用代理: {_proxy}")
+                    _log(task_id, f"Use a proxy: {_proxy}")
                 account = _platform.register(
                     email=req.email or None,
                     password=req.password,
@@ -544,17 +557,17 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                 saved_account = save_account(account)
                 if _proxy:
                     _proxy_pool.report_success(_proxy)
-                _log(task_id, f"[OK] 注册成功: {account.email}")
+                _log(task_id, f"[OK] Registration successful: {account.email}")
                 _save_task_log(req.platform, account.email, "success")
                 _auto_upload_integrations(task_id, saved_account or account)
                 cashier_url = (account.extra or {}).get("cashier_url", "")
                 if cashier_url:
-                    _log(task_id, f"  [升级链接] {cashier_url}")
+                    _log(task_id, f"  [Upgrade link] {cashier_url}")
                     _task_store.add_cashier_url(task_id, cashier_url)
                     _persist_task_snapshot(task_id)
                 return AttemptResult.success()
             except SkipCurrentAttemptRequested as e:
-                _log(task_id, f"[SKIP] 已跳过当前账号: {e}")
+                _log(task_id, f"[SKIP] Current account has been skipped: {e}")
                 _save_task_log(
                     req.platform,
                     current_email,
@@ -568,7 +581,7 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
             except Exception as e:
                 if _proxy:
                     _proxy_pool.report_fail(_proxy)
-                _log(task_id, f"[FAIL] 注册失败: {e}")
+                _log(task_id, f"[FAIL] Registration failed: {e}")
                 _save_task_log(
                     req.platform,
                     current_email,
@@ -591,7 +604,7 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                 except CancelledError:
                     continue
                 except Exception as e:
-                    _log(task_id, f"[ERROR] 任务线程异常: {e}")
+                    _log(task_id, f"[ERROR] Task thread exception: {e}")
                     errors.append(str(e))
                     continue
                 if result.outcome == AttemptOutcome.SUCCESS:
@@ -614,7 +627,7 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                         if pending is not f:
                             pending.cancel()
     except Exception as e:
-        _log(task_id, f"致命错误: {e}")
+        _log(task_id, f"fatal error: {e}")
         _task_store.finish(
             task_id,
             status="failed",
@@ -631,10 +644,10 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
     final_status = "stopped" if control.is_stop_requested() or stopped else "done"
     if final_status == "stopped":
         summary = (
-            f"任务已停止: 成功 {success} 个, 跳过 {skipped} 个, 失败 {len(errors)} 个"
+            f"Task has stopped: success {success} indivual, jump over {skipped} indivual, fail {len(errors)} indivual"
         )
     else:
-        summary = f"完成: 成功 {success} 个, 跳过 {skipped} 个, 失败 {len(errors)} 个"
+        summary = f"Finish: success {success} indivual, jump over {skipped} indivual, fail {len(errors)} indivual"
     _log(task_id, summary)
     _task_store.finish(
         task_id,
@@ -662,9 +675,9 @@ def skip_current_account(task_id: str):
     _finalize_orphan_tasks()
     _ensure_task_mutable(task_id)
     if not _task_store.exists(task_id):
-        raise HTTPException(409, "任务已结束或服务已重启，无法跳过当前账号")
+        raise HTTPException(409, "The task has ended or the service has been restarted, and the current account cannot be skipped.")
     control = _task_store.request_skip_current(task_id)
-    _log(task_id, "收到手动跳过当前账号请求")
+    _log(task_id, "Received a request to manually skip the current account")
     return {"ok": True, "task_id": task_id, "control": control}
 
 
@@ -673,9 +686,9 @@ def stop_task(task_id: str):
     _finalize_orphan_tasks()
     _ensure_task_mutable(task_id)
     if not _task_store.exists(task_id):
-        raise HTTPException(409, "任务已结束或服务已重启，无法停止")
+        raise HTTPException(409, "The task has ended or the service has been restarted and cannot be stopped.")
     control = _task_store.request_stop(task_id)
-    _log(task_id, "收到手动停止任务请求")
+    _log(task_id, "Received manual stop task request")
     return {"ok": True, "task_id": task_id, "control": control}
 
 
@@ -694,11 +707,11 @@ def get_logs(platform: str = None, page: int = 1, page_size: int = 50):
 @router.post("/logs/batch-delete")
 def batch_delete_logs(body: TaskLogBatchDeleteRequest):
     if not body.ids:
-        raise HTTPException(400, "任务历史 ID 列表不能为空")
+        raise HTTPException(400, "mission history ID List cannot be empty")
 
     unique_ids = list(dict.fromkeys(body.ids))
     if len(unique_ids) > 1000:
-        raise HTTPException(400, "单次最多删除 1000 条任务历史")
+        raise HTTPException(400, "Maximum number of deletes at a time 1000 task history")
 
     with Session(engine) as s:
         try:
@@ -711,7 +724,7 @@ def batch_delete_logs(body: TaskLogBatchDeleteRequest):
             s.commit()
             deleted_count = len(found_ids)
             not_found_ids = [log_id for log_id in unique_ids if log_id not in found_ids]
-            logger.info("批量删除任务历史成功: %s 条", deleted_count)
+            logger.info("Batch deletion of task history successful: %s strip", deleted_count)
 
             return {
                 "deleted": deleted_count,
@@ -720,13 +733,13 @@ def batch_delete_logs(body: TaskLogBatchDeleteRequest):
             }
         except Exception as e:
             s.rollback()
-            logger.exception("批量删除任务历史失败")
-            raise HTTPException(500, f"批量删除任务历史失败: {str(e)}")
+            logger.exception("Batch deletion of task history failed")
+            raise HTTPException(500, f"Batch deletion of task history failed: {str(e)}")
 
 
 @router.get("/{task_id}/logs/stream")
 async def stream_logs(task_id: str, since: int = 0):
-    """SSE 实时日志流"""
+    """SSE real-time log streaming"""
     _finalize_orphan_tasks()
     _ensure_task_exists(task_id)
 
@@ -754,7 +767,7 @@ async def stream_logs(task_id: str, since: int = 0):
                 yield f"data: {json.dumps({'done': True, 'status': status, **counters})}\n\n"
                 break
             if not use_memory:
-                # 非内存任务仅提供持久化快照，不进入无限轮询
+                # Non-memory tasks only provide persistent snapshots and do not enter infinite polling.
                 yield f"data: {json.dumps({'done': True, 'status': 'stopped', **counters})}\n\n"
                 break
             await asyncio.sleep(0.5)
@@ -778,7 +791,7 @@ def get_task(task_id: str):
 @router.get("")
 def list_tasks():
     _finalize_orphan_tasks()
-    # 以 DB 为主返回，避免进程重启导致列表丢失
+    # by DB Return to main to avoid list loss due to process restart
     return _list_persisted_tasks()
 
 
@@ -788,7 +801,7 @@ def delete_task(task_id: str):
     snapshot = _get_task_snapshot(task_id)
     status = str(snapshot.get("status") or "")
     if status in {"pending", "running"}:
-        raise HTTPException(409, "运行中的任务不允许删除，请先停止任务")
+        raise HTTPException(409, "Running tasks are not allowed to be deleted. Please stop the task first.")
     with Session(engine) as s:
         row = s.get(TaskRunModel, task_id)
         if row is not None:

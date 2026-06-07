@@ -44,7 +44,7 @@ class _RequeueMailbox(_TrackingMailbox):
 class _FakeAdapter:
     def run(self, context):
         context.email_service.create_email()
-        raise AssertionError("create_email 应该先报错")
+        raise AssertionError("create_email Should report an error first")
 
 
 class _VerificationAdapter:
@@ -86,7 +86,7 @@ class ChatGPTPluginTests(unittest.TestCase):
             with self.assertRaises(RuntimeError) as ctx:
                 platform.register()
 
-        self.assertIn("custom_provider 返回空邮箱地址", str(ctx.exception))
+        self.assertIn("custom_provider Returns an empty email address", str(ctx.exception))
 
     def test_custom_provider_uses_mailbox_baseline_for_verification_code(self):
         mailbox = _TrackingMailbox()

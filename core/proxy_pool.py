@@ -1,4 +1,4 @@
-"""代理池 - 从数据库读取代理，支持轮询和按区域选取"""
+"""proxy pool - Read agents from the database, support polling and selection by region"""
 
 from typing import Optional
 from sqlmodel import Session, select
@@ -14,7 +14,7 @@ class ProxyPool:
         self._lock = threading.Lock()
 
     def get_next(self, region: str = "") -> Optional[str]:
-        """加权轮询取一个可用代理，在高成功率代理间轮换"""
+        """Weighted polling takes an available agent and rotates among agents with high success rate"""
         with Session(engine) as s:
             q = select(ProxyModel).where(ProxyModel.is_active == True)
             if region:
@@ -46,14 +46,14 @@ class ProxyPool:
             if p:
                 p.fail_count += 1
                 p.last_checked = datetime.now(timezone.utc)
-                # 连续失败超过10次自动禁用
+                # Continuous failure exceeds10Automatically disabled
                 if p.fail_count > 0 and p.success_count == 0 and p.fail_count >= 5:
                     p.is_active = False
                 s.add(p)
                 s.commit()
 
     def check_all(self) -> dict:
-        """检测所有代理可用性"""
+        """Check all agent availability"""
         import requests
 
         with Session(engine) as s:

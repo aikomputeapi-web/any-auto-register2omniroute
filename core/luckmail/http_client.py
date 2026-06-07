@@ -1,8 +1,8 @@
 """
-核心 HTTP 客户端（基于 curl_cffi）
-支持同步/异步双模式，智能识别调用上下文自动切换
+core HTTP client (based on curl_cffi)
+Support synchronization/Asynchronous dual mode, intelligent identification and automatic switching of calling context
 
-支持 TLS 指纹模拟，避免被目标网站识别为机器人。
+support TLS Fingerprint simulation to avoid being identified as a robot by the target website.
 """
 
 import asyncio
@@ -22,7 +22,7 @@ from ..proxy_utils import normalize_proxy_url, build_requests_proxy_config
 
 
 def _is_async_context() -> bool:
-    """检测当前是否处于异步上下文（事件循环正在运行）"""
+    """Detect whether you are currently in an asynchronous context (the event loop is running)"""
     try:
         loop = asyncio.get_event_loop()
         return loop.is_running()
@@ -31,9 +31,9 @@ def _is_async_context() -> bool:
 
 
 def _generate_hmac_signature(api_secret: str, api_key: str, timestamp: str, nonce: str) -> str:
-    """生成 HMAC-SHA256 签名
+    """generate HMAC-SHA256 sign
 
-    签名内容：api_key + timestamp + nonce，使用 api_secret 作为密钥
+    Signature content:api_key + timestamp + nonce,use api_secret as key
     """
     message = f"{api_key}{timestamp}{nonce}"
     signature = hmac.new(
@@ -45,7 +45,7 @@ def _generate_hmac_signature(api_secret: str, api_key: str, timestamp: str, nonc
 
 
 class _SyncRunner:
-    """同步运行异步函数的工具类"""
+    """Tool class for running asynchronous functions synchronously"""
 
     _lock = threading.Lock()
     _loop: Optional[asyncio.AbstractEventLoop] = None
@@ -53,7 +53,7 @@ class _SyncRunner:
 
     @classmethod
     def _ensure_loop(cls):
-        """确保后台事件循环正在运行"""
+        """Make sure the background event loop is running"""
         with cls._lock:
             if cls._loop is None or not cls._loop.is_running():
                 cls._loop = asyncio.new_event_loop()
@@ -66,7 +66,7 @@ class _SyncRunner:
 
     @classmethod
     def run(cls, coro) -> Any:
-        """在后台事件循环中同步运行协程"""
+        """Run coroutines synchronously in a background event loop"""
         cls._ensure_loop()
         future = asyncio.run_coroutine_threadsafe(coro, cls._loop)
         return future.result()
@@ -74,18 +74,18 @@ class _SyncRunner:
 
 class LuckMailHttpClient:
     """
-    LuckMail HTTP 客户端（基于 curl_cffi）
+    LuckMail HTTP client (based on curl_cffi)
 
-    使用 curl_cffi 作为底层 HTTP 库，支持 TLS 指纹模拟。
-    自动识别调用上下文（同步/异步），提供统一的请求接口。
+    use curl_cffi as bottom layer HTTP library, support TLS Fingerprint simulation.
+    Automatic identification of calling context (synchronous/asynchronous), providing a unified request interface.
 
     Args:
-        base_url: API 基础 URL，如 https://your-domain.com
-        api_key: API Key（必填）
-        api_secret: API Secret（可选，用于 HMAC 签名验证，安全性更高）
-        timeout: 请求超时时间（秒），默认 30
-        use_hmac: 是否使用 HMAC 签名验证，默认 False（使用时需提供 api_secret）
-        impersonate: 浏览器指纹模拟，默认 "chrome"（可选 "firefox"、"safari" 等）
+        base_url: API Base URL,like https://your-domain.com
+        api_key: API Key(required)
+        api_secret: API Secret(optional, for HMAC Signature verification, higher security)
+        timeout: Request timeout (seconds), default 30
+        use_hmac: Whether to use HMAC Signature verification, default False(Required when using api_secret)
+        impersonate: Browser fingerprint simulation, default "chrome"(optional "firefox","safari" wait)
     """
 
     def __init__(
@@ -107,13 +107,13 @@ class LuckMailHttpClient:
         self.proxy_url = normalize_proxy_url(proxy_url)
         self._proxy_config = build_requests_proxy_config(self.proxy_url)
 
-        # 同步 Session（延迟初始化）
+        # synchronous Session(lazy initialization)
         self._sync_session: Optional[curl_requests.Session] = None
-        # 异步 Session（延迟初始化）
+        # asynchronous Session(lazy initialization)
         self._async_session: Optional[Any] = None
 
     def _get_sync_session(self) -> curl_requests.Session:
-        """获取或创建同步 Session"""
+        """Get or create a sync Session"""
         if self._sync_session is None:
             session_kwargs = {
                 "impersonate": self.impersonate,
@@ -137,7 +137,7 @@ class LuckMailHttpClient:
         return self._sync_session
 
     async def _get_async_session(self):
-        """获取或创建异步 Session"""
+        """Get or create async Session"""
         if self._async_session is None:
             session_kwargs = {
                 "impersonate": self.impersonate,
@@ -161,14 +161,14 @@ class LuckMailHttpClient:
         return self._async_session
 
     def _build_headers(self) -> Dict[str, str]:
-        """构建请求头（含鉴权信息）"""
+        """Build request header (including authentication information)"""
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
 
         if self.use_hmac and self.api_secret:
-            # HMAC 签名模式
+            # HMAC signature mode
             timestamp = str(int(time.time()))
             nonce = secrets.token_hex(16)
             signature = _generate_hmac_signature(
@@ -179,27 +179,27 @@ class LuckMailHttpClient:
             headers["X-Nonce"] = nonce
             headers["X-Signature"] = signature
         elif self.api_key:
-            # 普通 API Key 模式（推荐）
+            # ordinary API Key Mode (recommended)
             headers["X-API-Key"] = self.api_key
 
         return headers
 
     def _build_url(self, path: str, params: Optional[Dict] = None) -> str:
-        """构建完整 URL"""
+        """Complete build URL"""
         url = f"{self.base_url}{path}"
         if params:
-            # 过滤 None 值
+            # filter None value
             filtered = {k: v for k, v in params.items() if v is not None}
             if filtered:
                 url = f"{url}?{urlencode(filtered)}"
         return url
 
     def _parse_response(self, status_code: int, content: bytes) -> Any:
-        """解析响应数据"""
+        """Parse response data"""
         try:
             data = json.loads(content)
         except (json.JSONDecodeError, UnicodeDecodeError):
-            # 非 JSON 响应（如文件流）直接返回字节内容
+            # No JSON Responses (such as file streams) directly return the byte content
             return content
 
         if not isinstance(data, dict):
@@ -215,7 +215,7 @@ class LuckMailHttpClient:
 
         return data.get("data")
 
-    # ===================== 异步方法 =====================
+    # ===================== asynchronous method =====================
 
     async def _async_request(
         self,
@@ -224,7 +224,7 @@ class LuckMailHttpClient:
         params: Optional[Dict] = None,
         json_data: Optional[Dict] = None,
     ) -> Any:
-        """异步 HTTP 请求"""
+        """asynchronous HTTP ask"""
         session = await self._get_async_session()
         headers = self._build_headers()
         url = self._build_url(path, params)
@@ -243,7 +243,7 @@ class LuckMailHttpClient:
             elif method.upper() == "DELETE":
                 response = await session.delete(url, headers=headers)
             else:
-                raise ValueError(f"不支持的 HTTP 方法: {method}")
+                raise ValueError(f"Not supported HTTP method: {method}")
 
             return self._parse_response(response.status_code, response.content)
 
@@ -253,11 +253,11 @@ class LuckMailHttpClient:
             err_msg = str(e).lower()
             if "timeout" in err_msg:
                 from .exceptions import TimeoutError as LuckTimeoutError
-                raise LuckTimeoutError(f"请求超时: {path}") from e
-            raise NetworkError(f"请求失败: {e}") from e
+                raise LuckTimeoutError(f"Request timeout: {path}") from e
+            raise NetworkError(f"Request failed: {e}") from e
 
     async def _async_get_stream(self, path: str, params: Optional[Dict] = None) -> bytes:
-        """异步获取流式响应（文件下载等）"""
+        """Get streaming responses asynchronously (file downloads, etc.)"""
         session = await self._get_async_session()
         headers = self._build_headers()
         url = self._build_url(path, params)
@@ -269,16 +269,16 @@ class LuckMailHttpClient:
             err_msg = str(e).lower()
             if "timeout" in err_msg:
                 from .exceptions import TimeoutError as LuckTimeoutError
-                raise LuckTimeoutError(f"请求超时: {path}") from e
-            raise NetworkError(f"网络错误: {e}") from e
+                raise LuckTimeoutError(f"Request timeout: {path}") from e
+            raise NetworkError(f"network error: {e}") from e
 
     async def aclose(self):
-        """关闭异步客户端"""
+        """Close asynchronous client"""
         if self._async_session is not None:
             await self._async_session.close()
             self._async_session = None
 
-    # ===================== 同步方法 =====================
+    # ===================== sync method =====================
 
     def _sync_request(
         self,
@@ -287,7 +287,7 @@ class LuckMailHttpClient:
         params: Optional[Dict] = None,
         json_data: Optional[Dict] = None,
     ) -> Any:
-        """同步 HTTP 请求（使用 curl_cffi）"""
+        """synchronous HTTP request (using curl_cffi)"""
         session = self._get_sync_session()
         headers = self._build_headers()
         url = self._build_url(path, params)
@@ -306,7 +306,7 @@ class LuckMailHttpClient:
             elif method.upper() == "DELETE":
                 response = session.delete(url, headers=headers)
             else:
-                raise ValueError(f"不支持的 HTTP 方法: {method}")
+                raise ValueError(f"Not supported HTTP method: {method}")
 
             return self._parse_response(response.status_code, response.content)
 
@@ -316,11 +316,11 @@ class LuckMailHttpClient:
             err_msg = str(e).lower()
             if "timeout" in err_msg:
                 from .exceptions import TimeoutError as LuckTimeoutError
-                raise LuckTimeoutError(f"请求超时: {path}") from e
-            raise NetworkError(f"请求失败: {e}") from e
+                raise LuckTimeoutError(f"Request timeout: {path}") from e
+            raise NetworkError(f"Request failed: {e}") from e
 
     def _sync_get_stream(self, path: str, params: Optional[Dict] = None) -> bytes:
-        """同步获取流式响应"""
+        """Get streaming response synchronously"""
         session = self._get_sync_session()
         headers = self._build_headers()
         url = self._build_url(path, params)
@@ -332,10 +332,10 @@ class LuckMailHttpClient:
             err_msg = str(e).lower()
             if "timeout" in err_msg:
                 from .exceptions import TimeoutError as LuckTimeoutError
-                raise LuckTimeoutError(f"请求超时: {path}") from e
-            raise NetworkError(f"网络错误: {e}") from e
+                raise LuckTimeoutError(f"Request timeout: {path}") from e
+            raise NetworkError(f"network error: {e}") from e
 
-    # ===================== 统一接口（智能识别同步/异步）=====================
+    # ===================== Unified interface (intelligent recognition synchronization/asynchronous)=====================
 
     def request(
         self,
@@ -345,15 +345,15 @@ class LuckMailHttpClient:
         json_data: Optional[Dict] = None,
     ):
         """
-        统一请求接口，智能识别调用上下文：
-        - 在 async 函数中调用：自动返回协程，需要 await
-        - 在普通函数中调用：直接返回结果
+        Unified request interface, intelligent identification of calling context:
+        - exist async Called in a function: automatically returns to the coroutine, required await
+        - Called in a normal function: return the result directly
 
-        使用示例：
-            # 同步调用
+        Usage example:
+            # Synchronous call
             result = client.request("GET", "/api/v1/openapi/user/info")
 
-            # 异步调用
+            # asynchronous call
             result = await client.request("GET", "/api/v1/openapi/user/info")
         """
         if _is_async_context():
@@ -363,7 +363,7 @@ class LuckMailHttpClient:
 
     def get_stream(self, path: str, params: Optional[Dict] = None):
         """
-        流式 GET 请求（用于文件下载），智能识别同步/异步上下文
+        streaming GET Request (for file download), intelligent recognition synchronization/asynchronous context
         """
         if _is_async_context():
             return self._async_get_stream(path, params=params)
@@ -371,7 +371,7 @@ class LuckMailHttpClient:
             return self._sync_get_stream(path, params=params)
 
     def close(self):
-        """关闭同步客户端资源"""
+        """Turn off synchronization of client resources"""
         if self._sync_session is not None:
             self._sync_session.close()
             self._sync_session = None

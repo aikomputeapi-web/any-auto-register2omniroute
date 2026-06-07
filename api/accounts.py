@@ -81,7 +81,7 @@ def create_account(body: AccountCreate, session: Session = Depends(get_session))
 
 @router.get("/stats")
 def get_stats(session: Session = Depends(get_session)):
-    """统计各平台账号数量和状态分布"""
+    """Statistics on the number and status distribution of accounts on each platform"""
     accounts = session.exec(select(AccountModel)).all()
     platforms: dict = {}
     statuses: dict = {}
@@ -125,7 +125,7 @@ def import_accounts(
     body: ImportRequest,
     session: Session = Depends(get_session),
 ):
-    """批量导入，每行格式: email password [extra]"""
+    """Batch import, format per line: email password [extra]"""
     created = 0
     for line in body.lines:
         parts = line.strip().split()
@@ -153,12 +153,12 @@ def batch_delete_accounts(
     body: BatchDeleteRequest,
     session: Session = Depends(get_session)
 ):
-    """批量删除账号"""
+    """Delete accounts in batches"""
     if not body.ids:
-        raise HTTPException(400, "账号 ID 列表不能为空")
+        raise HTTPException(400, "account ID List cannot be empty")
     
     if len(body.ids) > 1000:
-        raise HTTPException(400, "单次最多删除 1000 个账号")
+        raise HTTPException(400, "Maximum number of deletes at a time 1000 accounts")
     
     deleted_count = 0
     not_found_ids = []
@@ -173,7 +173,7 @@ def batch_delete_accounts(
                 not_found_ids.append(account_id)
         
         session.commit()
-        logger.info(f"批量删除成功: {deleted_count} 个账号")
+        logger.info(f"Batch deletion successful: {deleted_count} accounts")
         
         return {
             "deleted": deleted_count,
@@ -182,8 +182,8 @@ def batch_delete_accounts(
         }
     except Exception as e:
         session.rollback()
-        logger.exception("批量删除失败")
-        raise HTTPException(500, f"批量删除失败: {str(e)}")
+        logger.exception("Batch deletion failed")
+        raise HTTPException(500, f"Batch deletion failed: {str(e)}")
 
 
 @router.post("/check-all")
@@ -191,14 +191,14 @@ def check_all_accounts(platform: Optional[str] = None,
                        background_tasks: BackgroundTasks = None):
     from core.scheduler import scheduler
     background_tasks.add_task(scheduler.check_accounts_valid, platform)
-    return {"message": "批量检测任务已启动"}
+    return {"message": "Batch detection task has been started"}
 
 
 @router.get("/{account_id}")
 def get_account(account_id: int, session: Session = Depends(get_session)):
     acc = session.get(AccountModel, account_id)
     if not acc:
-        raise HTTPException(404, "账号不存在")
+        raise HTTPException(404, "Account does not exist")
     return acc
 
 
@@ -207,7 +207,7 @@ def update_account(account_id: int, body: AccountUpdate,
                    session: Session = Depends(get_session)):
     acc = session.get(AccountModel, account_id)
     if not acc:
-        raise HTTPException(404, "账号不存在")
+        raise HTTPException(404, "Account does not exist")
     if body.status is not None:
         acc.status = body.status
     if body.token is not None:
@@ -225,7 +225,7 @@ def update_account(account_id: int, body: AccountUpdate,
 def delete_account(account_id: int, session: Session = Depends(get_session)):
     acc = session.get(AccountModel, account_id)
     if not acc:
-        raise HTTPException(404, "账号不存在")
+        raise HTTPException(404, "Account does not exist")
     session.delete(acc)
     session.commit()
     return {"ok": True}
@@ -236,9 +236,9 @@ def check_account(account_id: int, background_tasks: BackgroundTasks,
                   session: Session = Depends(get_session)):
     acc = session.get(AccountModel, account_id)
     if not acc:
-        raise HTTPException(404, "账号不存在")
+        raise HTTPException(404, "Account does not exist")
     background_tasks.add_task(_do_check, account_id)
-    return {"message": "检测任务已启动"}
+    return {"message": "The detection task has been started"}
 
 
 def _do_check(account_id: int):
@@ -266,4 +266,4 @@ def _do_check(account_id: int):
                     s.add(a)
                     s.commit()
         except Exception:
-            logger.exception("检测账号 %s 时出错", account_id)
+            logger.exception("Check account %s error", account_id)

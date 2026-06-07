@@ -1,21 +1,21 @@
 """
-LuckMailSdk 异常类定义
+LuckMailSdk Exception class definition
 """
 
 
 class LuckMailError(Exception):
-    """LuckMail SDK 基础异常"""
+    """LuckMail SDK Basic exception"""
     pass
 
 
 class AuthError(LuckMailError):
-    """鉴权失败异常"""
+    """Authentication failure exception"""
     def __init__(self, message: str = "Authentication failed"):
         super().__init__(message)
 
 
 class APIError(LuckMailError):
-    """API 调用异常"""
+    """API Call exception"""
     def __init__(self, code: int, message: str, data=None):
         self.code = code
         self.message = message
@@ -24,12 +24,12 @@ class APIError(LuckMailError):
 
 
 class NetworkError(LuckMailError):
-    """网络请求异常"""
+    """Network request exception"""
     def __init__(self, message: str = "Network error occurred"):
         super().__init__(message)
 
 
 class TimeoutError(LuckMailError):
-    """超时异常"""
+    """Timeout exception"""
     def __init__(self, message: str = "Request timed out"):
         super().__init__(message)

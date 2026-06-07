@@ -2,24 +2,24 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为 Outlook 本地池的 OTP 收码链路补充精简诊断日志，并增加 `INBOX` / `Junk` 双文件夹轮询，便于定位“等待验证码”阶段的真实阻塞点。
+**Goal:** for Outlook local pool OTP The code collection link is supplemented with simplified diagnostic logs and added `INBOX` / `Junk` Dual folder polling for easy positioning“Wait for verification code”The real choke point of the stage.
 
-**Architecture:** 保持 ChatGPT 主流程不变，只在 `OutlookMailbox.wait_for_code()` 内增加诊断能力。实现上按每轮 poll 依次检查 `INBOX` 与 `Junk`，记录 IMAP 连接、UID 数量、新邮件数量、命中 subject、验证码提取/跳过结果，以及异常原因；不打印正文，不改超时与轮询节奏。
+**Architecture:** Keep ChatGPT The main process remains unchanged, only `OutlookMailbox.wait_for_code()` Increase diagnostic capabilities. Achieve pressing on each round poll Check in order `INBOX` and `Junk`,Record IMAP connect,UID Quantity, number of new messages, hits subject, Verification code extraction/Skip the results and exception reasons; do not print the text, and do not change the timeout and polling rhythm.
 
 **Tech Stack:** Python, unittest, imaplib-style doubles, existing `BaseMailbox` polling helpers
 
 ---
 
-### Task 1: 为 Outlook OTP 轮询补充失败测试
+### Task 1: for Outlook OTP Polling to supplement failed tests
 
 **Files:**
 - Create: `tests/test_outlook_mailbox.py`
 - Test: `tests/test_outlook_mailbox.py`
 - Verify against: `core/base_mailbox.py:3068-3405`
 
-- [ ] **Step 1: 写出失败测试文件，覆盖 Junk 回退、异常日志、exclude 日志**
+- [ ] **Step 1: Write out failed test files and cover Junk Rollback, exception log,exclude log**
 
-将 `tests/test_outlook_mailbox.py` 创建为以下内容：
+Will `tests/test_outlook_mailbox.py` Created with the following content:
 
 ```python
 import unittest
@@ -124,7 +124,7 @@ class OutlookMailboxTests(unittest.TestCase):
         self.assertIn("uid_total=0", joined)
         self.assertIn("new_uid_count=1", joined)
         self.assertIn("subject=OpenAI verification code", joined)
-        self.assertIn("验证码提取成功: 222222", joined)
+        self.assertIn("Verification code extraction successful: 222222", joined)
 
     @mock.patch("time.sleep", return_value=None)
     @mock.patch("time.monotonic", side_effect=[0.0, 0.0, 0.2, 0.2, 0.4])
@@ -153,9 +153,9 @@ class OutlookMailboxTests(unittest.TestCase):
 
         self.assertEqual(code, "333333")
         joined = "\n".join(self.logs)
-        self.assertIn("IMAP 查询异常: imap boom", joined)
+        self.assertIn("IMAP Query exception: imap boom", joined)
         self.assertIn("subject=Security code", joined)
-        self.assertIn("验证码提取成功: 333333", joined)
+        self.assertIn("Verification code extraction successful: 333333", joined)
 
     @mock.patch("time.sleep", return_value=None)
     @mock.patch("time.monotonic", side_effect=[0.0, 0.0, 0.2, 0.2, 0.4])
@@ -201,15 +201,15 @@ class OutlookMailboxTests(unittest.TestCase):
 
         self.assertEqual(code, "222222")
         joined = "\n".join(self.logs)
-        self.assertIn("跳过已尝试验证码: 111111", joined)
-        self.assertIn("验证码提取成功: 222222", joined)
+        self.assertIn("Skip attempted verification codes: 111111", joined)
+        self.assertIn("Verification code extraction successful: 222222", joined)
 
 
 if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: 运行新测试，确认它先失败**
+- [ ] **Step 2: Run the new test and confirm it fails first**
 
 Run:
 
@@ -219,51 +219,51 @@ python -m unittest discover -s tests -p "test_outlook_mailbox.py" -v
 
 Expected:
 - FAIL
-- 失败原因应包含以下一种或多种：
-  - 还没有 `folder=Junk` 日志
-  - 还没有 `IMAP 查询异常` 日志
-  - 还没有 `跳过已尝试验证码` 日志
-  - 当前实现不会从 `Junk` 返回验证码
+- The failure reason should include one or more of the following:
+  - not yet `folder=Junk` log
+  - not yet `IMAP Query exception` log
+  - not yet `Skip attempted verification codes` log
+  - The current implementation does not start from `Junk` Return verification code
 
-- [ ] **Step 3: 确认失败与设计一致，而不是测试本身写错**
+- [ ] **Step 3: Confirm that the failure is consistent with the design, rather than the test itself being written incorrectly**
 
-检查点：
-- 当前 `OutlookMailbox.wait_for_code()` 只 `select("INBOX")`
-- 当前实现没有 `_log(...)` 输出轮询统计
-- 当前 `except Exception` 分支直接 `return None`
+Checkpoint:
+- current `OutlookMailbox.wait_for_code()` Only `select("INBOX")`
+- The current implementation does not `_log(...)` Output polling statistics
+- current `except Exception` branch directly `return None`
 
-Expected: 可以明确说明测试失败是因为功能尚未实现，不是测试拼写或 mock 错误。
+Expected: It can be clearly stated that the test failed because the feature has not been implemented yet, not because the test is spelled or mock mistake.
 
-- [ ] **Step 4: 提交（仅在用户明确要求提交 git 时执行）**
+- [ ] **Step 4: Submit (only if explicitly requested by the user) git execution)**
 
 ```bash
 git add tests/test_outlook_mailbox.py
 git commit -m "test: add outlook otp polling diagnostics coverage"
 ```
 
-### Task 2: 在 OutlookMailbox.wait_for_code 中实现诊断日志与 Junk 回退
+### Task 2: exist OutlookMailbox.wait_for_code Implement diagnostic logs and Junk rollback
 
 **Files:**
 - Modify: `core/base_mailbox.py:3332-3405`
 - Test: `tests/test_outlook_mailbox.py`
 - Regression: `tests/test_chatgpt_plugin.py`
 
-- [ ] **Step 1: 读取当前 OutlookMailbox.wait_for_code 实现，锁定最小改动范围**
+- [ ] **Step 1: Read current OutlookMailbox.wait_for_code Implementation, locking the minimum scope of changes**
 
-当前目标函数位于：
+The current objective function is located at:
 - `core/base_mailbox.py:3332-3405`
 
-当前特征：
-- 只查 `INBOX`
-- 共享一组 `seen`
-- 提取到验证码即返回
-- 异常会被吞掉并返回 `None`
+Current features:
+- Check only `INBOX`
+- share a group `seen`
+- Return after extracting the verification code
+- Exceptions will be swallowed and returned `None`
 
-Expected: 本次只修改该函数，不改 `BaseMailbox._run_polling_wait()`，不改 ChatGPT 上层调用。
+Expected: This time only modify the function and leave it unchanged `BaseMailbox._run_polling_wait()`, do not change ChatGPT Upper layer call.
 
-- [ ] **Step 2: 按设计改写 wait_for_code，加入精简日志与双文件夹轮询**
+- [ ] **Step 2: Adapted according to design wait_for_code, add streamlined logs and dual-folder polling**
 
-将 `OutlookMailbox.wait_for_code()` 改成如下实现：
+Will `OutlookMailbox.wait_for_code()` Change it to the following implementation:
 
 ```python
     def wait_for_code(
@@ -291,19 +291,19 @@ Expected: 本次只修改该函数，不改 `BaseMailbox._run_polling_wait()`，
             for folder in folders:
                 imap_conn = None
                 try:
-                    self._log(f"[Outlook][OTP] folder={folder} 开始轮询")
+                    self._log(f"[Outlook][OTP] folder={folder} Start polling")
                     imap_conn = self._open_imap(account)
-                    self._log(f"[Outlook][OTP] folder={folder} IMAP 登录成功")
+                    self._log(f"[Outlook][OTP] folder={folder} IMAP Login successful")
                     status, _ = imap_conn.select(folder, readonly=True)
                     if status != "OK":
                         self._log(
-                            f"[Outlook][OTP] folder={folder} select 失败: status={status}"
+                            f"[Outlook][OTP] folder={folder} select fail: status={status}"
                         )
                         continue
                     status, data = imap_conn.uid("search", None, "ALL")
                     if status != "OK":
                         self._log(
-                            f"[Outlook][OTP] folder={folder} search 失败: status={status}"
+                            f"[Outlook][OTP] folder={folder} search fail: status={status}"
                         )
                         continue
                     ids = data[0].split() if data and data[0] else []
@@ -328,7 +328,7 @@ Expected: 本次只修改该函数，不改 `BaseMailbox._run_polling_wait()`，
                         status, msg_data = imap_conn.uid("fetch", uid, "(RFC822)")
                         if status != "OK":
                             self._log(
-                                f"[Outlook][OTP] folder={folder} fetch 失败: uid={uid!r} status={status}"
+                                f"[Outlook][OTP] folder={folder} fetch fail: uid={uid!r} status={status}"
                             )
                             continue
                         raw = None
@@ -338,37 +338,37 @@ Expected: 本次只修改该函数，不改 `BaseMailbox._run_polling_wait()`，
                                 break
                         if not raw:
                             self._log(
-                                f"[Outlook][OTP] folder={folder} fetch 空响应: uid={uid!r}"
+                                f"[Outlook][OTP] folder={folder} fetch Empty response: uid={uid!r}"
                             )
                             continue
                         msg = message_from_bytes(raw, policy=email_default_policy)
                         subject = self._decode_header_value(msg.get("Subject", ""))
                         text = self._extract_message_text(msg)
                         self._log(
-                            f"[Outlook][OTP] folder={folder} 命中新邮件 subject={subject or '-'}"
+                            f"[Outlook][OTP] folder={folder} hit new mail subject={subject or '-'}"
                         )
                         if keyword_lower and keyword_lower not in text.lower():
                             self._log(
-                                f"[Outlook][OTP] folder={folder} 跳过关键字不匹配邮件"
+                                f"[Outlook][OTP] folder={folder} Skip emails that don’t match keywords"
                             )
                             continue
                         code = self._safe_extract(text, code_pattern)
                         if not code:
                             self._log(
-                                f"[Outlook][OTP] folder={folder} 未提取到验证码"
+                                f"[Outlook][OTP] folder={folder} Verification code not retrieved"
                             )
                             continue
                         if code in exclude_codes:
                             self._log(
-                                f"[Outlook][OTP] folder={folder} 跳过已尝试验证码: {code}"
+                                f"[Outlook][OTP] folder={folder} Skip attempted verification codes: {code}"
                             )
                             continue
                         self._log(
-                            f"[Outlook][OTP] folder={folder} 验证码提取成功: {code}"
+                            f"[Outlook][OTP] folder={folder} Verification code extraction successful: {code}"
                         )
                         return code
                 except Exception as exc:
-                    self._log(f"[Outlook][OTP] folder={folder} IMAP 查询异常: {exc}")
+                    self._log(f"[Outlook][OTP] folder={folder} IMAP Query exception: {exc}")
                     continue
                 finally:
                     try:
@@ -385,14 +385,14 @@ Expected: 本次只修改该函数，不改 `BaseMailbox._run_polling_wait()`，
         )
 ```
 
-实现要求：
-- 保留 `timeout` / `poll_interval=5`
-- 只打印统计、subject、提取结果、异常原因
-- 不打印正文
-- `seen` 必须加上 `folder:` 前缀，避免 `INBOX` 与 `Junk` 的 UID 冲突
-- `before_ids` 继续只映射到 `INBOX`，保持和当前基线采样行为兼容
+Implementation requirements:
+- reserve `timeout` / `poll_interval=5`
+- Only print statistics,subject, extraction results, abnormal reasons
+- Do not print text
+- `seen` must be added `folder:` prefix, avoid `INBOX` and `Junk` of UID conflict
+- `before_ids` Continue to only map to `INBOX`, remain compatible with the current baseline sampling behavior
 
-- [ ] **Step 3: 运行新测试，确认全部转绿**
+- [ ] **Step 3: Run a new test and confirm that everything turns green**
 
 Run:
 
@@ -402,9 +402,9 @@ python -m unittest discover -s tests -p "test_outlook_mailbox.py" -v
 
 Expected:
 - PASS
-- 3 个测试全部通过
+- 3 All tests passed
 
-- [ ] **Step 4: 运行现有 ChatGPT custom_provider 回归测试**
+- [ ] **Step 4: Run existing ChatGPT custom_provider Regression testing**
 
 Run:
 
@@ -418,7 +418,7 @@ Expected:
 - `test_custom_provider_prefers_configured_mailbox_timeout`
 - `test_custom_provider_rejects_blank_email`
 
-- [ ] **Step 5: 提交（仅在用户明确要求提交 git 时执行）**
+- [ ] **Step 5: Submit (only if explicitly requested by the user) git execution)**
 
 ```bash
 git add core/base_mailbox.py tests/test_outlook_mailbox.py

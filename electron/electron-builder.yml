@@ -6,7 +6,7 @@ directories:
   output: dist
   buildResources: build
 
-# 将 PyInstaller 产物和前端静态文件打包进 resources/
+# Will PyInstaller Product and front-end static files are packaged into resources/
 extraResources:
   - from: backend
     to: backend

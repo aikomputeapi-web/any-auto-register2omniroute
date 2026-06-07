@@ -231,7 +231,7 @@ class QwenRegistrationTests(unittest.TestCase):
                 result = platform.execute_action("activate_account", account, {})
 
         self.assertFalse(result.get("ok"))
-        self.assertIn("在 30s 内未找到激活邮件", str(result.get("error")))
+        self.assertIn("exist 30s No activation email found", str(result.get("error")))
 
     def test_activate_action_ignores_current_mailbox_email_for_cfworker_lookup(self):
         platform = QwenPlatform(
@@ -316,9 +316,9 @@ class QwenRegistrationTests(unittest.TestCase):
 
         self.assertTrue(result.get("ok"))
         data = result.get("data", {})
-        self.assertEqual(data.get("来源"), "会话列表接口")
-        self.assertEqual(data.get("会话数量"), 0)
-        self.assertEqual(data.get("用户ID"), "u1")
+        self.assertEqual(data.get("source"), "Session list interface")
+        self.assertEqual(data.get("Number of sessions"), 0)
+        self.assertEqual(data.get("userID"), "u1")
 
     def test_upload_cpa_action_uses_qwen_uploader(self):
         platform = QwenPlatform(config=RegisterConfig(executor_type="headless"), mailbox=None)
@@ -339,7 +339,7 @@ class QwenRegistrationTests(unittest.TestCase):
         ) as build_mock:
             with mock.patch(
                 "platforms.qwen.cpa_upload.upload_to_cpa",
-                return_value=(True, "上传成功"),
+                return_value=(True, "Upload successful"),
             ) as upload_mock:
                 result = platform.execute_action(
                     "upload_cpa",
@@ -348,7 +348,7 @@ class QwenRegistrationTests(unittest.TestCase):
                 )
 
         self.assertTrue(result.get("ok"))
-        self.assertEqual(result.get("data"), "上传成功")
+        self.assertEqual(result.get("data"), "Upload successful")
         build_arg = build_mock.call_args.args[0]
         self.assertEqual(getattr(build_arg, "email", ""), "demo@example.com")
         self.assertEqual(getattr(build_arg, "access_token", ""), "qwen_token_abc")
@@ -380,7 +380,7 @@ class QwenRegistrationTests(unittest.TestCase):
         ) as build_mock:
             with mock.patch(
                 "platforms.qwen.cpa_upload.upload_to_cpa",
-                return_value=(True, "上传成功"),
+                return_value=(True, "Upload successful"),
             ):
                 result = platform.execute_action(
                     "upload_cpa",
@@ -418,7 +418,7 @@ class QwenRegistrationTests(unittest.TestCase):
                 ) as build_mock:
                     with mock.patch(
                         "platforms.qwen.cpa_upload.upload_to_cpa",
-                        return_value=(True, "上传成功"),
+                        return_value=(True, "Upload successful"),
                     ):
                         result = platform.execute_action(
                             "upload_cpa",

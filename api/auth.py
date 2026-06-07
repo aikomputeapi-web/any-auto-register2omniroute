@@ -68,24 +68,24 @@ def verify_token(token: str) -> dict:
     try:
         header, payload, sig = token.split(".")
     except ValueError:
-        raise HTTPException(status_code=401, detail="无效的令牌")
+        raise HTTPException(status_code=401, detail="Invalid token")
     expected = _b64url_encode(
         hmac.new(_jwt_secret().encode(), f"{header}.{payload}".encode(), hashlib.sha256).digest()
     )
     if not hmac.compare_digest(sig, expected):
-        raise HTTPException(status_code=401, detail="令牌签名无效")
+        raise HTTPException(status_code=401, detail="Token signature is invalid")
     try:
         data = _json.loads(_b64url_decode(payload))
     except Exception:
-        raise HTTPException(status_code=401, detail="令牌格式错误")
+        raise HTTPException(status_code=401, detail="Token format error")
     if data.get("exp", 0) < time.time():
-        raise HTTPException(status_code=401, detail="令牌已过期，请重新登录")
+        raise HTTPException(status_code=401, detail="The token has expired, please log in again")
     return data
 
 
 def require_auth(credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer)) -> None:
     if credentials is None:
-        raise HTTPException(status_code=401, detail="未认证")
+        raise HTTPException(status_code=401, detail="Not certified")
     verify_token(credentials.credentials)
 
 
@@ -172,11 +172,11 @@ def setup_password(
 ):
     """Set initial password, or update it only when the caller is already authenticated."""
     if not body.password or len(body.password) < 6:
-        raise HTTPException(status_code=400, detail="密码至少需要 6 位")
+        raise HTTPException(status_code=400, detail="The password requires at least 6 Bit")
     cfg = _cfg()
     if cfg.get("auth_password_hash", ""):
         if credentials is None:
-            raise HTTPException(status_code=401, detail="未认证")
+            raise HTTPException(status_code=401, detail="Not certified")
         verify_token(credentials.credentials)
     cfg.set("auth_password_hash", _hash_pw(body.password))
     token = create_token()
@@ -189,7 +189,7 @@ def disable_auth(credentials: Optional[HTTPAuthorizationCredentials] = Depends(_
     cfg = _cfg()
     if cfg.get("auth_password_hash", ""):
         if credentials is None:
-            raise HTTPException(status_code=401, detail="未认证")
+            raise HTTPException(status_code=401, detail="Not certified")
         verify_token(credentials.credentials)
     cfg.set("auth_password_hash", "")
     cfg.set("auth_totp_secret", "")
@@ -203,7 +203,7 @@ def login(body: LoginRequest):
     if not stored:
         raise HTTPException(status_code=403, detail="no_password_set")
     if not hmac.compare_digest(_hash_pw(body.password), stored):
-        raise HTTPException(status_code=401, detail="密码错误")
+        raise HTTPException(status_code=401, detail="Wrong password")
     totp_secret = cfg.get("auth_totp_secret", "")
     if totp_secret:
         temp = secrets.token_hex(24)
@@ -217,13 +217,13 @@ def login(body: LoginRequest):
 def verify_totp_route(body: TotpVerifyRequest):
     expiry = _pending_2fa.get(body.temp_token)
     if not expiry or time.time() > expiry:
-        raise HTTPException(status_code=401, detail="临时令牌无效或已过期，请重新登录")
+        raise HTTPException(status_code=401, detail="The temporary token is invalid or expired, please log in again")
     cfg = _cfg()
     secret = cfg.get("auth_totp_secret", "")
     if not secret:
-        raise HTTPException(status_code=400, detail="2FA 未启用")
+        raise HTTPException(status_code=400, detail="2FA Not enabled")
     if not verify_totp(secret, body.code):
-        raise HTTPException(status_code=400, detail="验证码错误")
+        raise HTTPException(status_code=400, detail="Verification code error")
     _pending_2fa.pop(body.temp_token, None)
     token = create_token()
     return {"access_token": token, "token_type": "bearer"}
@@ -239,9 +239,9 @@ def change_password(body: ChangePasswordRequest):
     cfg = _cfg()
     stored = cfg.get("auth_password_hash", "")
     if stored and not hmac.compare_digest(_hash_pw(body.current_password), stored):
-        raise HTTPException(status_code=400, detail="当前密码错误")
+        raise HTTPException(status_code=400, detail="Current password is wrong")
     if not body.new_password or len(body.new_password) < 6:
-        raise HTTPException(status_code=400, detail="新密码至少需要 6 位")
+        raise HTTPException(status_code=400, detail="The new password requires at least 6 Bit")
     cfg.set("auth_password_hash", _hash_pw(body.new_password))
     return {"ok": True}
 
@@ -255,9 +255,9 @@ def setup_2fa():
 @router.post("/2fa/enable", dependencies=[Depends(require_auth)])
 def enable_2fa(body: EnableTotpRequest):
     if not body.secret or len(body.secret) < 16:
-        raise HTTPException(status_code=400, detail="无效的密钥")
+        raise HTTPException(status_code=400, detail="Invalid key")
     if not verify_totp(body.secret, body.code):
-        raise HTTPException(status_code=400, detail="验证码错误，请重试")
+        raise HTTPException(status_code=400, detail="Verification code error, please try again")
     _cfg().set("auth_totp_secret", body.secret)
     return {"ok": True}
 

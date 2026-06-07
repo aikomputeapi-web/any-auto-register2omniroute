@@ -2,12 +2,18 @@
 
 FROM node:20-bookworm-slim AS frontend-builder
 
+# Build regular frontend
 WORKDIR /app/frontend
-
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-
 COPY frontend/ ./
+RUN npm run build
+
+# Build pro frontend
+WORKDIR /app/frontend_pro
+COPY frontend_pro/package.json frontend_pro/package-lock.json ./
+RUN npm ci
+COPY frontend_pro/ ./
 RUN npm run build
 
 
@@ -61,6 +67,7 @@ RUN pip install --upgrade pip \
 
 COPY . .
 COPY --from=frontend-builder /app/static /app/static
+COPY --from=frontend-builder /app/static_pro /app/static_pro
 
 RUN apt-get update && apt-get install -y --no-install-recommends dos2unix git iproute2 procps \
     && dos2unix /app/docker/entrypoint.sh \

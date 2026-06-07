@@ -67,7 +67,7 @@ class ExternalSyncContributionModeTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["name"], "Contribution")
         self.assertFalse(result[0]["ok"])
-        self.assertIn("未配置", result[0]["msg"])
+        self.assertIn("Not configured", result[0]["msg"])
         upload_mock.assert_not_called()
         persist_mock.assert_called_once()
 
@@ -100,7 +100,7 @@ class ExternalSyncContributionModeTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["name"], "CustomContribution")
         self.assertTrue(result[0]["ok"])
-        persist_mock.assert_called_once_with(account, True, "上传成功: queued")
+        persist_mock.assert_called_once_with(account, True, "Upload successful: queued")
         post_mock.assert_called_once()
 
         payload = post_mock.call_args.kwargs["json"]

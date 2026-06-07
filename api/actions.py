@@ -1,4 +1,4 @@
-"""平台操作 API - 通用接口，各平台通过 get_platform_actions/execute_action 实现"""
+"""Platform operation API - Common interface, all platforms pass get_platform_actions/execute_action accomplish"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
@@ -105,6 +105,19 @@ def _apply_action_result(
             session=session,
             commit=False,
         )
+    if action_id == "upload_to_omniroute":
+        from services.chatgpt_sync import update_account_model_omniroute_sync
+
+        sync_msg = result.get("data") or result.get("error") or ""
+        if isinstance(sync_msg, dict):
+            sync_msg = sync_msg.get("message") or ""
+        update_account_model_omniroute_sync(
+            acc_model,
+            bool(result.get("ok")),
+            str(sync_msg),
+            session=session,
+            commit=False,
+        )
     if result.get("ok") and result.get("data", {}) and isinstance(result["data"], dict):
         data = result["data"]
         tracked_keys = {"access_token", "accessToken", "refreshToken", "clientId", "clientSecret", "webAccessToken"}
@@ -148,9 +161,9 @@ def _resolve_batch_accounts(platform: str, body: BatchActionRequest, session: Se
             account_ids.append(value)
 
         if not account_ids:
-            raise HTTPException(400, "账号 ID 列表不能为空")
+            raise HTTPException(400, "account ID List cannot be empty")
         if len(account_ids) > 1000:
-            raise HTTPException(400, "单次最多处理 1000 个账号")
+            raise HTTPException(400, "Maximum processing at a time 1000 accounts")
 
         rows = session.exec(
             select(AccountModel)
@@ -163,7 +176,7 @@ def _resolve_batch_accounts(platform: str, body: BatchActionRequest, session: Se
         return ordered_rows, missing_ids
 
     if not body.all_filtered:
-        raise HTTPException(400, "请提供 account_ids，或指定 all_filtered=true")
+        raise HTTPException(400, "please provide account_ids, or specify all_filtered=true")
 
     query = select(AccountModel).where(AccountModel.platform == platform)
     if body.status:
@@ -173,7 +186,7 @@ def _resolve_batch_accounts(platform: str, body: BatchActionRequest, session: Se
 
     rows = session.exec(query).all()
     if len(rows) > 1000:
-        raise HTTPException(400, "单次最多处理 1000 个账号")
+        raise HTTPException(400, "Maximum processing at a time 1000 accounts")
     return rows, []
 
 
@@ -224,15 +237,15 @@ def _execute_batch_cliproxy_sync(accounts: list[AccountModel], session: Session)
         else:
             failed_count += 1
         summary = (
-            f"远端状态={sync_result.get('status') or 'not_found'}, "
-            f"探测={sync_result.get('remote_state') or 'not_checked'}"
+            f"remote status={sync_result.get('status') or 'not_found'}, "
+            f"detection={sync_result.get('remote_state') or 'not_checked'}"
         )
         items.append(
             {
                 "id": acc_model.id,
                 "email": acc_model.email,
                 "ok": ok,
-                "message": f"CLIProxyAPI 状态同步完成：{summary}",
+                "message": f"CLIProxyAPI Status synchronization completed:{summary}",
                 "status": acc_model.status,
             }
         )
@@ -246,7 +259,7 @@ def _execute_batch_cliproxy_sync(accounts: list[AccountModel], session: Session)
 
 @router.get("/{platform}")
 def list_actions(platform: str):
-    """获取平台支持的操作列表"""
+    """Get the list of operations supported by the platform"""
     PlatformCls = _get_platform_cls_or_404(platform)
     instance = PlatformCls(config=RegisterConfig(extra=config_store.get_all()))
     return {"actions": instance.get_platform_actions()}
@@ -277,7 +290,7 @@ def execute_batch_action(
                         "id": missing_id,
                         "email": "",
                         "ok": False,
-                        "message": "账号不存在",
+                        "message": "Account does not exist",
                         "status": "",
                     }
                 )
@@ -295,7 +308,7 @@ def execute_batch_action(
                 "id": missing_id,
                 "email": "",
                 "ok": False,
-                "message": "账号不存在",
+                "message": "Account does not exist",
                 "status": "",
             }
         )
@@ -346,10 +359,10 @@ def execute_action(
     body: ActionRequest,
     session: Session = Depends(get_session),
 ):
-    """执行平台特定操作"""
+    """Perform platform-specific operations"""
     acc_model = session.get(AccountModel, account_id)
     if not acc_model or acc_model.platform != platform:
-        raise HTTPException(404, "账号不存在")
+        raise HTTPException(404, "Account does not exist")
 
     PlatformCls = _get_platform_cls_or_404(platform)
     instance = PlatformCls(config=RegisterConfig(extra=config_store.get_all()))

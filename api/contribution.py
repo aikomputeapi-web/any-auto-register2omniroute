@@ -57,7 +57,7 @@ def _resolve_key(key: str | None) -> str:
     resolved = str(key or config_store.get("contribution_key", "") or "").strip()
     if resolved:
         return resolved
-    raise HTTPException(status_code=400, detail="请先配置贡献 key")
+    raise HTTPException(status_code=400, detail="Please configure the contribution first key")
 
 
 def _resolve_key_optional(key: str | None) -> str:
@@ -89,7 +89,7 @@ def _request_json(
     try:
         response = requests.request(**request_kwargs)
     except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail=f"连接贡献服务器失败: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Failed to connect to contribution server: {exc}") from exc
 
     data: Any
     try:
@@ -150,7 +150,7 @@ def get_quota_stats(body: ContributionProxyRequest):
         raise HTTPException(
             status_code=502,
             detail={
-                "message": "调用额度统计接口失败，请确认 codex2api 是否已启用该接口",
+                "message": "Failed to call the quota statistics interface, please confirm codex2api Whether the interface is enabled",
                 "attempts": attempts,
             },
         )
@@ -192,11 +192,11 @@ def get_quota_stats(body: ContributionProxyRequest):
         result["key_endpoint"] = key_endpoint
         if key_data is None:
             result["key_error"] = {
-                "message": "key 信息接口调用失败",
+                "message": "key Information interface call failed",
                 "attempts": key_attempts,
             }
     else:
-        result["key_error"] = "未配置 key，仅返回服务器额度统计"
+        result["key_error"] = "Not configured key, only returns server quota statistics"
     return result
 
 
@@ -228,7 +228,7 @@ def get_key_info(body: ContributionProxyRequest):
     raise HTTPException(
         status_code=502,
         detail={
-            "message": "调用 key 信息接口失败，请确认 codex2api 是否已启用该接口",
+            "message": "call key Information interface failed, please confirm codex2api Whether the interface is enabled",
             "attempts": attempts,
         },
     )
@@ -267,7 +267,7 @@ def redeem(body: ContributionRedeemRequest):
         raise HTTPException(
             status_code=502,
             detail={
-                "message": "调用提现接口失败，请确认 codex2api 是否已启用 /public/redeem",
+                "message": "Failed to call the withdrawal interface, please confirm codex2api Is it enabled /public/redeem",
                 "attempts": attempts,
             },
         )
@@ -279,7 +279,7 @@ def redeem(body: ContributionRedeemRequest):
         "endpoint": endpoint_hit or "/public/redeem",
         "redeemed_amount_usd": redeemed_amount,
         "code": redeem_code,
-        "message": f"提现成功！额度：{redeemed_amount if redeemed_amount is not None else '-'} 兑换码：{redeem_code or '-'}",
+        "message": f"Withdrawal successful! Quota:{redeemed_amount if redeemed_amount is not None else '-'} Redeem code:{redeem_code or '-'}",
         "data": data,
     }
 

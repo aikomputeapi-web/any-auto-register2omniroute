@@ -1,4 +1,4 @@
-"""定时任务调度 - 账号有效性检测、trial 到期提醒"""
+"""Scheduled tasks - Account validity check,trial Expiration reminder"""
 from datetime import datetime, timezone
 from sqlmodel import Session, select
 from .db import engine, AccountModel
@@ -16,6 +16,8 @@ class Scheduler:
         self._trial_check_interval_seconds = 3600
         self._last_trial_check_at = 0.0
         self._last_cpa_maintenance_at = 0.0
+        self._last_kiro_refresh_at = 0.0
+        self._last_chatgpt_refresh_at = 0.0
 
     def start(self):
         if self._running:
@@ -23,13 +25,15 @@ class Scheduler:
         self._running = True
         
         now = time.time()
-        # 将上次执行时间设为当前时间，避免应用一启动就瞬间触发定时任务（如 CPA 自动注册）
+        # Set the last execution time to the current time to avoid triggering scheduled tasks as soon as the application starts (such as CPA automatic registration)
         self._last_trial_check_at = now
         self._last_cpa_maintenance_at = now
+        self._last_kiro_refresh_at = now
+        self._last_chatgpt_refresh_at = now
 
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
-        print("[Scheduler] 已启动")
+        print("[Scheduler] Started")
 
     def stop(self):
         self._running = False
@@ -42,7 +46,25 @@ class Scheduler:
                     self.check_trial_expiry()
                     self._last_trial_check_at = now
                 except Exception as e:
-                    print(f"[Scheduler] Trial 检查错误: {e}")
+                    print(f"[Scheduler] Trial Check for errors: {e}")
+
+            # Auto-refresh Kiro tokens every 12 hours to keep them alive
+            if now - self._last_kiro_refresh_at >= 43200:
+                try:
+                    print("[Scheduler] Auto-refreshing Kiro tokens...")
+                    self.check_accounts_valid("kiro")
+                    self._last_kiro_refresh_at = now
+                except Exception as e:
+                    print(f"[Scheduler] Kiro auto-refresh error: {e}")
+
+            # Auto-refresh ChatGPT tokens every 12 hours to keep them alive
+            if now - self._last_chatgpt_refresh_at >= 43200:
+                try:
+                    print("[Scheduler] Auto-refreshing ChatGPT tokens...")
+                    self.check_accounts_valid("chatgpt")
+                    self._last_chatgpt_refresh_at = now
+                except Exception as e:
+                    print(f"[Scheduler] ChatGPT auto-refresh error: {e}")
 
             cpa_interval = self._get_cpa_maintenance_interval_seconds()
             if cpa_interval and now - self._last_cpa_maintenance_at >= cpa_interval:
@@ -50,7 +72,7 @@ class Scheduler:
                     self.check_cpa_credentials()
                     self._last_cpa_maintenance_at = now
                 except Exception as e:
-                    print(f"[Scheduler] CPA 维护错误: {e}")
+                    print(f"[Scheduler] CPA Maintenance error: {e}")
 
             time.sleep(self._loop_interval_seconds)
 
@@ -60,7 +82,7 @@ class Scheduler:
         return get_cpa_maintenance_interval_seconds()
 
     def check_trial_expiry(self):
-        """检查 trial 到期账号，更新状态"""
+        """examine trial Expired account, update status"""
         now = int(datetime.now(timezone.utc).timestamp())
         with Session(engine) as s:
             accounts = s.exec(
@@ -75,10 +97,10 @@ class Scheduler:
                     updated += 1
             s.commit()
             if updated:
-                print(f"[Scheduler] {updated} 个 trial 账号已到期")
+                print(f"[Scheduler] {updated} indivual trial Account has expired")
 
     def check_accounts_valid(self, platform: str = None, limit: int = 50):
-        """批量检测账号有效性"""
+        """Check account validity in batches"""
         load_all()
         with Session(engine) as s:
             q = select(AccountModel).where(
@@ -109,6 +131,8 @@ class Scheduler:
                     if a:
                         if acc.platform != "chatgpt":
                             a.status = acc.status if valid else AccountStatus.INVALID.value
+                        a.token = account_obj.token
+                        a.extra_json = json.dumps(account_obj.extra, ensure_ascii=False)
                         a.updated_at = datetime.now(timezone.utc)
                         s.add(a)
                         s.commit()
@@ -121,7 +145,7 @@ class Scheduler:
         return results
 
     def check_cpa_credentials(self):
-        """清理 CPA 中的 error 凭证，并在低于阈值时自动补注册。"""
+        """clean up CPA in error credentials, and automatically re-register when it falls below the threshold."""
         from services.cpa_manager import maintain_cpa_credentials
 
         return maintain_cpa_credentials()

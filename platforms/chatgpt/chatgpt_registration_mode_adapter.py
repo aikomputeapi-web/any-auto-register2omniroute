@@ -1,4 +1,4 @@
-"""ChatGPT 注册模式适配器。"""
+"""ChatGPT Register mode adapter."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ class BaseChatGPTRegistrationModeAdapter(ABC):
 
     @abstractmethod
     def _create_engine(self, context: ChatGPTRegistrationContext):
-        """按模式构造底层注册引擎。"""
+        """Construct the underlying registration engine by pattern."""
 
     def run(self, context: ChatGPTRegistrationContext):
         _MAILBOX_ERROR_MARKERS = ("service_abuse_mode", "oauth_token_failed")
@@ -87,8 +87,8 @@ class BaseChatGPTRegistrationModeAdapter(ABC):
             matched_marker = next((m for m in _MAILBOX_ERROR_MARKERS if m in err), None)
             if matched_marker and _attempt < _MAX_ATTEMPTS - 1:
                 context.callback_logger(
-                    f"邮箱 OAuth token 已失效（{matched_marker}），"
-                    f"换用下一个邮箱重试 ({_attempt + 1}/{_MAX_ATTEMPTS - 1})..."
+                    f"Mail OAuth token has expired ({matched_marker}),"
+                    f"Try again with the next email address ({_attempt + 1}/{_MAX_ATTEMPTS - 1})..."
                 )
                 continue
             break

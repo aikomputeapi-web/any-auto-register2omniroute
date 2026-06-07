@@ -1,4 +1,4 @@
-"""Tavily 平台插件"""
+"""Tavily Platform plugin"""
 
 import random
 import string
@@ -56,7 +56,7 @@ class TavilyPlatform(BasePlatform):
 
         api_key = register_with_browser_solver(email, password)
         if not api_key:
-            raise RuntimeError("浏览器注册失败")
+            raise RuntimeError("Browser registration failed")
         return Account(
             platform="tavily",
             email=email,
@@ -73,20 +73,20 @@ class TavilyPlatform(BasePlatform):
         log = getattr(self, "_log_fn", print)
 
         if (self.config.executor_type or "") in ("headless", "headed"):
-            log(f"使用浏览器模式注册: {email}")
+            log(f"Register using browser mode: {email}")
             return self._register_browser(email, password)
 
         mailbox = self.mailbox
         mail_acct = mailbox.get_email() if mailbox else None
         email = email or (mail_acct.email if mail_acct else "")
         if not email:
-            raise RuntimeError("未获取到可用邮箱")
-        log(f"邮箱: {email}")
+            raise RuntimeError("No available email address found")
+        log(f"Mail: {email}")
         before_ids = mailbox.get_current_ids(mail_acct) if (mailbox and mail_acct) else set()
         otp_timeout = self.get_mailbox_otp_timeout()
 
         def otp_cb():
-            log("等待验证码邮件...")
+            log("Wait for verification code email...")
             if not mailbox or not mail_acct:
                 return ""
             code = mailbox.wait_for_code(
@@ -96,7 +96,7 @@ class TavilyPlatform(BasePlatform):
                 before_ids=before_ids,
             )
             if code:
-                log(f"验证码: {code}")
+                log(f"Verification code: {code}")
             return code
 
         captcha = self._make_captcha(key=self.config.extra.get("yescaptcha_key", ""))

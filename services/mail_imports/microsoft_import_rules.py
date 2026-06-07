@@ -47,7 +47,7 @@ class MicrosoftOAuthRowParser:
         parts = [part.strip() for part in str(line or "").split("----")]
         if len(parts) < 4:
             raise ValueError(
-                f"行 {line_number}: 格式错误，微软 OAuth 导入需为 邮箱----密码----client_id----refresh_token"
+                f"OK {line_number}: Format error, Microsoft OAuth The import needs to be Mail----password----client_id----refresh_token"
             )
 
         email = parts[0]
@@ -56,12 +56,12 @@ class MicrosoftOAuthRowParser:
         refresh_token = parts[3]
 
         if not _is_valid_email(email):
-            raise ValueError(f"行 {line_number}: 无效的邮箱地址: {email}")
+            raise ValueError(f"OK {line_number}: Invalid email address: {email}")
         if not password:
-            raise ValueError(f"行 {line_number}: 缺少密码")
+            raise ValueError(f"OK {line_number}: Missing password")
         if not client_id or not refresh_token:
             raise ValueError(
-                f"行 {line_number}: 缺少 client_id 或 refresh_token，无法通过微软邮箱可用性检测"
+                f"OK {line_number}: Lack client_id or refresh_token, unable to pass Microsoft mailbox availability check"
             )
 
         return MicrosoftMailImportRecord(
@@ -80,17 +80,17 @@ class MailApiUrlRowParser:
         parts = [part.strip() for part in str(line or "").split("----")]
         if len(parts) < 2:
             raise ValueError(
-                f"行 {line_number}: 格式错误，MailAPI URL 导入需为 邮箱----mailapi_url"
+                f"OK {line_number}: Format error,MailAPI URL The import needs to be Mail----mailapi_url"
             )
 
         email = parts[0]
         mailapi_url = parts[1]
 
         if not _is_valid_email(email):
-            raise ValueError(f"行 {line_number}: 无效的邮箱地址: {email}")
+            raise ValueError(f"OK {line_number}: Invalid email address: {email}")
         if not _is_valid_mailapi_url(mailapi_url):
             raise ValueError(
-                f"行 {line_number}: 无效的 mailapi_url（需为 http/https）：{mailapi_url}"
+                f"OK {line_number}: Invalid mailapi_url(need to be http/https):{mailapi_url}"
             )
 
         return MicrosoftMailImportRecord(
@@ -120,7 +120,7 @@ class AutoDetectRowParser:
         if len(parts) >= 4:
             return self._oauth_parser.parse(line_number, line)
         raise ValueError(
-            f"行 {line_number}: 格式错误，仅支持 邮箱----mailapi_url 或 邮箱----密码----client_id----refresh_token"
+            f"OK {line_number}: Format error, only supported Mail----mailapi_url or Mail----password----client_id----refresh_token"
         )
 
 
@@ -148,7 +148,7 @@ class DuplicateMicrosoftMailboxRule:
     ) -> dict[str, Any]:
         existing_emails = context.get("existing_emails") or set()
         if record.email in existing_emails:
-            return {"ok": False, "message": f"行 {record.line_number}: 邮箱已存在: {record.email}"}
+            return {"ok": False, "message": f"OK {record.line_number}: Email already exists: {record.email}"}
         return {"ok": True, "message": "ok"}
 
 
@@ -163,7 +163,7 @@ class MailApiUrlFormatRule:
         if not _is_valid_mailapi_url(record.mailapi_url):
             return {
                 "ok": False,
-                "message": f"行 {record.line_number}: 无效的 mailapi_url（需为 http/https）：{record.mailapi_url}",
+                "message": f"OK {record.line_number}: Invalid mailapi_url(need to be http/https):{record.mailapi_url}",
             }
         return {"ok": True, "message": "ok"}
 
@@ -188,21 +188,21 @@ class MicrosoftMailboxAvailabilityRule:
             return {"ok": True, "message": "ok"}
         return {
             "ok": False,
-            "message": f"行 {record.line_number}: {result.get('message') or '微软邮箱可用性检测未通过'}",
+            "message": f"OK {record.line_number}: {result.get('message') or 'Microsoft mailbox availability test failed'}",
             "reason": result.get("reason", "oauth_token_failed"),
         }
 
 
 def parse_microsoft_import_record(line_number: int, line: str) -> MicrosoftMailImportRecord:
-    """兼容旧调用：仅按微软 OAuth 四段格式解析。"""
+    """Compatible with legacy calls: Microsoft only OAuth Four-segment format analysis."""
     parts = [part.strip() for part in str(line or "").split("----")]
     if len(parts) >= 2 and len(parts) < 4:
         raise ValueError(
-            f"行 {line_number}: 缺少 client_id 或 refresh_token，无法通过微软邮箱可用性检测"
+            f"OK {line_number}: Lack client_id or refresh_token, unable to pass Microsoft mailbox availability check"
         )
     return MicrosoftOAuthRowParser().parse(line_number, line)
 
 
 def parse_microsoft_import_line(line_number: int, line: str) -> MicrosoftMailImportRecord:
-    """按行格式自动识别：2 段=MailAPI URL，4 段=微软 OAuth。"""
+    """Automatic recognition by line format:2 part=MailAPI URL,4 part=Microsoft OAuth."""
     return AutoDetectRowParser().parse(line_number, line)

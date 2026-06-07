@@ -13,7 +13,7 @@ if ($FullStop -ne 0) {
 }
 $ports = $ports | Where-Object { $_ -gt 0 } | Select-Object -Unique
 
-Write-Host "[INFO] 准备停止端口: $($ports -join ', ')"
+Write-Host "[INFO] Prepare to stop port: $($ports -join ', ')"
 
 function Get-ProcessIdsByPorts {
     param([int[]]$TargetPorts)
@@ -64,40 +64,40 @@ function Stop-ProcessTreeSafe {
         return $true
     }
 
-    Write-Host "[INFO] 尝试优雅停止 PID=$ProcessId"
+    Write-Host "[INFO] Try to stop gracefully PID=$ProcessId"
     try {
         & taskkill.exe /PID $ProcessId /T *> $null
     } catch {
-        Write-Warning "taskkill 优雅停止返回异常: $($_.Exception.Message)"
+        Write-Warning "taskkill Gracefully stop returning an exception: $($_.Exception.Message)"
     }
     if (Wait-ProcessExit -ProcessId $ProcessId -TimeoutSeconds 6) {
-        Write-Host "[OK] 已停止 PID=$ProcessId"
+        Write-Host "[OK] Stopped PID=$ProcessId"
         return $true
     }
 
-    Write-Warning "PID=$ProcessId 未在预期时间退出，改为强制停止"
+    Write-Warning "PID=$ProcessId Did not exit at the expected time, forced stop instead"
     try {
         & taskkill.exe /PID $ProcessId /T /F *> $null
     } catch {
-        Write-Warning "taskkill 强制停止返回异常: $($_.Exception.Message)"
+        Write-Warning "taskkill Forced stop returns exception: $($_.Exception.Message)"
     }
     if (Wait-ProcessExit -ProcessId $ProcessId -TimeoutSeconds 6) {
-        Write-Host "[OK] 已强制停止 PID=$ProcessId"
+        Write-Host "[OK] Forced to stop PID=$ProcessId"
         return $true
     }
 
-    Write-Warning "taskkill 未能完全停止 PID=$ProcessId，尝试使用 Stop-Process -Force"
+    Write-Warning "taskkill failed to stop completely PID=$ProcessId, try using Stop-Process -Force"
     try {
         Stop-Process -Id $ProcessId -Force -ErrorAction Stop
     } catch {
-        Write-Warning "Stop-Process -Force 失败: $($_.Exception.Message)"
+        Write-Warning "Stop-Process -Force fail: $($_.Exception.Message)"
     }
     if (Wait-ProcessExit -ProcessId $ProcessId -TimeoutSeconds 6) {
-        Write-Host "[OK] 已通过 Stop-Process 强制停止 PID=$ProcessId"
+        Write-Host "[OK] Passed Stop-Process Forced stop PID=$ProcessId"
         return $true
     }
 
-    Write-Warning "PID=$ProcessId 停止失败"
+    Write-Warning "PID=$ProcessId Stop failed"
     return $false
 }
 
@@ -110,7 +110,7 @@ $extraPids = Get-ProcessIdsByNames -Names $extraNames
 $targets = @($connections + $extraPids) | Where-Object { $_ } | Select-Object -Unique
 
 if (-not $targets) {
-    Write-Host "[INFO] 未发现需要停止的进程"
+    Write-Host "[INFO] No process found that needs to be stopped"
     exit 0
 }
 
@@ -118,8 +118,8 @@ foreach ($procId in $targets) {
     try {
         Stop-ProcessTreeSafe -ProcessId $procId | Out-Null
     } catch {
-        Write-Warning "停止 PID=$procId 失败: $($_.Exception.Message)"
+        Write-Warning "stop PID=$procId fail: $($_.Exception.Message)"
     }
 }
 
-Write-Host "[INFO] 停止完成"
+Write-Host "[INFO] stop completion"

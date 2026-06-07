@@ -1,6 +1,6 @@
 """
-Token 刷新模块
-支持 Session Token 和 OAuth Refresh Token 两种刷新方式
+Token refresh module
+support Session Token and OAuth Refresh Token Two refresh methods
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TokenRefreshResult:
-    """Token 刷新结果"""
+    """Token refresh results"""
     success: bool
     access_token: str = ""
     refresh_token: str = ""
@@ -34,22 +34,22 @@ class TokenRefreshResult:
 
 class TokenRefreshManager:
     """
-    Token 刷新管理器
-    支持两种刷新方式：
-    1. Session Token 刷新（优先）
-    2. OAuth Refresh Token 刷新
+    Token refresh manager
+    Supports two refresh methods:
+    1. Session Token Refresh (priority)
+    2. OAuth Refresh Token refresh
     """
 
-    # OpenAI OAuth 端点
+    # OpenAI OAuth endpoint
     SESSION_URL = "https://chatgpt.com/api/auth/session"
     TOKEN_URL = "https://auth.openai.com/oauth/token"
 
     def __init__(self, proxy_url: Optional[str] = None):
         """
-        初始化 Token 刷新管理器
+        initialization Token refresh manager
 
         Args:
-            proxy_url: 代理 URL
+            proxy_url: acting URL
         """
         self.proxy_url = proxy_url
         from .constants import OAUTH_CLIENT_ID, OAUTH_REDIRECT_URI
@@ -57,26 +57,26 @@ class TokenRefreshManager:
         self._oauth_redirect_uri = OAUTH_REDIRECT_URI
 
     def _create_session(self) -> cffi_requests.Session:
-        """创建 HTTP 会话"""
+        """create HTTP session"""
         session = cffi_requests.Session(impersonate="chrome120", proxy=self.proxy_url)
         return session
 
     def refresh_by_session_token(self, session_token: str) -> TokenRefreshResult:
         """
-        使用 Session Token 刷新
+        use Session Token refresh
 
         Args:
-            session_token: 会话令牌
+            session_token: session token
 
         Returns:
-            TokenRefreshResult: 刷新结果
+            TokenRefreshResult: refresh results
         """
         result = TokenRefreshResult(success=False)
 
         try:
             session = self._create_session()
 
-            # 设置会话 Cookie
+            # Set up session Cookie
             session.cookies.set(
                 "__Secure-next-auth.session-token",
                 session_token,
@@ -84,7 +84,7 @@ class TokenRefreshManager:
                 path="/"
             )
 
-            # 请求会话端点
+            # Request session endpoint
             response = session.get(
                 self.SESSION_URL,
                 headers={
@@ -95,20 +95,20 @@ class TokenRefreshManager:
             )
 
             if response.status_code != 200:
-                result.error_message = f"Session token 刷新失败: HTTP {response.status_code}"
+                result.error_message = f"Session token Refresh failed: HTTP {response.status_code}"
                 logger.warning(result.error_message)
                 return result
 
             data = response.json()
 
-            # 提取 access_token
+            # extract access_token
             access_token = data.get("accessToken")
             if not access_token:
-                result.error_message = "Session token 刷新失败: 未找到 accessToken"
+                result.error_message = "Session token Refresh failed: not found accessToken"
                 logger.warning(result.error_message)
                 return result
 
-            # 提取过期时间
+            # Retrieve expiration time
             expires_at = None
             expires_str = data.get("expires")
             if expires_str:
@@ -121,11 +121,11 @@ class TokenRefreshManager:
             result.access_token = access_token
             result.expires_at = expires_at
 
-            logger.info(f"Session token 刷新成功，过期时间: {expires_at}")
+            logger.info(f"Session token Refresh successful, expiration time: {expires_at}")
             return result
 
         except Exception as e:
-            result.error_message = f"Session token 刷新异常: {str(e)}"
+            result.error_message = f"Session token Refresh exception: {str(e)}"
             logger.error(result.error_message)
             return result
 
@@ -135,24 +135,24 @@ class TokenRefreshManager:
         client_id: Optional[str] = None
     ) -> TokenRefreshResult:
         """
-        使用 OAuth Refresh Token 刷新
+        use OAuth Refresh Token refresh
 
         Args:
-            refresh_token: OAuth 刷新令牌
+            refresh_token: OAuth refresh token
             client_id: OAuth Client ID
 
         Returns:
-            TokenRefreshResult: 刷新结果
+            TokenRefreshResult: refresh results
         """
         result = TokenRefreshResult(success=False)
 
         try:
             session = self._create_session()
 
-            # 使用配置的 client_id 或默认值
+            # Use configured client_id or default value
             client_id = client_id or self._oauth_client_id
 
-            # 构建请求体
+            # Build request body
             token_data = {
                 "client_id": client_id,
                 "grant_type": "refresh_token",
@@ -171,23 +171,23 @@ class TokenRefreshManager:
             )
 
             if response.status_code != 200:
-                result.error_message = f"OAuth token 刷新失败: HTTP {response.status_code}"
-                logger.warning(f"{result.error_message}, 响应: {response.text[:200]}")
+                result.error_message = f"OAuth token Refresh failed: HTTP {response.status_code}"
+                logger.warning(f"{result.error_message}, response: {response.text[:200]}")
                 return result
 
             data = response.json()
 
-            # 提取令牌
+            # Extract token
             access_token = data.get("access_token")
             new_refresh_token = data.get("refresh_token", refresh_token)
             expires_in = data.get("expires_in", 3600)
 
             if not access_token:
-                result.error_message = "OAuth token 刷新失败: 未找到 access_token"
+                result.error_message = "OAuth token Refresh failed: not found access_token"
                 logger.warning(result.error_message)
                 return result
 
-            # 计算过期时间
+            # Calculate expiration time
             expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
             result.success = True
@@ -195,65 +195,65 @@ class TokenRefreshManager:
             result.refresh_token = new_refresh_token
             result.expires_at = expires_at
 
-            logger.info(f"OAuth token 刷新成功，过期时间: {expires_at}")
+            logger.info(f"OAuth token Refresh successful, expiration time: {expires_at}")
             return result
 
         except Exception as e:
-            result.error_message = f"OAuth token 刷新异常: {str(e)}"
+            result.error_message = f"OAuth token Refresh exception: {str(e)}"
             logger.error(result.error_message)
             return result
 
     def refresh_account(self, account: Account) -> TokenRefreshResult:
         """
-        刷新账号的 Token
+        Refresh account Token
 
-        优先级：
-        1. Session Token 刷新
-        2. OAuth Refresh Token 刷新
+        Priority:
+        1. Session Token refresh
+        2. OAuth Refresh Token refresh
 
         Args:
-            account: 账号对象
+            account: Account object
 
         Returns:
-            TokenRefreshResult: 刷新结果
+            TokenRefreshResult: refresh results
         """
-        # 优先尝试 Session Token
+        # Try first Session Token
         if account.session_token:
-            logger.info(f"尝试使用 Session Token 刷新账号 {account.email}")
+            logger.info(f"Try using Session Token Refresh account {account.email}")
             result = self.refresh_by_session_token(account.session_token)
             if result.success:
                 return result
-            logger.warning(f"Session Token 刷新失败，尝试 OAuth 刷新")
+            logger.warning(f"Session Token Refresh failed, try OAuth refresh")
 
-        # 尝试 OAuth Refresh Token
+        # try OAuth Refresh Token
         if account.refresh_token:
-            logger.info(f"尝试使用 OAuth Refresh Token 刷新账号 {account.email}")
+            logger.info(f"Try using OAuth Refresh Token Refresh account {account.email}")
             result = self.refresh_by_oauth_token(
                 refresh_token=account.refresh_token,
                 client_id=account.client_id
             )
             return result
 
-        # 无可用刷新方式
+        # No refresh method available
         return TokenRefreshResult(
             success=False,
-            error_message="账号没有可用的刷新方式（缺少 session_token 和 refresh_token）"
+            error_message="There is no refresh method available for the account (missing session_token and refresh_token)"
         )
 
     def validate_token(self, access_token: str) -> Tuple[bool, Optional[str]]:
         """
-        验证 Access Token 是否有效
+        verify Access Token Is it valid?
 
         Args:
-            access_token: 访问令牌
+            access_token: access token
 
         Returns:
-            Tuple[bool, Optional[str]]: (是否有效, 错误信息)
+            Tuple[bool, Optional[str]]: (Is it valid?, error message)
         """
         try:
             session = self._create_session()
 
-            # 调用 OpenAI API 验证 token
+            # call OpenAI API verify token
             response = session.get(
                 "https://chatgpt.com/backend-api/me",
                 headers={
@@ -266,37 +266,37 @@ class TokenRefreshManager:
             if response.status_code == 200:
                 return True, None
             elif response.status_code == 401:
-                return False, "Token 无效或已过期"
+                return False, "Token Invalid or expired"
             elif response.status_code == 403:
-                return False, "账号可能被封禁"
+                return False, "Account may be banned"
             else:
-                return False, f"验证失败: HTTP {response.status_code}"
+                return False, f"Authentication failed: HTTP {response.status_code}"
 
         except Exception as e:
-            return False, f"验证异常: {str(e)}"
+            return False, f"Validation exception: {str(e)}"
 
 
 def refresh_account_token(account_id: int, proxy_url: Optional[str] = None) -> TokenRefreshResult:
     """
-    刷新指定账号的 Token 并更新数据库
+    Refresh the specified account Token and update the database
 
     Args:
-        account_id: 账号 ID
-        proxy_url: 代理 URL
+        account_id: account ID
+        proxy_url: acting URL
 
     Returns:
-        TokenRefreshResult: 刷新结果
+        TokenRefreshResult: refresh results
     """
     with get_db() as db:
         account = crud.get_account_by_id(db, account_id)
         if not account:
-            return TokenRefreshResult(success=False, error_message="账号不存在")
+            return TokenRefreshResult(success=False, error_message="Account does not exist")
 
         manager = TokenRefreshManager(proxy_url=proxy_url)
         result = manager.refresh_account(account)
 
         if result.success:
-            # 更新数据库
+            # Update database
             update_data = {
                 "access_token": result.access_token,
                 "last_refresh": datetime.utcnow()
@@ -315,22 +315,22 @@ def refresh_account_token(account_id: int, proxy_url: Optional[str] = None) -> T
 
 def validate_account_token(account_id: int, proxy_url: Optional[str] = None) -> Tuple[bool, Optional[str]]:
     """
-    验证指定账号的 Token 是否有效
+    Verify designated account Token Is it valid?
 
     Args:
-        account_id: 账号 ID
-        proxy_url: 代理 URL
+        account_id: account ID
+        proxy_url: acting URL
 
     Returns:
-        Tuple[bool, Optional[str]]: (是否有效, 错误信息)
+        Tuple[bool, Optional[str]]: (Is it valid?, error message)
     """
     with get_db() as db:
         account = crud.get_account_by_id(db, account_id)
         if not account:
-            return False, "账号不存在"
+            return False, "Account does not exist"
 
         if not account.access_token:
-            return False, "账号没有 access_token"
+            return False, "No account access_token"
 
         manager = TokenRefreshManager(proxy_url=proxy_url)
         return manager.validate_token(account.access_token)

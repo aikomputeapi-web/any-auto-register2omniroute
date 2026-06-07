@@ -6,6 +6,7 @@ from services.mail_imports import MailImportExecuteRequest, MailImportSnapshotRe
 router = APIRouter(prefix="/config", tags=["config"])
 
 CONFIG_KEYS = [
+    "default_phone_number",
     "email_domain_rule_enabled",
     "email_domain_level_count",
     "laoudo_auth",
@@ -13,6 +14,7 @@ CONFIG_KEYS = [
     "laoudo_account_id",
     "yescaptcha_key",
     "twocaptcha_key",
+    "capsolver_key",
     "default_executor",
     "default_captcha_solver",
     "duckmail_api_url",
@@ -69,6 +71,14 @@ CONFIG_KEYS = [
     "smstome_otp_timeout_seconds",
     "smstome_poll_interval_seconds",
     "smstome_sync_max_pages_per_country",
+    "smspool_api_key",
+    "smspool_country",
+    "smspool_service",
+    "smspool_pricing_option",
+    "smspool_max_price",
+    "smspool_max_attempts",
+    "smspool_poll_interval",
+    "smspool_poll_timeout",
     "luckmail_base_url",
     "luckmail_api_key",
     "luckmail_email_type",
@@ -105,6 +115,26 @@ CONFIG_KEYS = [
     "contribution_mode",
     "custom_contribution_url",
     "custom_contribution_token",
+    "imap_catchall_server",
+    "imap_catchall_port",
+    "imap_catchall_username",
+    "imap_catchall_password",
+    "imap_catchall_domain",
+    "imap_catchall_folders",
+    "omniroute_api_url",
+    "omniroute_admin_password",
+    "omniroute_chatgpt_enabled",
+    "omniroute_kiro_enabled",
+    "omniroute_cloudflare_enabled",
+    "omniroute_cursor_enabled",
+    "omniroute_grok_enabled",
+    "omniroute_mistral_enabled",
+    "omniroute_nvidia_nim_enabled",
+    "omniroute_openblocklabs_enabled",
+    "omniroute_openrouter_enabled",
+    "omniroute_tavily_enabled",
+    "omniroute_cerebras_enabled",
+    "pro_dataset_path",
 ]
 
 
@@ -152,13 +182,19 @@ def get_config():
         all_cfg["email_domain_rule_enabled"] = "0"
     if not str(all_cfg.get("email_domain_level_count", "") or "").strip():
         all_cfg["email_domain_level_count"] = "2"
-    # 只返回已知 key，未设置的返回空字符串
+    if not all_cfg.get("imap_catchall_port"):
+        all_cfg["imap_catchall_port"] = "993"
+    if not all_cfg.get("imap_catchall_folders"):
+        all_cfg["imap_catchall_folders"] = "INBOX"
+    if not all_cfg.get("pro_dataset_path"):
+        all_cfg["pro_dataset_path"] = "pointclickcare data.txt"
+    # Only return known key, returns an empty string if not set
     return {k: all_cfg.get(k, "") for k in CONFIG_KEYS}
 
 
 @router.put("")
 def update_config(body: ConfigUpdate):
-    # 只允许更新已知 key
+    # Only allow updates to known key
     safe = {k: v for k, v in body.data.items() if k in CONFIG_KEYS}
     if safe.get("mail_provider") == "outlook":
         safe["mail_provider"] = "microsoft"
@@ -171,9 +207,9 @@ def update_config(body: ConfigUpdate):
         try:
             level_count = int(str(safe.get("email_domain_level_count", "")).strip())
         except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail="域名级数必须是整数") from exc
+            raise HTTPException(status_code=400, detail="Domain name level must be an integer") from exc
         if level_count < 2:
-            raise HTTPException(status_code=400, detail="域名级数不能小于 2")
+            raise HTTPException(status_code=400, detail="The domain name level cannot be less than 2")
         safe["email_domain_level_count"] = str(level_count)
     config_store.set_many(safe)
     return {"ok": True, "updated": list(safe.keys())}
@@ -227,3 +263,16 @@ def get_applemail_pool_snapshot(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/pro-dataset/paste")
+def save_pasted_dataset(body: dict):
+    content = body.get("content", "")
+    import os
+    filepath = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "pro_account_register", "pasted_dataset.txt"))
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(content)
+    config_store.set("pro_dataset_path", filepath)
+    return {"ok": True, "filepath": filepath}
+

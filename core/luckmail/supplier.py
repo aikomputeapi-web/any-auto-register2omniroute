@@ -1,8 +1,8 @@
 """
-供应商端 API 接口
+Supplier side API interface
 Base URL: {base_url}/api/v1/openapi/supplier
 
-所有方法均支持同步/异步双模式，根据调用上下文自动识别。
+All methods support synchronization/Asynchronous dual mode, automatically recognized based on the calling context.
 """
 
 from typing import Any, Dict, List, Optional
@@ -84,33 +84,33 @@ def _parse_page_result(data: dict, item_parser=None) -> PageResult:
 
 class SupplierAPI:
     """
-    供应商端 API 接口集合
+    Supplier side API interface collection
     
-    所有方法智能支持同步/异步调用：
-    - 在 async 函数中：await client.supplier.get_profile()
-    - 在普通函数中：client.supplier.get_profile()
+    All methods intelligently support synchronization/Asynchronous call:
+    - exist async In the function:await client.supplier.get_profile()
+    - In a normal function:client.supplier.get_profile()
     
     Args:
-        http_client: LuckMailHttpClient 实例
+        http_client: LuckMailHttpClient Example
     """
     
     def __init__(self, http_client: LuckMailHttpClient):
         self._client = http_client
     
     def _path(self, path: str) -> str:
-        """拼接供应商 API 路径"""
+        """splicing supplier API path"""
         return f"{_SUPPLIER_PREFIX}{path}"
     
-    # ===== 供应商信息 =====
+    # ===== Supplier information =====
     
     def get_profile(self):
         """
-        获取供应商个人信息
+        Obtain supplier personal information
         
         Returns:
-            SupplierProfile: 供应商信息（余额、佣金率等）
+            SupplierProfile: Supplier information (balance, commission rate, etc.)
         
-        示例::
+        Example::
             profile = client.supplier.get_profile()
             print(profile.username, profile.balance)
         """
@@ -126,7 +126,7 @@ class SupplierAPI:
         data = self._client._sync_request("GET", self._path("/profile"))
         return _parse_supplier_profile(data)
     
-    # ===== 邮箱管理 =====
+    # ===== Mailbox management =====
     
     def get_emails(
         self,
@@ -138,22 +138,22 @@ class SupplierAPI:
         status: Optional[int] = None,
     ):
         """
-        获取邮箱列表（分页）
+        Get mailbox list (paginated)
         
         Args:
-            page: 页码，默认 1
-            page_size: 每页数量，默认 20
-            keyword: 邮箱地址关键词搜索
-            email_type: 邮箱类型：ms_graph / ms_imap / google_variant / self_built
-            is_short_term: 仅微软邮箱有效：0=长效 1=短效
-            status: 状态：1=正常 2=异常 4=禁用
+            page: Page number, default 1
+            page_size: Number per page, default 20
+            keyword: Email address keyword search
+            email_type: Email type:ms_graph / ms_imap / google_variant / self_built
+            is_short_term: Only valid for Microsoft email:0=Long lasting 1=short acting
+            status: state:1=normal 2=abnormal 4=Disable
         
         Returns:
-            PageResult: 分页结果，list 为 SupplierEmailItem 列表
+            PageResult: Paginated results,list for SupplierEmailItem list
         
-        示例::
+        Example::
             result = client.supplier.get_emails(email_type='ms_graph', is_short_term=0)
-            print(f"长效 MS Graph 邮箱: {result.total} 个")
+            print(f"Long lasting MS Graph Mail: {result.total} indivual")
         """
         params = {
             "page": page,
@@ -182,17 +182,17 @@ class SupplierAPI:
         is_short_term: int = 0,
     ):
         """
-        批量导入邮箱到供应商资源池
+        Import mailboxes into supplier resource pool in batches
         
         Args:
-            email_type: 邮箱类型：microsoft / ms_graph / ms_imap / google_variant / self_built
-            emails: 邮箱列表，每项包含 address、password、client_id、refresh_token 等
-            is_short_term: 仅微软邮箱有效，0=长效（默认）1=短效
+            email_type: Email type:microsoft / ms_graph / ms_imap / google_variant / self_built
+            emails: Email list, each item contains address,password,client_id,refresh_token wait
+            is_short_term: Only valid for Microsoft email,0=long lasting (default)1=short acting
         
         Returns:
-            ImportResult: 导入结果
+            ImportResult: Import results
         
-        示例::
+        Example::
             result = client.supplier.import_emails(
                 email_type='ms_graph',
                 is_short_term=0,
@@ -204,7 +204,7 @@ class SupplierAPI:
                     }
                 ]
             )
-            print(f"成功: {result.success}, 重复: {result.duplicate}")
+            print(f"success: {result.success}, repeat: {result.duplicate}")
         """
         body: Dict[str, Any] = {
             "type": email_type,
@@ -243,18 +243,18 @@ class SupplierAPI:
         status: Optional[int] = None,
     ):
         """
-        导出邮箱（txt 文件流）
+        Export mailbox (txt file stream)
         
         Args:
-            keyword: 关键词过滤
-            email_type: 邮箱类型过滤
-            is_short_term: 0=长效 1=短效
-            status: 状态过滤
+            keyword: keyword filter
+            email_type: Email type filtering
+            is_short_term: 0=Long lasting 1=short acting
+            status: Status filtering
         
         Returns:
-            bytes: txt 文件内容
+            bytes: txt File content
         
-        示例::
+        Example::
             content = client.supplier.export_emails(email_type='ms_graph')
             with open("emails.txt", "wb") as f:
                 f.write(content)
@@ -269,7 +269,7 @@ class SupplierAPI:
             return self._client._async_get_stream(self._path("/emails/export"), params=params)
         return self._client._sync_get_stream(self._path("/emails/export"), params=params)
     
-    # ===== 申述管理 =====
+    # ===== Complaints management =====
     
     def get_appeals(
         self,
@@ -279,20 +279,20 @@ class SupplierAPI:
         appeal_type: Optional[int] = None,
     ):
         """
-        获取申述列表（分页）
+        Get a list of representations (paginated)
         
         Args:
-            page: 页码
-            page_size: 每页数量
-            status: 申述状态：1=待处理 2=已同意 3=待仲裁 4=已拒绝
-            appeal_type: 申述类型过滤
+            page: page number
+            page_size: Quantity per page
+            status: Appeal status:1=Pending 2=Agreed 3=pending arbitration 4=Rejected
+            appeal_type: Statement type filter
         
         Returns:
-            PageResult: 分页结果，list 为 AppealItem 列表
+            PageResult: Paginated results,list for AppealItem list
         
-        示例::
+        Example::
             result = client.supplier.get_appeals(status=1)
-            print(f"待处理申述: {result.total} 个")
+            print(f"Pending representations: {result.total} indivual")
         """
         params = {
             "page": page,
@@ -314,15 +314,15 @@ class SupplierAPI:
     
     def get_appeal(self, appeal_no: str):
         """
-        获取申述详情
+        Get complaint details
         
         Args:
-            appeal_no: 申述单号
+            appeal_no: Complaint number
         
         Returns:
-            AppealDetail: 申述详情
+            AppealDetail: Details of representation
         
-        示例::
+        Example::
             detail = client.supplier.get_appeal("APL20240310001")
             print(detail.reason, detail.status)
         """
@@ -344,22 +344,22 @@ class SupplierAPI:
     
     def reply_appeal(self, appeal_no: str, result: int, reply: str):
         """
-        处理申述（回复）
+        Handling Complaints (Reply)
         
         Args:
-            appeal_no: 申述单号
-            result: 处理结果：1=同意退款 2=拒绝申述 3=申请仲裁
-            reply: 回复内容说明
+            appeal_no: Complaint number
+            result: Processing results:1=Agree to refund 2=Refusal to represent 3=Apply for arbitration
+            reply: Reply content description
         
         Returns:
             None
         
-        示例::
-            # 同意退款
-            client.supplier.reply_appeal("APL20240310001", result=1, reply="邮箱确有问题，同意退款")
+        Example::
+            # Agree to refund
+            client.supplier.reply_appeal("APL20240310001", result=1, reply="There is indeed something wrong with the email, I agree to refund.")
             
-            # 拒绝申述
-            client.supplier.reply_appeal("APL20240310001", result=2, reply="邮箱状态正常，拒绝申述")
+            # Refusal to represent
+            client.supplier.reply_appeal("APL20240310001", result=2, reply="The email status is normal and the appeal is rejected.")
         """
         body = {"result": result, "reply": reply}
         if _is_async_context():
@@ -383,23 +383,23 @@ class SupplierAPI:
         reply: str,
     ):
         """
-        批量处理申述
+        Batch processing of claims
         
         Args:
-            appeal_nos: 申述单号列表（最多 100 条）
-            result: 处理结果：1=同意退款 2=拒绝申述 3=申请仲裁
-            reply: 回复内容说明
+            appeal_nos: List of complaint numbers (up to 100 strip)
+            result: Processing results:1=Agree to refund 2=Refusal to represent 3=Apply for arbitration
+            reply: Reply content description
         
         Returns:
-            dict: 包含 success 和 failed 数量
+            dict: Include success and failed quantity
         
-        示例::
+        Example::
             result = client.supplier.batch_reply_appeals(
                 appeal_nos=["APL001", "APL002", "APL003"],
                 result=2,
-                reply="经验证邮箱正常，拒绝申述"
+                reply="It has been verified that the email is normal and the appeal is rejected."
             )
-            print(f"成功处理: {result['success']}")
+            print(f"successfully processed: {result['success']}")
         """
         body = {
             "appeal_nos": appeal_nos,
@@ -420,20 +420,20 @@ class SupplierAPI:
             "POST", self._path("/appeals/batch-reply"), json_data=body
         )
     
-    # ===== 数据看板 =====
+    # ===== Data dashboard =====
     
     def get_dashboard(self):
         """
-        获取数据看板总览
+        Get an overview of the data dashboard
         
         Returns:
-            DashboardSummary: 看板数据，包含邮箱总量、接码统计、佣金数据等
+            DashboardSummary: Kanban data, including total number of mailboxes, code reception statistics, commission data, etc.
         
-        示例::
+        Example::
             summary = client.supplier.get_dashboard()
-            print(f"总邮箱: {summary.total_emails}")
-            print(f"今日佣金: {summary.today_commission}")
-            print(f"成功率: {summary.success_rate}%")
+            print(f"Main mailbox: {summary.total_emails}")
+            print(f"Today's commission: {summary.today_commission}")
+            print(f"success rate: {summary.success_rate}%")
         """
         if _is_async_context():
             return self._async_get_dashboard()

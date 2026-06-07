@@ -1,4 +1,4 @@
-"""插件拉取 / 启停管理"""
+"""Plugin pull / Start and stop management"""
 
 from __future__ import annotations
 
@@ -243,7 +243,7 @@ def _sync_repo_to_branch_head(repo: Path, preferred_branch: str = ""):
         )
         return
 
-    raise RuntimeError(f"未找到可用远端分支（repo={repo}）")
+    raise RuntimeError(f"No available remote branch found (repo={repo})")
 
 
 def _latest_semver_tag(repo: Path) -> str:
@@ -373,8 +373,8 @@ def uninstall(name: str) -> dict[str, Any]:
                     time.sleep(0.5)
             if repo.exists():
                 _LAST_ERROR[name] = (
-                    f"卸载失败：目录仍存在 {repo}"
-                    + (f"，原因：{last_exc}" if last_exc else "")
+                    f"Uninstall failed: Directory still exists {repo}"
+                    + (f",reason:{last_exc}" if last_exc else "")
                 )
                 raise RuntimeError(_LAST_ERROR[name])
         _PROCS.pop(name, None)
@@ -634,7 +634,7 @@ def _ensure_grok2api_conda_env(repo: Path) -> str:
     env_name = "grok2api-313"
     conda = _conda_exe()
     if not conda:
-        raise RuntimeError("未找到 conda，无法为 grok2api 自动创建 Python 3.13 环境")
+        raise RuntimeError("not found conda, unable to grok2api automatically created Python 3.13 environment")
 
     check = subprocess.run(
         [conda, "run", "--no-capture-output", "-n", env_name, "python", "--version"],
@@ -672,7 +672,7 @@ def _ensure_grok2api_conda_env(repo: Path) -> str:
 def _ensure_grok2api_uv_env(repo: Path) -> str:
     uv = _uv_exe()
     if not uv:
-        raise RuntimeError("未找到 uv，无法为 grok2api 自动创建项目虚拟环境")
+        raise RuntimeError("not found uv, unable to grok2api Automatically create project virtual environments")
 
     marker = repo / ".grok2api-env-ready"
     if not marker.exists() or marker.read_text(encoding="utf-8").strip() != "uv":
@@ -693,7 +693,7 @@ def _ensure_grok2api_uv_env(repo: Path) -> str:
         marker.write_text("uv", encoding="utf-8")
     venv_python = _venv_python(repo)
     if not venv_python.exists():
-        raise RuntimeError("grok2api 的 uv 环境创建失败，未找到 .venv/python")
+        raise RuntimeError("grok2api of uv Environment creation failed, not found .venv/python")
     return str(venv_python)
 
 
@@ -771,7 +771,7 @@ def _build_command(name: str) -> tuple[list[str], Path]:
     if name == "cliproxyapi":
         go_exe = _find_go()
         if not go_exe:
-            raise RuntimeError("未找到 go，可在设置中先安装 Go 或将 go.exe 加入 PATH")
+            raise RuntimeError("not found go, you can install it first in the settings Go or will go.exe join in PATH")
         _ensure_cliproxyapi_runtime_config(repo)
         config_path = repo / "config.local.yaml"
         return [go_exe, "run", "./cmd/server", "-config", str(config_path)], repo
@@ -823,7 +823,7 @@ def _build_command(name: str) -> tuple[list[str], Path]:
             return [exe], repo
         cargo = shutil.which("cargo")
         if not cargo:
-            raise RuntimeError("未找到 Kiro Account Manager 可执行文件，且系统未安装 Rust/Cargo，无法从源码启动")
+            raise RuntimeError("not found Kiro Account Manager Executable file and it is not installed on the system Rust/Cargo, unable to start from source code")
         return ["npm", "run", "tauri", "dev"], repo
 
     raise KeyError(name)
@@ -835,7 +835,7 @@ def start(name: str) -> dict[str, Any]:
             raise KeyError(name)
         repo = _repo_path(name)
         if not repo.exists():
-            raise RuntimeError(f"{_SERVICE_META[name]['label']} 未安装，请先在插件页点击“安装”")
+            raise RuntimeError(f"{_SERVICE_META[name]['label']} Not installed, please click on the plug-in page first“Install”")
         if _status_one(name)["running"]:
             return _status_one(name)
 
@@ -863,9 +863,9 @@ def start(name: str) -> dict[str, Any]:
                 return _status_one(name)
             proc = _PROCS.get(name)
             if proc and proc.poll() is not None:
-                _LAST_ERROR[name] = f"启动失败，退出码={proc.returncode}"
+                _LAST_ERROR[name] = f"Startup failed, exit code={proc.returncode}"
                 return _status_one(name)
-        _LAST_ERROR[name] = "启动超时"
+        _LAST_ERROR[name] = "Start timeout"
     else:
         time.sleep(2)
     return _status_one(name)
@@ -924,7 +924,7 @@ def start_all() -> list[dict[str, Any]]:
         try:
             if not _repo_path(name).exists():
                 item = _status_one(name)
-                item["last_error"] = "未安装；如需使用请先手动安装"
+                item["last_error"] = "Not installed; if you need to use it, please install it manually first."
                 results.append(item)
             else:
                 results.append(start(name))

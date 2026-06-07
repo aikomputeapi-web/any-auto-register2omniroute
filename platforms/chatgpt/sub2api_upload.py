@@ -1,5 +1,5 @@
 """
-Sub2API 上传功能
+Sub2API Upload function
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ def _build_sub2api_account_payload(account, group_ids: list[int] | None = None) 
     if not isinstance(expires_at, int) or expires_at <= 0:
         expires_at = int(time.time()) + 863999
 
-    # 关键逻辑：Sub2API 依赖 OpenAI OAuth 结构化字段，这里尽量从现有 token 自动补齐。
+    # Key logic:Sub2API rely OpenAI OAuth Structured fields, try to use existing ones here token Automatic completion.
     organization_id = _extract_organization_id(_decode_jwt_payload(id_token))
 
     return {
@@ -138,7 +138,7 @@ def upload_to_sub2api(
     api_key: str | None = None,
     group_ids: list[int] | None = None,
 ) -> Tuple[bool, str]:
-    """上传单个账号到 Sub2API 管理后台。"""
+    """Upload a single account to Sub2API Management background."""
     api_url = str(api_url or _get_config_value("sub2api_api_url")).strip()
     api_key = str(api_key or _get_config_value("sub2api_api_key")).strip()
     resolved_group_ids = _parse_group_ids(
@@ -146,9 +146,9 @@ def upload_to_sub2api(
     )
 
     if not api_url:
-        return False, "Sub2API API URL 未配置"
+        return False, "Sub2API API URL Not configured"
     if not api_key:
-        return False, "Sub2API API Key 未配置"
+        return False, "Sub2API API Key Not configured"
 
     payload = _build_sub2api_account_payload(account, group_ids=resolved_group_ids)
     url = f"{api_url.rstrip('/')}/api/v1/admin/accounts"
@@ -171,9 +171,9 @@ def upload_to_sub2api(
         )
 
         if response.status_code in (200, 201):
-            return True, "上传成功"
+            return True, "Upload successful"
 
-        error_msg = f"上传失败: HTTP {response.status_code}"
+        error_msg = f"Upload failed: HTTP {response.status_code}"
         try:
             detail = response.json()
             if isinstance(detail, dict):
@@ -187,5 +187,5 @@ def upload_to_sub2api(
             error_msg = f"{error_msg} - {response.text[:200]}"
         return False, error_msg
     except Exception as exc:
-        logger.error("Sub2API 上传异常: %s", exc)
-        return False, f"上传异常: {exc}"
+        logger.error("Sub2API Upload exception: %s", exc)
+        return False, f"Upload exception: {exc}"

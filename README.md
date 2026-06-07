@@ -45,12 +45,13 @@
 
 ## 当前界面与实际平台展示
 
-根据当前前端代码与界面，**左侧“平台管理”菜单默认显示的平台**为：
+根据当前前端代码与界面，**左侧"平台管理"菜单默认显示的平台**为：
 
 - ChatGPT
 - Grok
 - Kiro (AWS Builder ID)
 - OpenBlockLabs
+- OpenRouter
 - Trae.ai
 
 
@@ -145,7 +146,7 @@
   - 或对当前筛选结果批量执行
 - **补传远端未发现**
   - 补传远端未发现的 auth-file
-  - 支持“当前筛选范围”或“当前所选账号”两种作用范围
+  - 支持"当前筛选范围"或"当前所选账号"两种作用范围
 
 ## 邮箱服务支持
 
@@ -163,6 +164,8 @@
 | Freemail | `freemail` | 自建邮箱服务 |
 | Laoudo | `laoudo` | 固定邮箱方案 |
 | CF Worker | `cfworker` | Cloudflare Worker 自建邮箱 |
+| CatchMail.io | `catchmail` | 免费临时邮箱，无需配置，自动生成 |
+| IMAP Catchall | `imap_catchall` | 通用 IMAP 接入，支持自建邮箱 |
 
 ### Kiro 邮箱说明
 
@@ -220,7 +223,7 @@ PowerShell：
 .\start_backend.ps1
 ```
 
-CMD：
+CMD:
 
 ```bat
 start_backend.bat
@@ -254,7 +257,7 @@ http://localhost:8000
 
 - 后端能启动，但 Solver 没有拉起
 - `ModuleNotFoundError: quart`
-- 前端中 Turnstile Solver 一直显示“未运行”
+- 前端中 Turnstile Solver 一直显示"未运行"
 
 停止服务时可执行：
 
@@ -310,9 +313,9 @@ Vite 会将 `/api` 请求代理到本地后端 `http://localhost:8000`。
 http://localhost:8889
 ```
 
-前端“全局配置 → 验证码 → Turnstile Solver”显示的是**后端检测结果**，因此：
+前端"全局配置 → 验证码 → Turnstile Solver"显示的是**后端检测结果**，因此：
 
-- 后端未启动 → 前端显示“未运行”
+- 后端未启动 → 前端显示"未运行"
 - 后端已启动但不在正确 conda 环境 → Solver 可能启动失败
 
 ### 手动启动 Solver
@@ -432,8 +435,8 @@ CAMOUFOX_VERSION=135.0.1 CAMOUFOX_RELEASE=beta.24 docker compose build app
 | grok2api | Grok token 管理、回填、聊天/API 服务 | `https://github.com/chenyme/grok2api.git` |
 | kiro-account-manager | Kiro 账号管理相关插件 | `https://github.com/hj01857655/kiro-account-manager.git` |
 
-插件页中的 **“安装最新版 / 更新到最新版”** 会同步仓库最新代码，且已支持 **卸载**（会先停止服务，再删除本地插件目录）。
-默认按 **最新 semver tag** 更新；你也可以在“设置 → 插件 → 安装/更新策略”切回 **分支 HEAD** 模式。
+插件页中的 **"安装最新版 / 更新到最新版"** 会同步仓库最新代码，且已支持 **卸载**（会先停止服务，再删除本地插件目录）。
+默认按 **最新 semver tag** 更新；你也可以在"设置 → 插件 → 安装/更新策略"切回 **分支 HEAD** 模式。
 
 如果你后续要改成 `ghproxy`、`gitclone`、企业 Git 镜像或其他代理地址，需要同步修改：
 
@@ -443,7 +446,7 @@ services/external_apps.py
 
 ## 常见问题排查
 
-### 1. 前端里 Turnstile Solver 显示“未运行”
+### 1. 前端里 Turnstile Solver 显示"未运行"
 
 先检查后端是否正常启动：
 
@@ -520,6 +523,12 @@ any-auto-register/
 ├── electron/
 ├── frontend/
 ├── platforms/
+│   ├── chatgpt/
+│   ├── grok/
+│   ├── kiro/
+│   ├── openblocklabs/
+│   ├── openrouter/
+│   └── tavily/
 ├── services/
 │   ├── solver_manager.py
 │   └── turnstile_solver/

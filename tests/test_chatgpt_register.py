@@ -31,6 +31,20 @@ class DummyEmailService:
 
 
 class RefreshTokenRegistrationEngineTests(unittest.TestCase):
+    def setUp(self):
+        self.chatgpt_client_patcher = mock.patch("platforms.chatgpt.refresh_token_registration_engine.ChatGPTClient")
+        self.mock_chatgpt_client_cls = self.chatgpt_client_patcher.start()
+        self.mock_chatgpt_client = mock.Mock()
+        self.mock_chatgpt_client.register_complete_flow.return_value = (True, "pending_about_you_submission")
+        self.mock_chatgpt_client.ua = "UA"
+        self.mock_chatgpt_client.sec_ch_ua = '"Chromium";v="136"'
+        self.mock_chatgpt_client.impersonate = "chrome136"
+        self.mock_chatgpt_client.device_id = "device-fixed"
+        self.mock_chatgpt_client_cls.return_value = self.mock_chatgpt_client
+
+    def tearDown(self):
+        self.chatgpt_client_patcher.stop()
+
     def _make_engine(self, **kwargs):
         return RefreshTokenRegistrationEngine(
             email_service=DummyEmailService(),
@@ -52,7 +66,7 @@ class RefreshTokenRegistrationEngineTests(unittest.TestCase):
         oauth_client.ua = "UA"
         oauth_client.sec_ch_ua = '"Chromium";v="136"'
         oauth_client.impersonate = "chrome136"
-        oauth_client.signup_and_get_tokens.return_value = {
+        oauth_client.login_and_get_tokens.return_value = {
             "access_token": "at",
             "refresh_token": "rt",
             "id_token": "id-token",
@@ -84,14 +98,14 @@ class RefreshTokenRegistrationEngineTests(unittest.TestCase):
         self.assertEqual(result.session_token, "session-1")
         self.assertEqual(result.source, "register")
 
-        oauth_client.signup_and_get_tokens.assert_called_once()
-        oauth_client.login_and_get_tokens.assert_not_called()
-        signup_args = oauth_client.signup_and_get_tokens.call_args.args
-        self.assertEqual(signup_args[0], "user@example.com")
-        self.assertEqual(signup_args[1], result.password)
-        signup_kwargs = oauth_client.signup_and_get_tokens.call_args.kwargs
-        self.assertFalse(signup_kwargs["allow_phone_verification"])
-        self.assertEqual(signup_kwargs["signup_source"], "refresh_token_engine")
+        self.mock_chatgpt_client.register_complete_flow.assert_called_once()
+        oauth_client.login_and_get_tokens.assert_called_once()
+        login_args = oauth_client.login_and_get_tokens.call_args.args
+        self.assertEqual(login_args[0], "user@example.com")
+        self.assertEqual(login_args[1], result.password)
+        login_kwargs = oauth_client.login_and_get_tokens.call_args.kwargs
+        self.assertTrue(login_kwargs["allow_phone_verification"])
+        self.assertEqual(login_kwargs["login_source"], "post_register_workspace_continue")
 
     @mock.patch("platforms.chatgpt.refresh_token_registration_engine.OAuthManager")
     @mock.patch("platforms.chatgpt.refresh_token_registration_engine.OAuthClient")
@@ -105,8 +119,10 @@ class RefreshTokenRegistrationEngineTests(unittest.TestCase):
         oauth_client.ua = "UA"
         oauth_client.sec_ch_ua = '"Chromium";v="136"'
         oauth_client.impersonate = "chrome136"
-        oauth_client.signup_and_get_tokens.return_value = None
-        oauth_client.last_error = "注册失败: 400 - user_already_exists"
+        self.mock_chatgpt_client.register_complete_flow.return_value = (
+            False,
+            "Registration failed: 400 - user_already_exists",
+        )
         oauth_client.login_and_get_tokens.return_value = {
             "access_token": "at",
             "refresh_token": "rt",
@@ -132,7 +148,7 @@ class RefreshTokenRegistrationEngineTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.source, "login")
         self.assertEqual(result.account_id, "acct-existing")
-        oauth_client.signup_and_get_tokens.assert_called_once()
+        self.mock_chatgpt_client.register_complete_flow.assert_called_once()
         login_kwargs = oauth_client.login_and_get_tokens.call_args.kwargs
         self.assertEqual(login_kwargs["login_source"], "existing_account_continue")
         self.assertTrue(login_kwargs["force_new_browser"])
@@ -167,33 +183,27 @@ class RefreshTokenRegistrationEngineTests(unittest.TestCase):
         oauth_client.sec_ch_ua = '"Chromium";v="136"'
         oauth_client.impersonate = "chrome136"
         oauth_client.last_error = ""
-        signup_results = iter(
+        login_results = iter(
             [
-                (None, "network timeout"),
-                (
-                    {
-                        "access_token": "at",
-                        "refresh_token": "rt",
-                        "id_token": "id-token",
-                        "account_id": "acct-1",
-                    },
-                    "",
-                ),
+                None,
+                {
+                    "access_token": "at",
+                    "refresh_token": "rt",
+                    "id_token": "id-token",
+                    "account_id": "acct-1",
+                },
             ]
         )
 
-        def _signup_side_effect(*args, **kwargs):
-            result_value, error_value = next(signup_results)
-            oauth_client.last_error = error_value
-            return result_value
+        def _login_side_effect(*args, **kwargs):
+            val = next(login_results)
+            if val is None:
+                oauth_client.last_error = "network timeout"
+            else:
+                oauth_client.last_error = ""
+            return val
 
-        oauth_client.signup_and_get_tokens.side_effect = _signup_side_effect
-        oauth_client.login_and_get_tokens.return_value = {
-            "access_token": "at",
-            "refresh_token": "rt",
-            "id_token": "id-token",
-            "account_id": "acct-1",
-        }
+        oauth_client.login_and_get_tokens.side_effect = _login_side_effect
         oauth_client.last_workspace_id = "ws-1"
         oauth_client._decode_oauth_session_cookie.return_value = {
             "workspaces": [{"id": "ws-1"}]
@@ -217,7 +227,8 @@ class RefreshTokenRegistrationEngineTests(unittest.TestCase):
         result = engine.run()
 
         self.assertTrue(result.success)
-        call_args = oauth_client.signup_and_get_tokens.call_args_list
+        self.assertEqual(self.mock_chatgpt_client.register_complete_flow.call_count, 2)
+        call_args = self.mock_chatgpt_client.register_complete_flow.call_args_list
         self.assertEqual(call_args[0].args[0], "user1@example.com")
         self.assertEqual(call_args[1].args[0], "user2@example.com")
 
@@ -389,7 +400,7 @@ class OAuthClientPasswordlessTests(unittest.TestCase):
         self.assertIsNone(tokens)
         self.assertEqual(bootstrap.call_count, 2)
         self.assertEqual(submit_continue.call_count, 2)
-        self.assertIn("未获取到 workspace / callback", client.last_error)
+        self.assertIn("not obtained workspace / callback", client.last_error)
 
     def test_send_passwordless_login_otp_does_not_send_email_field(self):
         client = self._make_client()

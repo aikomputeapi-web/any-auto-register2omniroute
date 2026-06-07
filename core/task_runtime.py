@@ -1,4 +1,4 @@
-"""注册任务运行时控制与状态存储。"""
+"""Register task runtime control and state storage."""
 
 from __future__ import annotations
 
@@ -10,20 +10,20 @@ from typing import Any
 
 
 class TaskInterruption(RuntimeError):
-    """任务执行过程中触发的协作式中断。"""
+    """Cooperative interrupt triggered during task execution."""
 
 
 class StopTaskRequested(TaskInterruption):
-    """整个任务被手动停止。"""
+    """The entire task was stopped manually."""
 
-    def __init__(self, message: str = "任务已手动停止"):
+    def __init__(self, message: str = "Task has been stopped manually"):
         super().__init__(message)
 
 
 class SkipCurrentAttemptRequested(TaskInterruption):
-    """当前账号被手动跳过。"""
+    """The current account has been manually skipped."""
 
-    def __init__(self, message: str = "已手动跳过当前账号"):
+    def __init__(self, message: str = "The current account has been manually skipped"):
         super().__init__(message)
 
 
@@ -57,7 +57,7 @@ class AttemptResult:
 
 
 class RegisterTaskControl:
-    """协作式任务控制器：支持停止整个任务、跳过一个当前账号。"""
+    """Collaborative task controller: supports stopping the entire task and skipping a current account."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -175,7 +175,7 @@ class RegisterTaskRecord:
 
 
 class RegisterTaskStore:
-    """线程安全的注册任务存储。"""
+    """Thread-safe registered task storage."""
 
     def __init__(
         self,

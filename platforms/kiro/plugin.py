@@ -1,4 +1,4 @@
-"""Kiro 平台插件 - 基于 AWS Builder ID 注册"""
+"""Kiro Platform plugin - based on AWS Builder ID register"""
 
 from typing import Optional
 
@@ -38,22 +38,22 @@ class KiroPlatform(BasePlatform):
             mailbox = self.mailbox
             mail_acct = mailbox.get_email()
             if not mail_acct:
-                raise RuntimeError("未获取到可用邮箱账号")
+                raise RuntimeError("No available email account found")
             email = email or mail_acct.email
-            log_fn(f"邮箱: {mail_acct.email}")
+            log_fn(f"Mail: {mail_acct.email}")
             _before = mailbox.get_current_ids(mail_acct)
 
             def otp_cb():
-                log_fn("等待验证码...")
+                log_fn("Wait for verification code...")
                 code = mailbox.wait_for_code(
                     mail_acct,
                     keyword="builder id",
                     timeout=otp_timeout,
                     before_ids=_before,
-                    code_pattern=r"(?is)(?:verification\s+code|验证码)[^0-9]{0,20}(\d{6})",
+                    code_pattern=r"(?is)(?:verification\s+code|Verification code)[^0-9]{0,20}(\d{6})",
                 )
                 if code:
-                    log_fn(f"验证码: {code}")
+                    log_fn(f"Verification code: {code}")
                 return code
         else:
             otp_cb = None
@@ -68,7 +68,7 @@ class KiroPlatform(BasePlatform):
         )
 
         if not ok:
-            raise RuntimeError(f"Kiro 注册失败: {info.get('error')}")
+            raise RuntimeError(f"Kiro Registration failed: {info.get('error')}")
 
         return Account(
             platform="kiro",
@@ -87,11 +87,12 @@ class KiroPlatform(BasePlatform):
                 "region": info.get("region", "us-east-1"),
                 "provider": "BuilderId",
                 "authMethod": "IdC",
+                "portalCookies": info.get("portalCookies", []),
             },
         )
 
     def check_valid(self, account: Account) -> bool:
-        """通过 refreshToken 检测账号是否有效"""
+        """pass refreshToken Check if the account is valid"""
         extra = account.extra or {}
         refresh_token = extra.get("refreshToken", "")
         if not refresh_token:
@@ -99,20 +100,29 @@ class KiroPlatform(BasePlatform):
         try:
             from platforms.kiro.switch import refresh_kiro_token
 
-            ok, _ = refresh_kiro_token(
+            ok, result = refresh_kiro_token(
                 refresh_token,
                 extra.get("clientId", ""),
                 extra.get("clientSecret", ""),
             )
+            if ok:
+                new_access = result["accessToken"]
+                new_refresh = result.get("refreshToken", refresh_token)
+                account.token = new_access
+                extra["accessToken"] = new_access
+                extra["refreshToken"] = new_refresh
+                account.extra = extra
             return ok
         except Exception:
             return False
 
     def get_platform_actions(self) -> list:
         return [
-            {"id": "switch_account", "label": "切换到桌面应用", "params": []},
-            {"id": "refresh_token", "label": "刷新 Token", "params": []},
-            {"id": "upload_kiro_manager", "label": "导入 Kiro Manager", "params": []},
+            {"id": "switch_account", "label": "Switch to desktop app", "params": []},
+            {"id": "refresh_token", "label": "refresh Token", "params": []},
+            {"id": "upload_kiro_manager", "label": "import Kiro Manager", "params": []},
+            {"id": "upload_to_omniroute", "label": "Upload to OmniRoute", "params": []},
+            {"id": "fetch_latest_otp", "label": "Fetch latest OTP from mailbox", "params": []},
         ]
 
     def execute_action(self, action_id: str, account: Account, params: dict) -> dict:
@@ -132,12 +142,12 @@ class KiroPlatform(BasePlatform):
             client_id = extra.get("clientId", "")
             client_secret = extra.get("clientSecret", "")
 
-            # Kiro 桌面端需要完整的 Builder ID SSO 缓存。
-            # 只有 accessToken/sessionToken 的网页态账号无法稳定切到桌面应用。
+            # Kiro The desktop version requires a complete Builder ID SSO cache.
+            # only accessToken/sessionToken The web account cannot be switched to the desktop application stably.
             if not access_token:
                 return {
                     "ok": False,
-                    "error": "当前账号缺少 accessToken，无法切换到桌面应用",
+                    "error": "The current account is missing accessToken, unable to switch to desktop app",
                 }
             if not refresh_token or not client_id or not client_secret:
                 if account.email and account.password:
@@ -170,28 +180,28 @@ class KiroPlatform(BasePlatform):
                             before_ids = mailbox.get_current_ids(mail_account)
 
                             def _otp_cb():
-                                reg.log("桌面授权等待邮箱验证码 ...")
+                                reg.log("Desktop authorization waiting for email verification code ...")
                                 try:
                                     code = mailbox.wait_for_code(
                                         mail_account,
                                         keyword="",
                                         timeout=45,
                                         before_ids=before_ids,
-                                        code_pattern=r"(?is)(?:verification\s+code|验证码)[^0-9]{0,20}(\d{6})",
+                                        code_pattern=r"(?is)(?:verification\s+code|Verification code)[^0-9]{0,20}(\d{6})",
                                     )
                                 except Exception:
                                     reg.log(
-                                        "未等到新验证码，回退读取最近一封身份验证邮件 ..."
+                                        "Before waiting for the new verification code, fall back to reading the most recent authentication email. ..."
                                     )
                                     code = mailbox.wait_for_code(
                                         mail_account,
                                         keyword="",
                                         timeout=15,
                                         before_ids=set(),
-                                        code_pattern=r"(?is)(?:verification\s+code|验证码)[^0-9]{0,20}(\d{6})",
+                                        code_pattern=r"(?is)(?:verification\s+code|Verification code)[^0-9]{0,20}(\d{6})",
                                     )
                                 if code:
-                                    reg.log(f"桌面授权验证码: {code}")
+                                    reg.log(f"Desktop authorization verification code: {code}")
                                 return code
 
                             otp_callback = _otp_cb
@@ -207,8 +217,8 @@ class KiroPlatform(BasePlatform):
                         return {
                             "ok": False,
                             "error": (
-                                "当前账号缺少 refreshToken / clientId / clientSecret，"
-                                f"且自动补抓桌面端 Token 失败: {desktop_info.get('error', 'unknown error')}"
+                                "The current account is missing refreshToken / clientId / clientSecret,"
+                                f"And automatically catch the desktop version Token fail: {desktop_info.get('error', 'unknown error')}"
                             ),
                         }
                     access_token = desktop_info.get("accessToken", "") or access_token
@@ -219,8 +229,8 @@ class KiroPlatform(BasePlatform):
                     return {
                         "ok": False,
                         "error": (
-                            "当前账号只有网页登录态，缺少 refreshToken / clientId / clientSecret，"
-                            "并且没有可用的邮箱/密码用于自动补抓桌面端 Token。"
+                            "The current account only has web page login status and lacks refreshToken / clientId / clientSecret,"
+                            "and there is no email available/The password is used to automatically catch the desktop version Token."
                         ),
                     }
 
@@ -247,7 +257,7 @@ class KiroPlatform(BasePlatform):
                     "refreshToken": refresh_token,
                     "clientId": client_id,
                     "clientSecret": client_secret,
-                    "message": f"{msg}。{restart_msg}" if restart_ok else msg,
+                    "message": f"{msg}.{restart_msg}" if restart_ok else msg,
                 },
             }
 
@@ -270,7 +280,7 @@ class KiroPlatform(BasePlatform):
                         "refreshToken": new_refresh,
                     },
                 }
-            return {"ok": False, "error": result.get("error", "刷新失败")}
+            return {"ok": False, "error": result.get("error", "Refresh failed")}
 
         elif action_id == "upload_kiro_manager":
             from platforms.kiro.account_manager_upload import upload_to_kiro_manager
@@ -278,4 +288,86 @@ class KiroPlatform(BasePlatform):
             ok, msg = upload_to_kiro_manager(account)
             return {"ok": ok, "data": {"message": msg}}
 
-        raise NotImplementedError(f"未知操作: {action_id}")
+        elif action_id == "upload_to_omniroute":
+            from services.omniroute_sync import upload_to_omniroute, build_omniroute_payload
+            from core.config_store import config_store
+
+            api_url = str(config_store.get("omniroute_api_url", "") or "").strip()
+            admin_password = str(config_store.get("omniroute_admin_password", "") or "").strip()
+            if not api_url:
+                return {"ok": False, "error": "OmniRoute API URL is not configured (omniroute_api_url)"}
+
+            # Build and expose the payload for debugging
+            try:
+                payload = build_omniroute_payload(account)
+            except Exception as e:
+                payload = {}
+                return {"ok": False, "error": f"Failed to build OmniRoute payload: {e}"}
+
+            ok, msg = upload_to_omniroute(account, api_url=api_url, admin_password=admin_password)
+            return {
+                "ok": ok,
+                "data": {
+                    "message": msg,
+                    "payload_preview": {
+                        "provider": payload.get("provider", ""),
+                        "authType": payload.get("authType", ""),
+                        "email": payload.get("email", ""),
+                        "has_accessToken": bool(payload.get("accessToken")),
+                        "has_refreshToken": bool(payload.get("refreshToken")),
+                        "providerSpecificData": payload.get("providerSpecificData", {}),
+                    },
+                },
+                "error": "" if ok else msg,
+            }
+
+        elif action_id == "fetch_latest_otp":
+            from core.config_store import config_store
+            from core.base_mailbox import create_mailbox, MailboxAccount
+
+            if not account.email:
+                return {"ok": False, "error": "Account has no email address"}
+
+            all_config = config_store.get_all()
+            extra_cfg = dict(all_config)
+            # Allow params to override provider settings
+            extra_cfg.update({k: v for k, v in params.items() if v is not None and v != ""})
+
+            mail_provider = str(extra_cfg.get("mail_provider", "") or "").strip()
+            if not mail_provider:
+                return {"ok": False, "error": "mail_provider is not configured — cannot fetch OTP from mailbox"}
+
+            try:
+                mailbox = create_mailbox(
+                    provider=mail_provider,
+                    extra=extra_cfg,
+                    proxy=self.config.proxy or "",
+                )
+                mail_acct = MailboxAccount(
+                    email=account.email,
+                    account_id=account.email,
+                )
+                # Fetch the latest code without filtering out any IDs (before_ids=empty set)
+                code = mailbox.wait_for_code(
+                    mail_acct,
+                    keyword="",
+                    timeout=int(extra_cfg.get("otp_fetch_timeout", 30)),
+                    before_ids=set(),
+                    code_pattern=r"(?is)(?:verification\s+code|Verification code)[^0-9]{0,20}(\d{6})",
+                )
+                if code:
+                    return {
+                        "ok": True,
+                        "data": {
+                            "message": f"Latest OTP for {account.email}: {code}",
+                            "otp": code,
+                            "email": account.email,
+                        },
+                    }
+                return {"ok": False, "error": "No OTP code found in the mailbox"}
+            except TimeoutError:
+                return {"ok": False, "error": f"Timeout: no OTP email found for {account.email} within the wait period"}
+            except Exception as e:
+                return {"ok": False, "error": f"Failed to fetch OTP from mailbox: {e}"}
+
+        raise NotImplementedError(f"Unknown operation: {action_id}")

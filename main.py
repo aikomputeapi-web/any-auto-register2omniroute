@@ -1,4 +1,4 @@
-"""account_manager - 多平台账号管理后台"""
+"""account_manager - Multi-platform account management backend"""
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -40,18 +40,18 @@ def _detect_conda_env() -> str:
 def _print_runtime_info() -> None:
     current_env = _detect_conda_env()
     print(f"[Runtime] Python: {sys.executable}")
-    print(f"[Runtime] Conda Env: {current_env or '未检测到'}")
+    print(f"[Runtime] Conda Env: {current_env or 'not detected'}")
     if EXPECTED_CONDA_ENV == "docker":
         return
     if current_env and current_env != EXPECTED_CONDA_ENV:
         print(
-            f"[WARN] 当前环境为 '{current_env}'，推荐使用 '{EXPECTED_CONDA_ENV}' 启动，"
-            "否则 Turnstile Solver 可能因依赖缺失而无法启动。"
+            f"[WARN] The current environment is '{current_env}', recommended to use '{EXPECTED_CONDA_ENV}' start up,"
+            "otherwise Turnstile Solver It may not start due to missing dependencies."
         )
     elif not current_env:
         print(
-            f"[WARN] 未检测到 conda 环境，推荐使用 '{EXPECTED_CONDA_ENV}' 启动，"
-            "否则 Turnstile Solver 可能因依赖缺失而无法启动。"
+            f"[WARN] not detected conda environment, it is recommended to use '{EXPECTED_CONDA_ENV}' start up,"
+            "otherwise Turnstile Solver It may not start due to missing dependencies."
         )
 
 
@@ -60,18 +60,22 @@ async def lifespan(app: FastAPI):
     _print_runtime_info()
     init_db()
     load_all()
-    print("[OK] 数据库初始化完成")
+    print("[OK] Database initialization completed")
     from core.registry import list_platforms
-    print(f"[OK] 已加载平台: {[p['name'] for p in list_platforms()]}")
+    print(f"[OK] Platform loaded: {[p['name'] for p in list_platforms()]}")
     from core.scheduler import scheduler
     scheduler.start()
     from services.solver_manager import start_async
     start_async()
+    from services.devtools_manager import start_async as start_devtools_async
+    start_devtools_async()
     yield
     from core.scheduler import scheduler as _scheduler
     _scheduler.stop()
     from services.solver_manager import stop
     stop()
+    from services.devtools_manager import stop as stop_devtools
+    stop_devtools()
 
 
 app = FastAPI(title="Account Manager", version="1.0.0", lifespan=lifespan)
@@ -87,7 +91,7 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        return JSONResponse({"detail": "未认证，请先登录"}, status_code=401)
+        return JSONResponse({"detail": "Not authenticated, please log in first"}, status_code=401)
     try:
         from api.auth import verify_token
         verify_token(auth_header[7:])
@@ -122,12 +126,31 @@ def solver_status():
     return {"running": is_running()}
 
 
+@app.get("/api/devtools/status")
+def devtools_status():
+    from services.devtools_manager import is_running as is_dt_running, _devtools_port, _devtools_enabled
+    return {
+        "enabled": _devtools_enabled(),
+        "running": is_dt_running(),
+        "port": _devtools_port()
+    }
+
+
 @app.post("/api/solver/restart")
 def solver_restart():
     from services.solver_manager import stop, start_async
     stop()
     start_async()
-    return {"message": "重启中"}
+    return {"message": "Restarting"}
+
+
+_static_pro_dir = os.path.join(os.path.dirname(__file__), "static_pro")
+if os.path.isdir(_static_pro_dir):
+    app.mount("/pro/assets", StaticFiles(directory=os.path.join(_static_pro_dir, "assets")), name="pro_assets")
+
+    @app.get("/pro/{full_path:path}", include_in_schema=False)
+    def spa_pro_fallback(full_path: str):
+        return FileResponse(os.path.join(_static_pro_dir, "index.html"))
 
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -137,6 +160,7 @@ if os.path.isdir(_static_dir):
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa_fallback(full_path: str):
         return FileResponse(os.path.join(_static_dir, "index.html"))
+
 
 
 if __name__ == "__main__":

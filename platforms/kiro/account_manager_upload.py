@@ -1,4 +1,4 @@
-"""Kiro Account Manager 自动导入"""
+"""Kiro Account Manager Automatic import"""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def _load_accounts(path: Path) -> list[dict]:
         data = json.loads(path.read_text(encoding="utf-8"))
         return data if isinstance(data, list) else []
     except Exception as e:
-        logger.error(f"Kiro Manager 读取失败: {e}")
+        logger.error(f"Kiro Manager Read failed: {e}")
         return []
 
 
@@ -85,7 +85,7 @@ def _calc_client_id_hash(start_url: str) -> str:
 def _guess_expires_at(access_token: str, existing: dict | None = None) -> str | None:
     if existing and existing.get("expiresAt"):
         return existing.get("expiresAt")
-    # Builder ID access token 过期时间一般较短，这里给一个温和兜底
+    # Builder ID access token The expiration time is generally short, so here is a gentle guide
     dt = datetime.now(timezone.utc) + timedelta(hours=1)
     return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
@@ -109,9 +109,9 @@ def build_manager_account(account, existing: dict | None = None) -> dict:
     client_id = extra.get("clientId") or extra.get("client_id") or ""
     client_secret = extra.get("clientSecret") or extra.get("client_secret") or ""
     if not refresh_token:
-        raise ValueError("账号缺少 refreshToken")
+        raise ValueError("Account missing refreshToken")
     if not client_id or not client_secret:
-        raise ValueError("账号缺少 clientId / clientSecret")
+        raise ValueError("Account missing clientId / clientSecret")
 
     provider = extra.get("provider") or DEFAULT_PROVIDER
     start_url = extra.get("startUrl") or extra.get("start_url")
@@ -120,7 +120,7 @@ def build_manager_account(account, existing: dict | None = None) -> dict:
     user_id = extra.get("userId") or extra.get("user_id") or getattr(account, "user_id", "") or None
 
     if provider == "BuilderId" and not email:
-        raise ValueError("BuilderId 账号缺少 email")
+        raise ValueError("BuilderId Account missing email")
 
     if provider == "Enterprise" and not start_url:
         start_url = DEFAULT_START_URL
@@ -139,7 +139,7 @@ def build_manager_account(account, existing: dict | None = None) -> dict:
     )
 
     label = (existing or {}).get("label") or (
-        "Kiro Enterprise 账号" if provider == "Enterprise" else "Kiro BuilderId 账号"
+        "Kiro Enterprise account" if provider == "Enterprise" else "Kiro BuilderId account"
     )
     added_at = (existing or {}).get("addedAt") or datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
@@ -174,7 +174,7 @@ def build_manager_account(account, existing: dict | None = None) -> dict:
 
 
 def upload_to_kiro_manager(account, path: str | None = None) -> Tuple[bool, str]:
-    """将 Kiro 账号直接写入 kiro-account-manager 的 accounts.json。"""
+    """Will Kiro Write account directly kiro-account-manager of accounts.json."""
     storage_path = resolve_manager_path(path)
     accounts = _load_accounts(storage_path)
     extra = getattr(account, "extra", {}) or {}
@@ -186,14 +186,14 @@ def upload_to_kiro_manager(account, path: str | None = None) -> Tuple[bool, str]
     record = build_manager_account(account, existing=existing)
     if existing_idx is None:
         accounts.insert(0, record)
-        action = "导入成功"
+        action = "Import successful"
     else:
         accounts[existing_idx] = record
-        action = "更新成功"
+        action = "Update successful"
 
     try:
         _atomic_write(storage_path, json.dumps(accounts, ensure_ascii=False, indent=2))
         return True, f"{action}: {storage_path}"
     except Exception as e:
-        logger.error(f"Kiro Manager 写入失败: {e}")
-        return False, f"写入失败: {e}"
+        logger.error(f"Kiro Manager Write failed: {e}")
+        return False, f"Write failed: {e}"

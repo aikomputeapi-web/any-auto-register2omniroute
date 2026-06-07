@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, List
 from services.mail_imports import MailImportExecuteRequest, mail_import_registry
 
-router = APIRouter(prefix="/outlook", tags=["微软邮箱（Outlook / Hotmail）"])
+router = APIRouter(prefix="/outlook", tags=["Microsoft Email (Outlook / Hotmail)"])
 
 
 class OutlookBatchImportRequest(BaseModel):
@@ -22,13 +22,13 @@ class OutlookBatchImportResponse(BaseModel):
 @router.post("/batch-import", response_model=OutlookBatchImportResponse)
 def batch_import_outlook(request: OutlookBatchImportRequest):
     """
-    批量导入微软邮箱（Outlook / Hotmail）账户
+    Import Microsoft mailboxes in batches (Outlook / Hotmail) account
 
-    支持两种格式（每行一个账户，字段用 ---- 分隔）：
-    - 邮箱----密码----client_id----refresh_token（微软 OAuth）
-    - 邮箱----mailapi_url（MailAPI URL 轮询取码）
+    Two formats are supported (one account per line, fields with ---- separated):
+    - Mail----password----client_id----refresh_token(Microsoft OAuth)
+    - Mail----mailapi_url(MailAPI URL Polling code acquisition)
 
-    运行时默认优先使用 Graph 后端读取邮件；MailAPI URL 账号会走 URL 轮询取码。
+    Used by default at runtime Graph The backend reads emails;MailAPI URL The account will go URL Polling to get the code.
     """
     try:
         strategy = mail_import_registry.get("microsoft")

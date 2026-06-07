@@ -50,7 +50,7 @@ class ChatGPTBackfillTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(result["skipped"])
         self.assertFalse(result["uploaded"])
-        self.assertIn("远端已存在", result["message"])
+        self.assertIn("The remote end already exists", result["message"])
         sync_mock.assert_not_called()
         probe_mock.assert_not_called()
 
@@ -61,7 +61,7 @@ class ChatGPTBackfillTests(unittest.TestCase):
             "cliproxyapi": {
                 "uploaded": False,
                 "remote_state": "not_found",
-                "message": "未发现",
+                "message": "not found",
             }
         }
         account.set_extra(extra)
@@ -96,7 +96,7 @@ class ChatGPTBackfillTests(unittest.TestCase):
             "cliproxyapi": {
                 "uploaded": False,
                 "remote_state": "not_found",
-                "message": "未发现",
+                "message": "not found",
             }
         }
         account.set_extra(extra)
@@ -107,7 +107,7 @@ class ChatGPTBackfillTests(unittest.TestCase):
                 {
                     "uploaded": True,
                     "remote_state": "usable",
-                    "message": "远端可用",
+                    "message": "Remote available",
                 },
             ],
         ) as sync_mock:
@@ -126,14 +126,14 @@ class ChatGPTBackfillTests(unittest.TestCase):
             ):
                 with mock.patch(
                     "services.chatgpt_sync.upload_account_model_to_cpa",
-                    return_value=(True, "上传成功"),
+                    return_value=(True, "Upload successful"),
                 ) as upload_mock:
                     result = backfill_chatgpt_account_to_cpa(account, commit=False)
 
         self.assertTrue(result["ok"])
         self.assertTrue(result["uploaded"])
         self.assertFalse(result["skipped"])
-        self.assertIn("补传完成", result["message"])
+        self.assertIn("Complementary pass completed", result["message"])
         self.assertEqual(sync_mock.call_count, 1)
         upload_mock.assert_called_once()
 
@@ -146,12 +146,12 @@ class ChatGPTBackfillTests(unittest.TestCase):
                 {
                     "uploaded": False,
                     "remote_state": "not_found",
-                    "message": "未发现",
+                    "message": "not found",
                 },
                 {
                     "uploaded": True,
                     "remote_state": "usable",
-                    "message": "远端可用",
+                    "message": "Remote available",
                 },
             ],
         ) as sync_mock:
@@ -170,7 +170,7 @@ class ChatGPTBackfillTests(unittest.TestCase):
             ):
                 with mock.patch(
                     "services.chatgpt_sync.upload_account_model_to_cpa",
-                    return_value=(True, "上传成功"),
+                    return_value=(True, "Upload successful"),
                 ):
                     result = backfill_chatgpt_account_to_cpa(account, commit=False)
 

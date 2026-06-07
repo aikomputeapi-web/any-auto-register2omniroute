@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""全局配置持久化 - 存储在 SQLite，并在缺省时回退到环境变量/.env。"""
+"""Global configuration persistence - stored in SQLite, and fallback to environment variables by default/.env."""
 import os
 import re
 from pathlib import Path
@@ -122,7 +122,7 @@ class ConfigItem(SQLModel, table=True):
 
 
 class ConfigStore:
-    """简单 key-value 配置存储"""
+    """Simple key-value Configuration storage"""
 
     def get(self, key: str, default: str = "") -> str:
         env_values = _runtime_env_values()

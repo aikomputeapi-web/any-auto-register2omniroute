@@ -1,6 +1,6 @@
 """
-ChatGPT 注册客户端模块
-使用 curl_cffi 模拟浏览器行为
+ChatGPT Register client module
+use curl_cffi Simulate browser behavior
 """
 
 import random
@@ -12,7 +12,7 @@ from core.proxy_utils import build_requests_proxy_config
 try:
     from curl_cffi import requests as curl_requests
 except ImportError:
-    print("[FAIL] 需要安装 curl_cffi: pip install curl_cffi")
+    print("[FAIL] Requires installation curl_cffi: pip install curl_cffi")
     import sys
 
     sys.exit(1)
@@ -32,7 +32,7 @@ from .utils import (
 )
 
 
-# Chrome 指纹配置
+# Chrome Fingerprint configuration
 _CHROME_PROFILES = [
     {
         "major": 131,
@@ -59,7 +59,7 @@ _CHROME_PROFILES = [
 
 
 def _random_chrome_version():
-    """随机选择一个 Chrome 版本"""
+    """randomly select one Chrome Version"""
     profile = random.choice(_CHROME_PROFILES)
     major = profile["major"]
     build = profile["build"]
@@ -70,18 +70,18 @@ def _random_chrome_version():
 
 
 class ChatGPTClient:
-    """ChatGPT 注册客户端"""
+    """ChatGPT Register client"""
 
     BASE = "https://chatgpt.com"
     AUTH = "https://auth.openai.com"
 
     def __init__(self, proxy=None, verbose=True, browser_mode="protocol"):
         """
-        初始化 ChatGPT 客户端
+        initialization ChatGPT client
 
         Args:
-            proxy: 代理地址
-            verbose: 是否输出详细日志
+            proxy: proxy address
+            verbose: Whether to output detailed logs
             browser_mode: protocol | headless | headed
         """
         self.proxy = proxy
@@ -97,7 +97,7 @@ class ChatGPTClient:
             ]
         )
 
-        # 随机 Chrome 版本
+        # random Chrome Version
         (
             self.impersonate,
             self.chrome_major,
@@ -106,13 +106,13 @@ class ChatGPTClient:
             self.sec_ch_ua,
         ) = _random_chrome_version()
 
-        # 创建 session
+        # create session
         self.session = curl_requests.Session(impersonate=self.impersonate)
 
         if self.proxy:
             self.session.proxies = build_requests_proxy_config(self.proxy)
 
-        # 设置基础 headers
+        # Setting the Basics headers
         self.session.headers.update(
             {
                 "User-Agent": self.ua,
@@ -127,7 +127,7 @@ class ChatGPTClient:
             }
         )
 
-        # 设置 oai-did cookie
+        # set up oai-did cookie
         seed_oai_device_cookie(self.session, self.device_id)
         self.last_registration_state = FlowState()
         self.last_stage = ""
@@ -144,7 +144,7 @@ class ChatGPTClient:
                 log_fn=lambda msg: self._log(msg),
             )
             if token:
-                self._log(f"{flow}: 已通过 Playwright SentinelSDK 获取 token")
+                self._log(f"{flow}: Passed Playwright SentinelSDK get token")
                 return token
 
         token = build_sentinel_token(
@@ -156,11 +156,11 @@ class ChatGPTClient:
             impersonate=self.impersonate,
         )
         if token:
-            self._log(f"{flow}: 已通过 HTTP PoW 获取 token")
+            self._log(f"{flow}: Passed HTTP PoW get token")
         return token
 
     def _log(self, msg):
-        """输出日志"""
+        """Output log"""
         if self.verbose:
             print(f"  {msg}")
 
@@ -173,7 +173,7 @@ class ChatGPTClient:
             self._log(message)
 
     def _browser_pause(self, low=0.15, high=0.45):
-        """在 headed 模式下加入轻微停顿，模拟有头浏览器节奏。"""
+        """exist headed Add a slight pause in the mode to simulate the rhythm of a head browser."""
         if self.browser_mode == "headed":
             random_delay(low, high)
 
@@ -210,7 +210,7 @@ class ChatGPTClient:
         )
 
     def _reset_session(self):
-        """重置浏览器指纹与会话，用于绕过偶发的 Cloudflare/SPA 中间页。"""
+        """Reset browser fingerprint and session to bypass occasional Cloudflare/SPA Middle page."""
         self.device_id = str(uuid.uuid4())
         (
             self.impersonate,
@@ -311,10 +311,10 @@ class ChatGPTClient:
         return False
 
     def _follow_flow_state(self, state: FlowState, referer=None):
-        """跟随服务端返回的 continue_url，推进注册状态机。"""
+        """Following the return from the server continue_url, advance the registration state machine."""
         target_url = state.continue_url or state.current_url
         if not target_url:
-            return False, "缺少可跟随的 continue_url"
+            return False, "lack to follow continue_url"
 
         try:
             self._browser_pause()
@@ -346,11 +346,11 @@ class ChatGPTClient:
             self._log(f"follow state -> {describe_flow_state(next_state)}")
             return True, next_state
         except Exception as e:
-            self._log(f"跟随 continue_url 失败: {e}")
+            self._log(f"follow continue_url fail: {e}")
             return False, str(e)
 
     def _get_cookie_value(self, name, domain_hint=None):
-        """读取当前会话中的 Cookie。"""
+        """Read the current session Cookie."""
         for cookie in self.session.cookies.jar:
             if cookie.name != name:
                 continue
@@ -360,14 +360,14 @@ class ChatGPTClient:
         return ""
 
     def get_next_auth_session_token(self):
-        """获取 ChatGPT next-auth 会话 Cookie。"""
+        """get ChatGPT next-auth session Cookie."""
         return (
             self._get_cookie_value("__Secure-next-auth.session-token", "chatgpt.com")
             or self._get_cookie_value("__Secure-authjs.session-token", "chatgpt.com")
         )
 
     def fetch_chatgpt_session(self, max_attempts=5, retry_delay=1.2):
-        """请求 ChatGPT Session 接口并返回原始会话数据。"""
+        """ask ChatGPT Session interface and returns raw session data."""
         url = f"{self.BASE}/api/auth/session"
         last_error = ""
 
@@ -385,10 +385,10 @@ class ChatGPTClient:
                     timeout=30,
                 )
             except Exception as exc:
-                last_error = f"/api/auth/session 请求异常: {exc}"
+                last_error = f"/api/auth/session Request exception: {exc}"
                 if attempt < max_attempts - 1:
                     self._log(
-                        f"{last_error}，等待 {retry_delay:.1f}s 后重试 "
+                        f"{last_error},wait {retry_delay:.1f}s Try again later "
                         f"({attempt + 1}/{max_attempts})"
                     )
                     time.sleep(retry_delay)
@@ -399,7 +399,7 @@ class ChatGPTClient:
                 last_error = f"/api/auth/session -> HTTP {response.status_code}"
                 if attempt < max_attempts - 1:
                     self._log(
-                        f"{last_error}，等待 {retry_delay:.1f}s 后重试 "
+                        f"{last_error},wait {retry_delay:.1f}s Try again later "
                         f"({attempt + 1}/{max_attempts})"
                     )
                     time.sleep(retry_delay)
@@ -409,10 +409,10 @@ class ChatGPTClient:
             try:
                 data = response.json()
             except Exception as exc:
-                last_error = f"/api/auth/session 返回非 JSON: {exc}"
+                last_error = f"/api/auth/session Return non JSON: {exc}"
                 if attempt < max_attempts - 1:
                     self._log(
-                        f"{last_error}，等待 {retry_delay:.1f}s 后重试 "
+                        f"{last_error},wait {retry_delay:.1f}s Try again later "
                         f"({attempt + 1}/{max_attempts})"
                     )
                     time.sleep(retry_delay)
@@ -423,10 +423,10 @@ class ChatGPTClient:
             if access_token:
                 return True, data
 
-            last_error = "/api/auth/session 未返回 accessToken"
+            last_error = "/api/auth/session Not returned accessToken"
             if attempt < max_attempts - 1:
                 self._log(
-                    f"{last_error}，等待 {retry_delay:.1f}s 后重试 "
+                    f"{last_error},wait {retry_delay:.1f}s Try again later "
                     f"({attempt + 1}/{max_attempts})"
                 )
                 try:
@@ -448,37 +448,37 @@ class ChatGPTClient:
 
             return False, last_error
 
-        return False, last_error or "/api/auth/session 未返回 accessToken"
+        return False, last_error or "/api/auth/session Not returned accessToken"
 
     def reuse_session_and_get_tokens(self):
         """
-        承接前序阶段已建立的 ChatGPT 会话，直接读取 Session / AccessToken。
+        Take over what has been established in the pre-procedure stage ChatGPT Session, read directly Session / AccessToken.
 
         Returns:
-            tuple[bool, dict|str]: 成功时返回标准化 token/session 数据；失败时返回错误信息。
+            tuple[bool, dict|str]: Return normalized on success token/session Data; returns an error message on failure.
         """
         self._enter_stage("token_exchange", "reuse session -> /api/auth/session")
         state = self.last_registration_state or FlowState()
-        self._log("步骤 1/4: 跟随注册回调 external_url ...")
+        self._log("step 1/4: Follow the registration callback external_url ...")
         if state.page_type == "external_url" or self._state_requires_navigation(state):
             ok, followed = self._follow_flow_state(
                 state,
                 referer=state.current_url or f"{self.AUTH}/about-you",
             )
             if not ok:
-                return False, f"注册回调落地失败: {followed}"
+                return False, f"Registration callback failed: {followed}"
             self.last_registration_state = followed
         else:
-            self._log("注册回调已落地，跳过额外跟随")
+            self._log("The registration callback has been implemented, skip the additional follow-up")
 
-        self._log("步骤 2/4: 检查 __Secure-next-auth.session-token ...")
+        self._log("step 2/4: examine __Secure-next-auth.session-token ...")
         session_cookie = ""
         for attempt in range(5):
             session_cookie = self.get_next_auth_session_token()
             if session_cookie:
                 break
             self._log(
-                f"next-auth session cookie 尚未落地，补一次 ChatGPT 首页触达 "
+                f"next-auth session cookie Not implemented yet, please make up for it once ChatGPT Home page reach "
                 f"({attempt + 1}/5)"
             )
             try:
@@ -495,12 +495,12 @@ class ChatGPTClient:
                     timeout=30,
                 )
             except Exception as exc:
-                self._log(f"补触达 ChatGPT 首页异常: {exc}")
+                self._log(f"Complementary touch ChatGPT Home page exception: {exc}")
             time.sleep(1.0)
         if not session_cookie:
-            return False, "缺少 ChatGPT session-token，注册回调可能未完全落地"
+            return False, "Lack ChatGPT session-token, the registration callback may not be fully implemented."
 
-        self._log("步骤 3/4: 请求 ChatGPT /api/auth/session ...")
+        self._log("step 3/4: ask ChatGPT /api/auth/session ...")
         ok, session_or_error = self.fetch_chatgpt_session()
         if not ok:
             return False, session_or_error
@@ -538,7 +538,7 @@ class ChatGPTClient:
             "raw_session": session_data,
         }
 
-        self._log("步骤 4/4: 已从当前会话中提取 accessToken")
+        self._log("step 4/4: Fetched from current session accessToken")
         if account_id:
             self._log(f"Session Account ID: {account_id}")
         if user_id:
@@ -546,8 +546,8 @@ class ChatGPTClient:
         return True, normalized
 
     def visit_homepage(self):
-        """访问首页，建立 session"""
-        self._log("访问 ChatGPT 首页...")
+        """Visit the homepage and create session"""
+        self._log("access ChatGPT front page...")
         url = f"{self.BASE}/"
         try:
             self._browser_pause()
@@ -563,12 +563,12 @@ class ChatGPTClient:
             )
             return r.status_code == 200
         except Exception as e:
-            self._log(f"访问首页失败: {e}")
+            self._log(f"Failed to access home page: {e}")
             return False
 
     def get_csrf_token(self):
-        """获取 CSRF token"""
-        self._log("获取 CSRF token...")
+        """get CSRF token"""
+        self._log("get CSRF token...")
         url = f"{self.BASE}/api/auth/csrf"
         try:
             r = self.session.get(
@@ -589,18 +589,18 @@ class ChatGPTClient:
                     self._log(f"CSRF token: {token[:20]}...")
                     return token
         except Exception as e:
-            self._log(f"获取 CSRF token 失败: {e}")
+            self._log(f"get CSRF token fail: {e}")
 
         return None
 
     def signin(self, email, csrf_token):
         """
-        提交邮箱，获取 authorize URL
+        Submit your email and get authorize URL
 
         Returns:
             str: authorize URL
         """
-        self._log(f"提交邮箱: {email}")
+        self._log(f"Submit email: {email}")
         url = f"{self.BASE}/api/auth/signin/openai"
 
         params = {
@@ -638,30 +638,30 @@ class ChatGPTClient:
                 data = r.json()
                 authorize_url = data.get("url", "")
                 if authorize_url:
-                    self._log(f"获取到 authorize URL")
+                    self._log(f"Get authorize URL")
                     return authorize_url
         except Exception as e:
-            self._log(f"提交邮箱失败: {e}")
+            self._log(f"Failed to submit email: {e}")
 
         return None
 
     def authorize(self, url, max_retries=3):
         """
-        访问 authorize URL，跟随重定向（带重试机制）
-        这是关键步骤，建立 auth.openai.com 的 session
+        access authorize URL, follow the redirect (with retry mechanism)
+        This is the key step to establish auth.openai.com of session
 
         Returns:
-            str: 最终重定向的 URL
+            str: ultimately redirected URL
         """
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
                     self._log(
-                        f"访问 authorize URL... (尝试 {attempt + 1}/{max_retries})"
+                        f"access authorize URL... (try {attempt + 1}/{max_retries})"
                     )
-                    time.sleep(1)  # 重试前等待
+                    time.sleep(1)  # Wait before retrying
                 else:
-                    self._log("访问 authorize URL...")
+                    self._log("access authorize URL...")
 
                 self._browser_pause()
                 r = self.session.get(
@@ -677,7 +677,7 @@ class ChatGPTClient:
                 )
 
                 final_url = str(r.url)
-                self._log(f"重定向到: {final_url}")
+                self._log(f"redirect to: {final_url}")
                 return final_url
 
             except Exception as e:
@@ -690,18 +690,18 @@ class ChatGPTClient:
 
                 if is_tls_error and attempt < max_retries - 1:
                     self._log(
-                        f"Authorize TLS 错误 (尝试 {attempt + 1}/{max_retries}): {error_msg[:100]}"
+                        f"Authorize TLS mistake (try {attempt + 1}/{max_retries}): {error_msg[:100]}"
                     )
                     continue
                 else:
-                    self._log(f"Authorize 失败: {e}")
+                    self._log(f"Authorize fail: {e}")
                     return ""
 
         return ""
 
     def callback(self, callback_url=None, referer=None):
-        """完成注册回调"""
-        self._log("执行回调...")
+        """Complete registration callback"""
+        self._log("Execute callback...")
         url = callback_url or f"{self.AUTH}/api/accounts/authorize/callback"
         ok, _ = self._follow_flow_state(
             self._state_from_url(url),
@@ -711,13 +711,13 @@ class ChatGPTClient:
 
     def register_user(self, email, password):
         """
-        注册用户（邮箱 + 密码）
+        Registered user (email + password)
 
         Returns:
             tuple: (success, message)
         """
         self._enter_stage("authorize_continue", f"register_user email={email}")
-        self._log(f"注册用户: {email}")
+        self._log(f"Registered user: {email}")
         url = f"{self.AUTH}/api/accounts/user/register"
 
         headers = self._headers(
@@ -749,26 +749,26 @@ class ChatGPTClient:
 
             if r.status_code == 200:
                 data = r.json()
-                self._log("注册成功")
-                self._log(f"authorize_continue/register_user 响应 URL: {str(r.url)[:120]}")
-                return True, "注册成功"
+                self._log("Registration successful")
+                self._log(f"authorize_continue/register_user response URL: {str(r.url)[:120]}")
+                return True, "Registration successful"
             else:
                 try:
                     error_data = r.json()
                     error_msg = error_data.get("error", {}).get("message", r.text[:200])
                 except:
                     error_msg = r.text[:200]
-                self._log(f"注册失败: {r.status_code} - {error_msg}")
+                self._log(f"Registration failed: {r.status_code} - {error_msg}")
                 return False, f"HTTP {r.status_code}: {error_msg}"
 
         except Exception as e:
-            self._log(f"注册异常: {e}")
+            self._log(f"Registration exception: {e}")
             return False, str(e)
 
     def send_email_otp(self, referer=None):
-        """触发发送邮箱验证码"""
+        """Trigger sending email verification code"""
         self._enter_stage("otp", "send email otp")
-        self._log("触发发送验证码...")
+        self._log("Trigger sending verification code...")
         url = f"{self.AUTH}/api/accounts/email-otp/send"
 
         try:
@@ -780,13 +780,14 @@ class ChatGPTClient:
                     accept="application/json, text/plain, */*",
                     referer=referer or f"{self.AUTH}/create-account/password",
                     fetch_site="same-origin",
+                    extra_headers={"oai-device-id": self.device_id},
                 ),
                 allow_redirects=True,
                 timeout=30,
             )
-            self._log(f"验证码发送状态: {r.status_code}")
+            self._log(f"Verification code sending status: {r.status_code}")
             if r.status_code != 200:
-                self._log(f"验证码发送失败响应: {r.text[:180]}")
+                self._log(f"Verification code sending failed response: {r.text[:180]}")
                 return False
 
             try:
@@ -796,28 +797,37 @@ class ChatGPTClient:
 
             if isinstance(payload, dict) and payload:
                 next_state = self._state_from_payload(payload, current_url=str(r.url) or url)
-                self._log(f"验证码发送响应: {describe_flow_state(next_state)}")
-                self._log(f"otp/send 当前 URL: {str(r.url)[:120]}")
+                self._log(f"Verification code sending response: {describe_flow_state(next_state)}")
+                self._log(f"otp/send current URL: {str(r.url)[:120]}")
             else:
-                self._log("验证码发送响应: 非 JSON（按已触发处理）")
+                self._log("Verification code sending response: No JSON(processed as triggered)")
             return True
         except Exception as e:
-            self._log(f"发送验证码失败: {e}")
+            self._log(f"Failed to send verification code: {e}")
             return False
 
     def verify_email_otp(self, otp_code, return_state=False):
         """
-        验证邮箱 OTP 码
+        Verify email OTP code
 
         Args:
-            otp_code: 6位验证码
+            otp_code: 6Verification code
 
         Returns:
             tuple: (success, message)
         """
         self._enter_stage("otp", f"verify email otp code={otp_code}")
-        self._log(f"验证 OTP 码: {otp_code}")
+        self._log(f"verify OTP code: {otp_code}")
         url = f"{self.AUTH}/api/accounts/email-otp/validate"
+
+        sentinel_token = self._get_sentinel_token(
+            "email_otp_validate",
+            page_url=f"{self.AUTH}/email-verification",
+        )
+
+        extra = {"oai-device-id": self.device_id}
+        if sentinel_token:
+            extra["openai-sentinel-token"] = sentinel_token
 
         headers = self._headers(
             url,
@@ -826,6 +836,7 @@ class ChatGPTClient:
             origin=self.AUTH,
             content_type="application/json",
             fetch_site="same-origin",
+            extra_headers=extra,
         )
         headers.update(generate_datadog_trace())
 
@@ -843,33 +854,33 @@ class ChatGPTClient:
                 next_state = self._state_from_payload(
                     data, current_url=str(r.url) or f"{self.AUTH}/about-you"
                 )
-                self._log(f"验证成功 {describe_flow_state(next_state)}")
-                self._log(f"otp/validate 当前 URL: {str(r.url)[:120]}")
-                return (True, next_state) if return_state else (True, "验证成功")
+                self._log(f"Verification successful {describe_flow_state(next_state)}")
+                self._log(f"otp/validate current URL: {str(r.url)[:120]}")
+                return (True, next_state) if return_state else (True, "Verification successful")
             else:
                 error_msg = r.text[:200]
-                self._log(f"验证失败: {r.status_code} - {error_msg}")
+                self._log(f"Authentication failed: {r.status_code} - {error_msg}")
                 return False, f"HTTP {r.status_code}"
 
         except Exception as e:
-            self._log(f"验证异常: {e}")
+            self._log(f"Validation exception: {e}")
             return False, str(e)
 
     def create_account(self, first_name, last_name, birthdate, return_state=False):
         """
-        完成账号创建（提交姓名和生日）
+        Complete account creation (submit name and birthday)
 
         Args:
-            first_name: 名
-            last_name: 姓
-            birthdate: 生日 (YYYY-MM-DD)
+            first_name: name
+            last_name: surname
+            birthdate: Birthday (YYYY-MM-DD)
 
         Returns:
             tuple: (success, message)
         """
         self._enter_stage("about_you", "register create_account")
         name = f"{first_name} {last_name}"
-        self._log(f"完成账号创建: {name}")
+        self._log(f"Complete account creation: {name}")
         url = f"{self.AUTH}/api/accounts/create_account"
 
         sentinel_token = self._get_sentinel_token(
@@ -877,9 +888,9 @@ class ChatGPTClient:
             page_url=f"{self.AUTH}/about-you",
         )
         if sentinel_token:
-            self._log("create_account: 已生成 sentinel token")
+            self._log("create_account: Generated sentinel token")
         else:
-            self._log("create_account: 未生成 sentinel token，降级继续请求")
+            self._log("create_account: Not generated sentinel token, downgrade continuation request")
 
         headers = self._headers(
             url,
@@ -913,9 +924,9 @@ class ChatGPTClient:
                 next_state = self._state_from_payload(
                     data, current_url=str(r.url) or self.BASE
                 )
-                self._log(f"账号创建成功 {describe_flow_state(next_state)}")
-                self._log(f"about_you/create_account 当前 URL: {str(r.url)[:120]}")
-                return (True, next_state) if return_state else (True, "账号创建成功")
+                self._log(f"Account created successfully {describe_flow_state(next_state)}")
+                self._log(f"about_you/create_account current URL: {str(r.url)[:120]}")
+                return (True, next_state) if return_state else (True, "Account created successfully")
             else:
                 error_code = ""
                 error_msg = r.text[:200]
@@ -933,12 +944,119 @@ class ChatGPTClient:
                 elif error_msg:
                     detail += f": {error_msg}"
 
-                self._log(f"创建失败: {detail} - {error_msg[:200]}")
+                self._log(f"Creation failed: {detail} - {error_msg[:200]}")
+                if self.browser_mode != "protocol" and (r.status_code == 403 or "cloudflare" in error_msg.lower() or "challenge" in error_msg.lower()):
+                    self._log("Trigger browser fallback to submit about-you details...")
+                    success, b_state = self._browser_submit_create_account(first_name, last_name, birthdate)
+                    if success:
+                        return (True, b_state) if return_state else (True, "Account created successfully")
+                    else:
+                        return False, f"Browser fallback failed: {b_state}"
                 return False, detail
 
         except Exception as e:
-            self._log(f"创建异常: {e}")
+            self._log(f"Create exception: {e}")
+            if self.browser_mode != "protocol":
+                self._log("Trigger browser fallback on create exception...")
+                success, b_state = self._browser_submit_create_account(first_name, last_name, birthdate)
+                if success:
+                    return (True, b_state) if return_state else (True, "Account created successfully")
+                else:
+                    return False, f"Browser fallback failed: {b_state}"
             return False, str(e)
+
+    def _browser_submit_create_account(self, first_name, last_name, birthdate):
+        """Submit name and birthdate via Playwright browser context"""
+        from playwright.sync_api import sync_playwright
+        from core.browser_runtime import resolve_browser_headless, ensure_browser_display_available
+        from core.proxy_utils import build_playwright_proxy_config, resolve_us_profile
+        import json
+
+        headless = self.browser_mode != "headed"
+        effective_headless, reason = resolve_browser_headless(headless)
+        ensure_browser_display_available(effective_headless)
+
+        launch_args = {
+            "headless": effective_headless,
+            "args": ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+        }
+        proxy_config = build_playwright_proxy_config(self.proxy)
+        if proxy_config:
+            launch_args["proxy"] = proxy_config
+
+        us_loc = resolve_us_profile(self.proxy)
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(**launch_args)
+            try:
+                context = browser.new_context(
+                    viewport={"width": 1440, "height": 900},
+                    user_agent=self.ua,
+                    locale=us_loc["locale"],
+                    timezone_id=us_loc["timezone"],
+                    geolocation={"latitude": us_loc["latitude"], "longitude": us_loc["longitude"]},
+                    permissions=["geolocation"],
+                    ignore_https_errors=True,
+                )
+
+                # Copy cookies from curl_cffi session to Playwright context
+                playwright_cookies = []
+                for cookie in self.session.cookies:
+                    domain = cookie.domain
+                    if not domain.startswith("."):
+                        domain = "." + domain
+                    playwright_cookies.append({
+                        "name": cookie.name,
+                        "value": cookie.value,
+                        "domain": domain,
+                        "path": cookie.path,
+                        "secure": True,
+                        "sameSite": "Lax",
+                    })
+                context.add_cookies(playwright_cookies)
+
+                page = context.new_page()
+                target_url = f"{self.AUTH}/about-you"
+                self._log(f"Navigating browser to: {target_url}")
+                page.goto(target_url, wait_until="domcontentloaded", timeout=45000)
+
+                # Wait for inputs to become visible
+                first_name_sel = 'input[name="firstName"], input[placeholder*="First"], input[type="text"]'
+                page.wait_for_selector(first_name_sel, timeout=15000)
+
+                # Fill details
+                page.fill('input[placeholder*="First"], input[name="firstName"]', first_name)
+                page.fill('input[placeholder*="Last"], input[name="lastName"]', last_name)
+                page.fill('input[type="date"], input[placeholder*="YYYY"], input[name="birthday"]', birthdate)
+
+                # Click submit
+                submit_btn = 'button[type="submit"], button:has-text("Continue"), button:has-text("Submit")'
+                page.click(submit_btn)
+
+                # Wait for redirect
+                page.wait_for_timeout(5000)
+
+                # Retrieve updated cookies and sync them back to self.session
+                updated_cookies = context.cookies()
+                for c in updated_cookies:
+                    self.session.cookies.set(
+                        c["name"],
+                        c["value"],
+                        domain=c["domain"],
+                        path=c["path"],
+                    )
+
+                final_url = page.url
+                self._log(f"Browser redirected to: {final_url}")
+                state = self._state_from_url(final_url)
+                return True, state
+
+            except Exception as e:
+                self._log(f"Browser fallback exception: {e}")
+                return False, str(e)
+            finally:
+                browser.close()
+
 
     def register_complete_flow(
         self,
@@ -953,15 +1071,15 @@ class ChatGPTClient:
         otp_resend_wait_timeout=300,
     ):
         """
-        完整的注册流程（基于原版 run_register 方法）
+        Complete registration process (based on the original run_register method)
 
         Args:
-            email: 邮箱
-            password: 密码
-            first_name: 名
-            last_name: 姓
-            birthdate: 生日
-            skymail_client: Skymail 客户端（用于获取验证码）
+            email: Mail
+            password: password
+            first_name: name
+            last_name: surname
+            birthdate: Birthday
+            skymail_client: Skymail Client (used to obtain verification code)
 
         Returns:
             tuple: (success, message)
@@ -969,7 +1087,7 @@ class ChatGPTClient:
         from urllib.parse import urlparse
 
         self._log(
-            "注册状态机参数: "
+            "Register state machine parameters: "
             f"stop_before_about_you_submission={'on' if stop_before_about_you_submission else 'off'}, "
             f"otp_wait_timeout={otp_wait_timeout}s, otp_resend_wait_timeout={otp_resend_wait_timeout}s"
         )
@@ -989,52 +1107,52 @@ class ChatGPTClient:
 
         for auth_attempt in range(max_auth_attempts):
             if auth_attempt > 0:
-                self._log(f"预授权阶段重试 {auth_attempt + 1}/{max_auth_attempts}...")
+                self._log(f"Pre-authorization phase retry {auth_attempt + 1}/{max_auth_attempts}...")
                 self._reset_session()
 
-            # 1. 访问首页
+            # 1. Visit home page
             if not self.visit_homepage():
                 if auth_attempt < max_auth_attempts - 1:
                     continue
-                return False, "访问首页失败"
+                return False, "Failed to access home page"
 
-            # 2. 获取 CSRF token
+            # 2. get CSRF token
             csrf_token = self.get_csrf_token()
             if not csrf_token:
                 if auth_attempt < max_auth_attempts - 1:
                     continue
-                return False, "获取 CSRF token 失败"
+                return False, "get CSRF token fail"
 
-            # 3. 提交邮箱，获取 authorize URL
+            # 3. Submit your email and get authorize URL
             auth_url = self.signin(email, csrf_token)
             if not auth_url:
                 if auth_attempt < max_auth_attempts - 1:
                     continue
-                return False, "提交邮箱失败"
+                return False, "Failed to submit email"
 
-            # 4. 访问 authorize URL（关键步骤！）
+            # 4. access authorize URL(Critical step!)
             final_url = self.authorize(auth_url)
             if not final_url:
                 if auth_attempt < max_auth_attempts - 1:
                     continue
-                return False, "Authorize 失败"
+                return False, "Authorize fail"
 
             final_path = urlparse(final_url).path
-            self._log(f"Authorize → {final_path}")
+            self._log(f"Authorize -> {final_path}")
 
-            # /api/accounts/authorize 实际上常对应 Cloudflare 403 中间页，不要继续走 authorize_continue。
+            # /api/accounts/authorize In fact, it often corresponds to Cloudflare 403 Middle page, don’t continue walking authorize_continue.
             if "api/accounts/authorize" in final_path or final_path == "/error":
                 self._log(
-                    f"检测到 Cloudflare/SPA 中间页，准备重试预授权: {final_url[:160]}..."
+                    f"detected Cloudflare/SPA Intermediate page, ready to retry pre-authorization: {final_url[:160]}..."
                 )
                 if auth_attempt < max_auth_attempts - 1:
                     continue
-                return False, f"预授权被拦截: {final_path}"
+                return False, f"Pre-authorization blocked: {final_path}"
 
             break
 
         state = self._state_from_url(final_url)
-        self._log(f"注册状态起点: {describe_flow_state(state)}")
+        self._log(f"Registration status starting point: {describe_flow_state(state)}")
 
         register_submitted = False
         otp_verified = False
@@ -1047,65 +1165,65 @@ class ChatGPTClient:
             signature = self._state_signature(state)
             seen_states[signature] = seen_states.get(signature, 0) + 1
             self._log(
-                f"注册状态推进: step={sum(seen_states.values())} "
+                f"Registration status advancement: step={sum(seen_states.values())} "
                 f"state={describe_flow_state(state)} seen={seen_states[signature]}"
             )
             if seen_states[signature] > 2:
-                return False, f"注册状态卡住: {describe_flow_state(state)}"
+                return False, f"Registration status stuck: {describe_flow_state(state)}"
 
             if self._is_registration_complete_state(state):
                 self.last_registration_state = state
-                self._log("[OK] 注册流程完成")
-                return True, "注册成功"
+                self._log("[OK] Registration process completed")
+                return True, "Registration successful"
 
             if self._state_is_password_registration(state):
                 self._enter_stage("authorize_continue", describe_flow_state(state))
-                self._log("全新注册流程")
+                self._log("New registration process")
                 if register_submitted:
-                    return False, "注册密码阶段重复进入"
+                    return False, "Repeated entry during the password registration phase"
                 success, msg = self.register_user(email, password)
                 if not success:
-                    return False, f"注册失败: {msg}"
+                    return False, f"Registration failed: {msg}"
                 register_submitted = True
                 otp_send_attempts += 1
-                self._log(f"发送注册验证码: attempt={otp_send_attempts}")
+                self._log(f"Send registration verification code: attempt={otp_send_attempts}")
                 if not self.send_email_otp(
                     referer=state.current_url or state.continue_url or f"{self.AUTH}/create-account/password"
                 ):
-                    self._log("发送验证码接口返回失败，继续等待邮箱中的验证码...")
+                    self._log("The interface for sending the verification code returns failure and continues to wait for the verification code in the mailbox....")
                 else:
-                    self._log("发送注册验证码成功，进入收码阶段")
+                    self._log("The registration verification code is sent successfully and the code collection stage is entered.")
                 state = self._state_from_url(f"{self.AUTH}/email-verification")
                 continue
 
             if self._state_is_email_otp(state):
                 self._enter_stage("otp", describe_flow_state(state))
-                self._log("等待邮箱验证码...")
+                self._log("Waiting for email verification code...")
                 otp_code = skymail_client.wait_for_verification_code(
                     email, timeout=otp_wait_timeout
                 )
                 if not otp_code:
                     self._log(
-                        "首次等待未收到验证码，尝试重发一次 email-otp/send "
-                        f"后再等待 {otp_resend_wait_timeout}s"
+                        "If the verification code is not received after waiting for the first time, try to resend it again. email-otp/send "
+                        f"wait later {otp_resend_wait_timeout}s"
                     )
                     otp_send_attempts += 1
                     resend_ok = self.send_email_otp(
                         referer=state.current_url or state.continue_url or f"{self.AUTH}/email-verification"
                     )
                     if resend_ok:
-                        self._log(f"重发验证码成功: attempt={otp_send_attempts}")
+                        self._log(f"Resend verification code successfully: attempt={otp_send_attempts}")
                     else:
-                        self._log(f"重发验证码失败: attempt={otp_send_attempts}")
+                        self._log(f"Failed to resend verification code: attempt={otp_send_attempts}")
                     otp_code = skymail_client.wait_for_verification_code(
                         email, timeout=otp_resend_wait_timeout
                     )
                 if not otp_code:
-                    return False, "未收到验证码"
+                    return False, "Verification code not received"
 
                 success, next_state = self.verify_email_otp(otp_code, return_state=True)
                 if not success:
-                    return False, f"验证码失败: {next_state}"
+                    return False, f"Verification code failed: {next_state}"
                 otp_verified = True
                 state = next_state
                 self.last_registration_state = state
@@ -1116,12 +1234,12 @@ class ChatGPTClient:
                 if stop_before_about_you_submission:
                     self.last_registration_state = state
                     self._log(
-                        "注册链路已到 about_you，按 interrupt 流程停止。"
-                        "下一步交由 OAuth 新会话提交姓名+生日。"
+                        "Registration link has arrived about_you,according to interrupt The process stops."
+                        "Next step is handed over to OAuth New session submission name+Birthday."
                     )
                     return True, "pending_about_you_submission"
                 if account_created:
-                    return False, "填写信息阶段重复进入"
+                    return False, "Repeat the filling in information stage"
                 success, next_state = self.create_account(
                     first_name,
                     last_name,
@@ -1129,7 +1247,7 @@ class ChatGPTClient:
                     return_state=True,
                 )
                 if not success:
-                    return False, f"创建账号失败: {next_state}"
+                    return False, f"Failed to create account: {next_state}"
                 account_created = True
                 state = next_state
                 self.last_registration_state = state
@@ -1145,7 +1263,7 @@ class ChatGPTClient:
                     referer=state.current_url or f"{self.AUTH}/about-you",
                 )
                 if not success:
-                    return False, f"跳转失败: {next_state}"
+                    return False, f"Jump failed: {next_state}"
                 state = next_state
                 self.last_registration_state = state
                 continue
@@ -1156,11 +1274,11 @@ class ChatGPTClient:
                 and (not account_created)
             ):
                 self._log(
-                    f"未知起始状态，回退为全新注册流程: {describe_flow_state(state)}"
+                    f"Unknown starting status, falling back to a new registration process: {describe_flow_state(state)}"
                 )
                 state = self._state_from_url(f"{self.AUTH}/create-account/password")
                 continue
 
-            return False, f"未支持的注册状态: {describe_flow_state(state)}"
+            return False, f"Unsupported registration status: {describe_flow_state(state)}"
 
-        return False, "注册状态机超出最大步数"
+        return False, "Registered state machine exceeds maximum number of steps"

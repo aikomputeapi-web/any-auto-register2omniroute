@@ -1,5 +1,5 @@
 """
-CPA (Codex Protocol API) 上传功能
+CPA (Codex Protocol API) Upload function
 """
 
 import json
@@ -65,8 +65,8 @@ def _build_compat_id_token(
     email: str,
 ) -> str:
     """
-    基于 access_token 构造一个仅供本地 CPA/玩具环境解析的兼容 id_token。
-    注意：该 token 仅用于不校验签名、只解析 payload 的本地兼容场景。
+    based on access_token Construct a local-only CPA/Compatibility of toy environment analysis id_token.
+    NOTE: The token Only used for not verifying signatures, only parsing payload local compatibility scenario.
     """
     payload = _decode_jwt_payload(access_token)
     if not payload:
@@ -156,9 +156,9 @@ def _get_config_value(key: str) -> str:
 
 def generate_token_json(account) -> dict:
     """
-    生成 CPA 格式的 Token JSON。
-    接受任意 duck-typed 对象（需有 email, access_token, refresh_token 属性），
-    expired / account_id 从 JWT 自动解码，与 chatgpt_register 逻辑一致。
+    generate CPA Formatted Token JSON.
+    Accept any duck-typed Object (requires email, access_token, refresh_token property),
+    expired / account_id from JWT Automatic decoding, with chatgpt_register Logically consistent.
     """
     email = getattr(account, "email", "")
     access_token = getattr(account, "access_token", "")
@@ -198,14 +198,14 @@ def upload_to_cpa(
     api_key: str = None,
     proxy: str = None,
 ) -> Tuple[bool, str]:
-    """上传单个账号到 CPA 管理平台（不走代理）。
-    api_url / api_key 为空时自动从 ConfigStore 读取。"""
+    """Upload a single account to CPA Management platform (without using an agent).
+    api_url / api_key When empty, automatically starts from ConfigStore Read."""
     if not api_url:
         api_url = _get_config_value("cpa_api_url")
     if not api_key:
         api_key = _get_config_value("cpa_api_key")
     if not api_url:
-        return False, "CPA API URL 未配置"
+        return False, "CPA API URL Not configured"
 
     upload_url = f"{api_url.rstrip('/')}/v0/management/auth-files"
 
@@ -237,9 +237,9 @@ def upload_to_cpa(
         )
 
         if response.status_code in (200, 201):
-            return True, "上传成功"
+            return True, "Upload successful"
 
-        error_msg = f"上传失败: HTTP {response.status_code}"
+        error_msg = f"Upload failed: HTTP {response.status_code}"
         try:
             error_detail = response.json()
             if isinstance(error_detail, dict):
@@ -249,8 +249,8 @@ def upload_to_cpa(
         return False, error_msg
 
     except Exception as e:
-        logger.error(f"CPA 上传异常: {e}")
-        return False, f"上传异常: {str(e)}"
+        logger.error(f"CPA Upload exception: {e}")
+        return False, f"Upload exception: {str(e)}"
     finally:
         if mime:
             mime.close()
@@ -261,21 +261,21 @@ def upload_to_team_manager(
     api_url: str = None,
     api_key: str = None,
 ) -> Tuple[bool, str]:
-    """上传单账号到 Team Manager（直连，不走代理）。
-    api_url / api_key 为空时自动从 ConfigStore 读取。"""
+    """Upload flyer account to Team Manager(Direct connection, no agency).
+    api_url / api_key When empty, automatically starts from ConfigStore Read."""
     if not api_url:
         api_url = _get_config_value("team_manager_url")
     if not api_key:
         api_key = _get_config_value("team_manager_key")
     if not api_url:
-        return False, "Team Manager API URL 未配置"
+        return False, "Team Manager API URL Not configured"
     if not api_key:
-        return False, "Team Manager API Key 未配置"
+        return False, "Team Manager API Key Not configured"
 
     email = getattr(account, "email", "")
     access_token = getattr(account, "access_token", "")
     if not access_token:
-        return False, "账号缺少 access_token"
+        return False, "Account missing access_token"
 
     url = api_url.rstrip("/") + "/api/accounts/import"
     headers = {
@@ -302,8 +302,8 @@ def upload_to_team_manager(
             impersonate="chrome110",
         )
         if resp.status_code in (200, 201):
-            return True, "上传成功"
-        error_msg = f"上传失败: HTTP {resp.status_code}"
+            return True, "Upload successful"
+        error_msg = f"Upload failed: HTTP {resp.status_code}"
         try:
             detail = resp.json()
             if isinstance(detail, dict):
@@ -312,8 +312,8 @@ def upload_to_team_manager(
             error_msg = f"{error_msg} - {resp.text[:200]}"
         return False, error_msg
     except Exception as e:
-        logger.error(f"Team Manager 上传异常: {e}")
-        return False, f"上传异常: {str(e)}"
+        logger.error(f"Team Manager Upload exception: {e}")
+        return False, f"Upload exception: {str(e)}"
 
 
 def upload_to_codex_proxy(
@@ -321,20 +321,20 @@ def upload_to_codex_proxy(
     api_url: str = None,
     api_key: str = None,
 ) -> Tuple[bool, str]:
-    """上传单账号到 CodexProxy（通过 refresh_token，不走代理）。
-    api_url / api_key 为空时自动从 ConfigStore 读取。"""
+    """Upload flyer account to CodexProxy(pass refresh_token, do not use an agent).
+    api_url / api_key When empty, automatically starts from ConfigStore Read."""
     if not api_url:
         api_url = _get_config_value("codex_proxy_url")
     if not api_key:
         api_key = _get_config_value("codex_proxy_key")
     if not api_url:
-        return False, "CodexProxy API URL 未配置"
+        return False, "CodexProxy API URL Not configured"
     if not api_key:
-        return False, "CodexProxy Admin Key 未配置"
+        return False, "CodexProxy Admin Key Not configured"
 
     refresh_token = getattr(account, "refresh_token", "")
     if not refresh_token:
-        return False, "账号缺少 refresh_token"
+        return False, "Account missing refresh_token"
 
     url = api_url.rstrip("/") + "/api/admin/accounts"
     headers = {
@@ -360,11 +360,11 @@ def upload_to_codex_proxy(
         if resp.status_code in (200, 201):
             try:
                 data = resp.json()
-                msg = data.get("message", "上传成功")
+                msg = data.get("message", "Upload successful")
             except Exception:
-                msg = "上传成功"
+                msg = "Upload successful"
             return True, msg
-        error_msg = f"上传失败: HTTP {resp.status_code}"
+        error_msg = f"Upload failed: HTTP {resp.status_code}"
         try:
             detail = resp.json()
             if isinstance(detail, dict):
@@ -373,8 +373,8 @@ def upload_to_codex_proxy(
             error_msg = f"{error_msg} - {resp.text[:200]}"
         return False, error_msg
     except Exception as e:
-        logger.error(f"CodexProxy 上传异常: {e}")
-        return False, f"上传异常: {str(e)}"
+        logger.error(f"CodexProxy Upload exception: {e}")
+        return False, f"Upload exception: {str(e)}"
 
 
 def upload_at_to_codex_proxy(
@@ -382,19 +382,19 @@ def upload_at_to_codex_proxy(
     api_url: str = None,
     api_key: str = None,
 ) -> Tuple[bool, str]:
-    """上传单账号到 CodexProxy（通过 access_token，走 /api/admin/accounts/at）。"""
+    """Upload flyer account to CodexProxy(pass access_token,Walk /api/admin/accounts/at)."""
     if not api_url:
         api_url = _get_config_value("codex_proxy_url")
     if not api_key:
         api_key = _get_config_value("codex_proxy_key")
     if not api_url:
-        return False, "CodexProxy API URL 未配置"
+        return False, "CodexProxy API URL Not configured"
     if not api_key:
-        return False, "CodexProxy Admin Key 未配置"
+        return False, "CodexProxy Admin Key Not configured"
 
     access_token = getattr(account, "access_token", "")
     if not access_token:
-        return False, "账号缺少 access_token"
+        return False, "Account missing access_token"
 
     url = api_url.rstrip("/") + "/api/admin/accounts/at"
     headers = {
@@ -420,11 +420,11 @@ def upload_at_to_codex_proxy(
         if resp.status_code in (200, 201):
             try:
                 data = resp.json()
-                msg = data.get("message", "上传成功")
+                msg = data.get("message", "Upload successful")
             except Exception:
-                msg = "上传成功"
+                msg = "Upload successful"
             return True, msg
-        error_msg = f"上传失败: HTTP {resp.status_code}"
+        error_msg = f"Upload failed: HTTP {resp.status_code}"
         try:
             detail = resp.json()
             if isinstance(detail, dict):
@@ -433,16 +433,16 @@ def upload_at_to_codex_proxy(
             error_msg = f"{error_msg} - {resp.text[:200]}"
         return False, error_msg
     except Exception as e:
-        logger.error(f"CodexProxy AT 上传异常: {e}")
-        return False, f"上传异常: {str(e)}"
+        logger.error(f"CodexProxy AT Upload exception: {e}")
+        return False, f"Upload exception: {str(e)}"
 
 
 def test_cpa_connection(api_url: str, api_token: str, proxy: str = None) -> Tuple[bool, str]:
-    """测试 CPA 连接（不走代理）"""
+    """test CPA Connect (without proxy)"""
     if not api_url:
-        return False, "API URL 不能为空"
+        return False, "API URL cannot be empty"
     if not api_token:
-        return False, "API Token 不能为空"
+        return False, "API Token cannot be empty"
 
     api_url = api_url.rstrip("/")
     test_url = f"{api_url}/v0/management/auth-files"
@@ -460,14 +460,14 @@ def test_cpa_connection(api_url: str, api_token: str, proxy: str = None) -> Tupl
 
         if response.status_code in (200, 204, 401, 403, 405):
             if response.status_code == 401:
-                return False, "连接成功，但 API Token 无效"
-            return True, "CPA 连接测试成功"
+                return False, "The connection is successful but API Token invalid"
+            return True, "CPA Connection test successful"
 
-        return False, f"服务器返回异常状态码: {response.status_code}"
+        return False, f"The server returns an exception status code: {response.status_code}"
 
     except cffi_requests.exceptions.ConnectionError as e:
-        return False, f"无法连接到服务器: {str(e)}"
+        return False, f"Unable to connect to server: {str(e)}"
     except cffi_requests.exceptions.Timeout:
-        return False, "连接超时，请检查网络配置"
+        return False, "Connection timed out, please check network configuration"
     except Exception as e:
-        return False, f"连接测试失败: {str(e)}"
+        return False, f"Connection test failed: {str(e)}"

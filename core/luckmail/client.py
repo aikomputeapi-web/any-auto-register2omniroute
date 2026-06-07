@@ -1,8 +1,8 @@
 """
-LuckMailClient - 主客户端入口
+LuckMailClient - Main client entrance
 
-整合用户端和供应商端 API，提供统一的访问入口。
-支持同步/异步双模式，智能识别调用上下文。
+Integrate client and supplier API, providing a unified access entrance.
+Support synchronization/Asynchronous dual mode, intelligent identification of calling context.
 """
 
 from typing import Optional
@@ -14,20 +14,20 @@ from .supplier import SupplierAPI
 
 class LuckMailClient:
     """
-    LuckMail SDK 主客户端
+    LuckMail SDK main client
     
-    提供用户端（user）和供应商端（supplier）两套 API 访问入口。
-    所有 API 方法均支持同步/异步双模式，根据调用上下文自动识别，
-    无需手动区分，大幅降低接入成本。
+    Provide client (user) and supplier side (supplier) two sets API Access entrance.
+    all API All methods support synchronization/Asynchronous dual mode, automatically recognized according to the calling context,
+    No manual differentiation is required, significantly reducing access costs.
     
     Args:
-        base_url: API 基础 URL，如 https://your-domain.com
-        api_key: API Key（在平台「个人设置」页面生成）
-        api_secret: API Secret（可选，用于 HMAC 签名验证，安全性更高）
-        timeout: 请求超时时间（秒），默认 30
-        use_hmac: 是否使用 HMAC 签名验证，默认 False
+        base_url: API Base URL,like https://your-domain.com
+        api_key: API Key(Generated on the platform’s “Personal Settings” page)
+        api_secret: API Secret(optional, for HMAC Signature verification, higher security)
+        timeout: Request timeout (seconds), default 30
+        use_hmac: Whether to use HMAC Signature verification, default False
     
-    用户端示例（同步）::
+    Client example (synchronization)::
     
         from luckmail import LuckMailClient
         
@@ -36,15 +36,15 @@ class LuckMailClient:
             api_key="your_api_key_here"
         )
         
-        # 查询余额
+        # Check balance
         balance = client.user.get_balance()
-        print(f"余额: {balance}")
+        print(f"Balance: {balance}")
         
-        # 接码（一行搞定）
+        # Receive code (all done in one line)
         code = client.user.create_and_wait('twitter')
-        print(f"验证码: {code.verification_code}")
+        print(f"Verification code: {code.verification_code}")
     
-    用户端示例（异步）::
+    Client example (asynchronous)::
     
         import asyncio
         from luckmail import LuckMailClient
@@ -56,21 +56,21 @@ class LuckMailClient:
         
         async def main():
             balance = await client.user.get_balance()
-            print(f"余额: {balance}")
+            print(f"Balance: {balance}")
             
             code = await client.user.create_and_wait('twitter')
-            print(f"验证码: {code.verification_code}")
+            print(f"Verification code: {code.verification_code}")
         
         asyncio.run(main())
     
-    供应商端示例::
+    Supplier side example::
     
-        # 查看数据看板
+        # View data dashboard
         summary = client.supplier.get_dashboard()
-        print(f"今日接码: {summary.today_assigned}")
+        print(f"Receive code today: {summary.today_assigned}")
         
-        # 处理申述
-        client.supplier.reply_appeal("APL001", result=1, reply="同意退款")
+        # Handling representations
+        client.supplier.reply_appeal("APL001", result=1, reply="Agree to refund")
     """
     
     def __init__(
@@ -90,12 +90,12 @@ class LuckMailClient:
             use_hmac=use_hmac,
             proxy_url=proxy_url,
         )
-        # 用户端 API
+        # client API
         self.user = UserAPI(self._http)
-        # 供应商端 API
+        # Supplier side API
         self.supplier = SupplierAPI(self._http)
     
-    # ===== 快捷方法（用户端常用操作）=====
+    # ===== Shortcut methods (common operations on the user side)=====
     
     def create_and_wait(
         self,
@@ -109,42 +109,42 @@ class LuckMailClient:
         on_poll=None,
     ):
         """
-        创建接码订单并等待验证码（一站式方法）
+        Create a code pickup order and wait for the verification code (one-stop method)
         
-        自动创建订单并轮询等待验证码，智能识别同步/异步上下文。
+        Automatically create orders and poll for verification codes, intelligent identification and synchronization/Asynchronous context.
         
         Args:
-            project_code: 项目编码，如 'twitter', 'facebook'
-            email_type: 邮箱类型（可选）
-            domain: 指定域名（可选）
-            specified_email: 指定邮箱（可选）
-            variant_mode: 谷歌变种模式（可选，仅 email_type=google_variant 时有效）: dot / plus / mixed / all
-            timeout: 最大等待时间（秒），默认 300
-            interval: 轮询间隔（秒），默认 3.0
-            on_poll: 每次轮询的回调函数（可选）
+            project_code: Project coding, such as 'twitter', 'facebook'
+            email_type: Email type (optional)
+            domain: Specify domain name (optional)
+            specified_email: Specify email address (optional)
+            variant_mode: Google variant mode (optional, only email_type=google_variant valid at the time): dot / plus / mixed / all
+            timeout: Maximum wait time (seconds), default 300
+            interval: Polling interval (seconds), default 3.0
+            on_poll: Callback function for each poll (optional)
         
         Returns:
-            OrderCode: 验证码结果
+            OrderCode: Verification code result
         
-        同步示例::
+        Synchronization example::
         
             result = client.create_and_wait('twitter')
             if result.status == 'success':
-                print(f"✅ 验证码: {result.verification_code}")
-                print(f"📧 来自: {result.mail_from}")
+                print(f"✅ Verification code: {result.verification_code}")
+                print(f"📧 from: {result.mail_from}")
             else:
-                print(f"❌ 接码失败: {result.status}")
+                print(f"❌ Failed to receive code: {result.status}")
         
-        异步示例::
+        Asynchronous example::
         
             result = await client.create_and_wait('twitter', email_type='ms_graph')
             if result.status == 'success':
-                print(f"✅ 验证码: {result.verification_code}")
+                print(f"✅ Verification code: {result.verification_code}")
         
-        带进度回调的示例::
+        Example with progress callback::
         
             def on_poll(code_result):
-                print(f"轮询中... 状态: {code_result.status}")
+                print(f"Polling... state: {code_result.status}")
             
             result = client.create_and_wait('twitter', on_poll=on_poll)
         """
@@ -163,7 +163,7 @@ class LuckMailClient:
         self, project_code, email_type, domain, specified_email, variant_mode,
         timeout, interval, on_poll
     ):
-        """异步创建并等待验证码"""
+        """Create asynchronously and wait for verification code"""
         body = {"project_code": project_code}
         if email_type:
             body["email_type"] = email_type
@@ -183,7 +183,7 @@ class LuckMailClient:
         self, project_code, email_type, domain, specified_email, variant_mode,
         timeout, interval, on_poll
     ):
-        """同步创建并等待验证码"""
+        """Create synchronously and wait for verification code"""
         body = {"project_code": project_code}
         if email_type:
             body["email_type"] = email_type
@@ -200,11 +200,11 @@ class LuckMailClient:
         )
     
     def close(self):
-        """关闭客户端（同步）"""
+        """Close client (sync)"""
         self._http.close()
     
     async def aclose(self):
-        """关闭客户端（异步）"""
+        """Close the client (asynchronously)"""
         await self._http.aclose()
     
     async def __aenter__(self):

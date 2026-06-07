@@ -1,4 +1,4 @@
-"""Cursor 注册协议核心实现"""
+"""Cursor Registration protocol core implementation"""
 
 import re, uuid, json, urllib.parse, random, string
 from typing import Optional, Callable
@@ -99,7 +99,7 @@ class CursorRegister:
         if yescaptcha_key:
             from core.base_captcha import YesCaptcha
 
-            self.log("获取 Turnstile token...")
+            self.log("get Turnstile token...")
             captcha_token = YesCaptcha(yescaptcha_key).solve_turnstile(
                 AUTH, TURNSTILE_SITEKEY
             )
@@ -160,20 +160,20 @@ class CursorRegister:
     ) -> dict:
         if not password:
             password = _rand_password()
-        self.log(f"邮箱: {email}")
-        self.log("Step1: 获取 session...")
+        self.log(f"Mail: {email}")
+        self.log("Step1: get session...")
         state_encoded, _ = self.step1_get_session()
-        self.log("Step2: 提交邮箱...")
+        self.log("Step2: Submit email...")
         self.step2_submit_email(email, state_encoded)
-        self.log("Step3: 提交密码 + Turnstile...")
+        self.log("Step3: Submit password + Turnstile...")
         self.step3_submit_password(password, email, state_encoded, yescaptcha_key)
-        self.log("等待 OTP 邮件...")
+        self.log("wait OTP mail...")
         otp = otp_callback() if otp_callback else input("OTP: ")
         if not otp:
-            raise RuntimeError("未获取到验证码")
-        self.log(f"验证码: {otp}")
-        self.log("Step4: 提交 OTP...")
+            raise RuntimeError("Verification code not obtained")
+        self.log(f"Verification code: {otp}")
+        self.log("Step4: submit OTP...")
         auth_code = self.step4_submit_otp(otp, email, state_encoded)
-        self.log("Step5: 获取 Token...")
+        self.log("Step5: get Token...")
         token = self.step5_get_token(auth_code, state_encoded)
         return {"email": email, "password": password, "token": token}

@@ -1,4 +1,4 @@
-"""平台插件注册表 - 自动扫描 platforms/ 目录加载插件"""
+"""Platform plug-in registry - Auto scan platforms/ Directory loading plugin"""
 import importlib
 import pkgutil
 from typing import Dict, Type
@@ -13,7 +13,7 @@ def is_platform_enabled(name: str) -> bool:
 
 
 def register(cls: Type[BasePlatform]):
-    """装饰器：注册平台插件"""
+    """Decorator: Register platform plugin"""
     if not is_platform_enabled(cls.name):
         return cls
     _registry[cls.name] = cls
@@ -21,7 +21,7 @@ def register(cls: Type[BasePlatform]):
 
 
 def load_all():
-    """自动扫描并加载 platforms/ 下所有插件"""
+    """Automatically scan and load platforms/ Download all plugins"""
     import platforms
     for finder, name, _ in pkgutil.iter_modules(platforms.__path__, platforms.__name__ + "."):
         platform_name = name.rsplit(".", 1)[-1].lower()
@@ -35,9 +35,30 @@ def load_all():
 
 def get(name: str) -> Type[BasePlatform]:
     if not is_platform_enabled(name):
-        raise KeyError(f"平台 '{name}' 已下线")
+        raise KeyError(f"platform '{name}' Offline")
+
+    # Hot-reload platform modules if they are already loaded
+    import sys
+    import importlib
+
+    core_module = f"platforms.{name}.core"
+    if core_module in sys.modules:
+        try:
+            importlib.reload(sys.modules[core_module])
+            print(f"[Registry] Hot-reloaded: {core_module}")
+        except Exception as e:
+            print(f"[Registry] Failed to hot-reload {core_module}: {e}")
+
+    plugin_module = f"platforms.{name}.plugin"
+    if plugin_module in sys.modules:
+        try:
+            importlib.reload(sys.modules[plugin_module])
+            print(f"[Registry] Hot-reloaded: {plugin_module}")
+        except Exception as e:
+            print(f"[Registry] Failed to hot-reload {plugin_module}: {e}")
+
     if name not in _registry:
-        raise KeyError(f"平台 '{name}' 未注册，已注册: {list(_registry.keys())}")
+        raise KeyError(f"platform '{name}' Not registered, registered: {list(_registry.keys())}")
     return _registry[name]
 
 

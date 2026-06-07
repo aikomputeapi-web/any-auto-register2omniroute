@@ -110,7 +110,7 @@ class OAuthPhoneBlacklistTests(unittest.TestCase):
         )
         self.assertTrue(
             OAuthClient._should_blacklist_phone_failure(
-                "add-phone/send 失败: 400 - phone number is invalid",
+                "add-phone/send fail: 400 - phone number is invalid",
                 state,
             )
         )
@@ -118,11 +118,11 @@ class OAuthPhoneBlacklistTests(unittest.TestCase):
     def test_should_not_blacklist_whatsapp_or_delivery_failures(self):
         self.assertFalse(
             OAuthClient._should_blacklist_phone_failure(
-                "add_phone 已切到 whatsapp 通道，当前 SMSToMe 仅支持短信接码"
+                "add_phone Cut to whatsapp channel, current SMSToMe Only supports SMS code receiving"
             )
         )
         self.assertFalse(
-            OAuthClient._should_blacklist_phone_failure("手机号 +447000000001 未收到短信验证码")
+            OAuthClient._should_blacklist_phone_failure("Phone number +447000000001 Did not receive SMS verification code")
         )
 
     def test_handle_add_phone_blacklists_explicitly_rejected_number(self):
@@ -143,7 +143,7 @@ class OAuthPhoneBlacklistTests(unittest.TestCase):
             with mock.patch.object(
                 client,
                 "_send_phone_number",
-                return_value=(False, None, "add-phone/send 失败: 400 - phone number is invalid"),
+                return_value=(False, None, "add-phone/send fail: 400 - phone number is invalid"),
             ):
                 state = client._handle_add_phone_verification(
                     "device-id",
@@ -155,7 +155,7 @@ class OAuthPhoneBlacklistTests(unittest.TestCase):
 
         self.assertIsNone(state)
         phone_service.mark_blacklisted.assert_called_once_with(entry.phone)
-        self.assertIn("add_phone 阶段失败", client.last_error)
+        self.assertIn("add_phone stage failed", client.last_error)
 
     def test_handle_add_phone_does_not_blacklist_whatsapp_channel(self):
         client = OAuthClient(config={}, verbose=False)

@@ -1,4 +1,4 @@
-"""ChatGPT 账号与 CPA 的同步辅助逻辑。"""
+"""ChatGPT Account and CPA synchronization auxiliary logic."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from services.chatgpt_account_state import apply_chatgpt_status_policy
 CPA_SYNC_NAME = "cpa"
 SUB2API_SYNC_NAME = "sub2api"
 CLIPROXY_SYNC_NAME = "cliproxyapi"
+OMNIROUTE_SYNC_NAME = "omniroute"
 
 
 def _utcnow() -> datetime:
@@ -78,6 +79,10 @@ def get_sub2api_sync_state(extra_or_account: Any) -> dict[str, Any]:
     return _get_sync_state(extra_or_account, SUB2API_SYNC_NAME)
 
 
+def get_omniroute_sync_state(extra_or_account: Any) -> dict[str, Any]:
+    return _get_sync_state(extra_or_account, OMNIROUTE_SYNC_NAME)
+
+
 def has_cpa_upload_success(extra_or_account: Any) -> bool:
     state = get_cpa_sync_state(extra_or_account)
     return bool(state.get("uploaded") or state.get("uploaded_at"))
@@ -122,6 +127,10 @@ def record_sub2api_sync_result(extra: dict[str, Any], ok: bool, msg: str) -> dic
     return _record_sync_result(extra, SUB2API_SYNC_NAME, ok, msg)
 
 
+def record_omniroute_sync_result(extra: dict[str, Any], ok: bool, msg: str) -> dict[str, Any]:
+    return _record_sync_result(extra, OMNIROUTE_SYNC_NAME, ok, msg)
+
+
 def record_cliproxy_sync_result(extra: dict[str, Any], sync_result: dict[str, Any]) -> dict[str, Any]:
     sync_statuses = extra.get("sync_statuses")
     if not isinstance(sync_statuses, dict):
@@ -153,14 +162,14 @@ def upload_chatgpt_account_to_cpa(account: Any, api_url: str | None = None, api_
     try:
         sync_account = build_chatgpt_sync_account(account)
         if not getattr(sync_account, "access_token", ""):
-            return False, "账号缺少 access_token"
+            return False, "Account missing access_token"
 
         from platforms.chatgpt.cpa_upload import generate_token_json, upload_to_cpa
 
         token_data = generate_token_json(sync_account)
         return upload_to_cpa(token_data, api_url=api_url, api_key=api_key)
     except Exception as exc:
-        return False, f"上传异常: {exc}"
+        return False, f"Upload exception: {exc}"
 
 
 def update_account_model_cpa_sync(
@@ -191,6 +200,25 @@ def update_account_model_sub2api_sync(
 ) -> dict[str, Any]:
     extra = account.get_extra()
     state = record_sub2api_sync_result(extra, ok, msg)
+    account.set_extra(extra)
+    account.updated_at = _utcnow()
+    if session is not None:
+        session.add(account)
+        if commit:
+            session.commit()
+            session.refresh(account)
+    return state
+
+
+def update_account_model_omniroute_sync(
+    account: AccountModel,
+    ok: bool,
+    msg: str,
+    session: Session | None = None,
+    commit: bool = True,
+) -> dict[str, Any]:
+    extra = account.get_extra()
+    state = record_omniroute_sync_result(extra, ok, msg)
     account.set_extra(extra)
     account.updated_at = _utcnow()
     if session is not None:
@@ -265,6 +293,19 @@ def persist_sub2api_sync_result(account: Any, ok: bool, msg: str) -> None:
         record_sub2api_sync_result(extra, ok, msg)
 
 
+def persist_omniroute_sync_result(account: Any, ok: bool, msg: str) -> None:
+    if isinstance(account, AccountModel) and account.id is not None:
+        with Session(engine) as session:
+            row = session.get(AccountModel, account.id)
+            if row:
+                update_account_model_omniroute_sync(row, ok, msg, session=session, commit=True)
+                return
+
+    extra = getattr(account, "extra", None)
+    if isinstance(extra, dict):
+        record_omniroute_sync_result(extra, ok, msg)
+
+
 def upload_account_model_to_cpa(
     account: AccountModel,
     session: Session | None = None,
@@ -320,16 +361,16 @@ def backfill_chatgpt_account_to_cpa(
 
     remote_state = str(initial_sync.get("remote_state") or "").strip().lower()
     if remote_state == "unreachable":
-        msg = initial_sync.get("message") or "CLIProxyAPI 无法连接"
-        results.append({"name": "CLIProxyAPI 同步", "ok": False, "msg": msg})
+        msg = initial_sync.get("message") or "CLIProxyAPI Unable to connect"
+        results.append({"name": "CLIProxyAPI synchronous", "ok": False, "msg": msg})
         if session is not None and commit:
             session.commit()
             session.refresh(account)
         return {"ok": False, "uploaded": False, "skipped": False, "message": msg, "results": results}
 
     if not _remote_auth_missing(initial_sync):
-        msg = f"远端已存在 ({_remote_state_label(initial_sync)})，跳过上传"
-        results.append({"name": "CLIProxyAPI 同步", "ok": True, "msg": msg})
+        msg = f"The remote end already exists ({_remote_state_label(initial_sync)}), skip uploading"
+        results.append({"name": "CLIProxyAPI synchronous", "ok": True, "msg": msg})
         if session is not None and commit:
             session.commit()
             session.refresh(account)
@@ -340,15 +381,15 @@ def backfill_chatgpt_account_to_cpa(
     update_account_model_local_probe(account, probe, session=session, commit=False)
     if not _local_probe_uploadable(probe):
         auth = probe.get("auth") if isinstance(probe.get("auth"), dict) else {}
-        msg = auth.get("message") or f"本地状态不可上传: {auth.get('state') or 'unknown'}"
-        results.append({"name": "本地状态探测", "ok": False, "msg": msg})
+        msg = auth.get("message") or f"Local status cannot be uploaded: {auth.get('state') or 'unknown'}"
+        results.append({"name": "local status detection", "ok": False, "msg": msg})
         if session is not None and commit:
             session.commit()
             session.refresh(account)
         return {"ok": False, "uploaded": False, "skipped": False, "message": msg, "results": results}
 
     ok, msg = upload_account_model_to_cpa(account, session=session, api_url=api_url, api_key=api_key, commit=False)
-    results.append({"name": "CLIProxyAPI 上传", "ok": ok, "msg": msg})
+    results.append({"name": "CLIProxyAPI upload", "ok": ok, "msg": msg})
     if not ok:
         if session is not None and commit:
             session.commit()
@@ -358,15 +399,15 @@ def backfill_chatgpt_account_to_cpa(
     verified_sync = sync_chatgpt_cliproxyapi_status(build_chatgpt_sync_account(account), api_url=api_url, api_key=api_key)
     update_account_model_cliproxy_sync(account, verified_sync, session=session, commit=False)
     if _remote_auth_missing(verified_sync):
-        verify_msg = verified_sync.get("message") or "上传后远端仍未发现 auth-file"
-        results.append({"name": "CLIProxyAPI 复核", "ok": False, "msg": verify_msg})
+        verify_msg = verified_sync.get("message") or "The remote end is still not found after uploading auth-file"
+        results.append({"name": "CLIProxyAPI Review", "ok": False, "msg": verify_msg})
         if session is not None and commit:
             session.commit()
             session.refresh(account)
         return {"ok": False, "uploaded": False, "skipped": False, "message": verify_msg, "results": results}
 
-    verify_msg = f"补传完成，远端状态={_remote_state_label(verified_sync)}"
-    results.append({"name": "CLIProxyAPI 复核", "ok": True, "msg": verify_msg})
+    verify_msg = f"Complementary transmission completed, remote status={_remote_state_label(verified_sync)}"
+    results.append({"name": "CLIProxyAPI Review", "ok": True, "msg": verify_msg})
     if session is not None and commit:
         session.commit()
         session.refresh(account)

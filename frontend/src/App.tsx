@@ -11,8 +11,9 @@ import {
   MoonOutlined,
   LogoutOutlined,
   PlayCircleOutlined,
+  BugOutlined,
 } from '@ant-design/icons'
-import zhCN from 'antd/locale/zh_CN'
+import enUS from 'antd/locale/en_US'
 import Dashboard from '@/pages/Dashboard'
 import Accounts from '@/pages/Accounts'
 import RegisterTaskPage from '@/pages/RegisterTaskPage'
@@ -62,8 +63,28 @@ function AppContent() {
   const [collapsed, setCollapsed] = useState(false)
   const [platforms, setPlatforms] = useState<{ key: string; label: string }[]>([])
   const [hasPassword, setHasPassword] = useState(false)
+  const [devtoolsConfig, setDevtoolsConfig] = useState<{ enabled: boolean; running: boolean; port: number }>({
+    enabled: false,
+    running: false,
+    port: 3005,
+  })
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Fetch devtools status on load
+    apiFetch('/devtools/status')
+      .then(d => {
+        if (d) {
+          setDevtoolsConfig({
+            enabled: d.enabled,
+            running: d.running,
+            port: d.port || 3005,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', themeMode === 'light')
@@ -104,17 +125,17 @@ function AppContent() {
     {
       key: '/',
       icon: <DashboardOutlined />,
-      label: '仪表盘',
+      label: 'Dashboard',
     },
     {
       key: '/running-tasks',
       icon: <PlayCircleOutlined />,
-      label: '任务运行',
+      label: 'Tasks',
     },
     {
       key: '/accounts',
       icon: <UserOutlined />,
-      label: '平台管理',
+      label: 'Platforms',
       children: [
         ...platforms.map(p => ({
           key: `/accounts/${p.key}`,
@@ -125,22 +146,45 @@ function AppContent() {
     {
       key: '/history',
       icon: <HistoryOutlined />,
-      label: '任务历史',
+      label: 'History',
     },
     {
       key: '/proxies',
       icon: <GlobalOutlined />,
-      label: '代理管理',
+      label: 'Proxies',
     },
+    ...(devtoolsConfig.enabled
+      ? [
+          {
+            key: '__devtools',
+            icon: <BugOutlined />,
+            label: (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                DevTools
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: devtoolsConfig.running ? '#52c41a' : '#bfbfbf',
+                    display: 'inline-block',
+                    marginRight: collapsed ? 0 : 8,
+                  }}
+                />
+              </span>
+            ),
+          },
+        ]
+      : []),
     {
       key: '/settings',
       icon: <SettingOutlined />,
-      label: '全局配置',
+      label: 'Settings',
     },
   ]
 
   return (
-    <ConfigProvider theme={currentTheme} locale={zhCN}>
+    <ConfigProvider theme={currentTheme} locale={enUS}>
       <AntdApp>
       <Layout style={{ minHeight: '100vh' }}>
         <Sider
@@ -181,7 +225,13 @@ function AppContent() {
             selectedKeys={getSelectedKey()}
             defaultOpenKeys={['/accounts']}
             items={menuItems}
-            onClick={({ key }) => navigate(key)}
+            onClick={({ key }) => {
+              if (key === '__devtools') {
+                window.open(`http://localhost:${devtoolsConfig.port}`, '_blank')
+              } else {
+                navigate(key)
+              }
+            }}
             style={{
               borderRight: 0,
               background: 'transparent',
@@ -209,7 +259,7 @@ function AppContent() {
                 justifyContent: collapsed ? 'center' : 'space-between',
               }}
             >
-              {!collapsed && (isLight ? '亮色模式' : '暗色模式')}
+              {!collapsed && (isLight ? 'Light Mode' : 'Dark Mode')}
             </Button>
             {hasPassword && (
               <Button
@@ -223,7 +273,7 @@ function AppContent() {
                   justifyContent: collapsed ? 'center' : 'space-between',
                 }}
               >
-                {!collapsed && '退出登录'}
+                {!collapsed && 'Logout'}
               </Button>
             )}
           </div>

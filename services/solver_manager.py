@@ -1,4 +1,4 @@
-"""Turnstile Solver 进程管理 - 后端启动时自动拉起"""
+"""Turnstile Solver Process management - Automatically pull up when backend starts"""
 import subprocess
 import sys
 import os
@@ -43,10 +43,10 @@ def start():
     global _proc, _log_file
     with _lock:
         if not _solver_enabled():
-            print("[Solver] 已禁用，跳过自动启动")
+            print("[Solver] Disabled, skips autostart")
             return
         if is_running():
-            print("[Solver] 已在运行")
+            print("[Solver] Already running")
             return
         solver_script = os.path.join(
             os.path.dirname(__file__), "turnstile_solver", "start.py"
@@ -70,20 +70,20 @@ def start():
             stdout=_log_file,
             stderr=subprocess.STDOUT,
         )
-        # 等待服务就绪（最多30s）
+        # Wait for the service to be ready (up to30s)
         for _ in range(30):
             time.sleep(1)
             if is_running():
-                print(f"[Solver] 已启动 PID={_proc.pid}")
+                print(f"[Solver] Started PID={_proc.pid}")
                 return
             if _proc.poll() is not None:
-                print(f"[Solver] 启动失败，退出码={_proc.returncode}，日志: {log_path}")
+                print(f"[Solver] Startup failed, exit code={_proc.returncode},log: {log_path}")
                 _proc = None
                 if _log_file:
                     _log_file.close()
                     _log_file = None
                 return
-        print(f"[Solver] 启动超时，日志: {log_path}")
+        print(f"[Solver] startup timeout, log: {log_path}")
 
 
 def stop():
@@ -92,7 +92,7 @@ def stop():
         if _proc and _proc.poll() is None:
             _proc.terminate()
             _proc.wait(timeout=5)
-            print("[Solver] 已停止")
+            print("[Solver] Stopped")
         _proc = None
         if _log_file:
             _log_file.close()
@@ -100,6 +100,6 @@ def stop():
 
 
 def start_async():
-    """在后台线程启动，不阻塞主进程"""
+    """Start in a background thread without blocking the main process"""
     t = threading.Thread(target=start, daemon=True)
     t.start()

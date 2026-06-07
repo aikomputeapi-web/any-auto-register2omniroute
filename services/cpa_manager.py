@@ -1,4 +1,4 @@
-"""CPA 凭证维护：清理异常凭证并在低于阈值时自动补注册。"""
+"""CPA Credential maintenance: Clean up abnormal credentials and automatically re-register when the value is below the threshold."""
 
 from __future__ import annotations
 
@@ -93,7 +93,7 @@ def _api_base(api_url: str | None = None) -> str:
     config_store = _get_config_store()
     base_url = str(api_url or config_store.get("cpa_api_url", "") or "").strip()
     if not base_url:
-        raise RuntimeError("CPA API URL 未配置")
+        raise RuntimeError("CPA API URL Not configured")
     return base_url.rstrip("/")
 
 
@@ -170,7 +170,7 @@ def _normalize_executor(executor: str | None) -> str:
 
 def _normalize_solver(solver: str | None) -> str:
     value = str(solver or "").strip()
-    if value in {"yescaptcha", "local_solver", "manual"}:
+    if value in {"yescaptcha", "local_solver", "manual", "capsolver"}:
         return value
     return "yescaptcha"
 
@@ -179,7 +179,7 @@ def _trigger_register(missing_count: int, *, config: CpaMaintenanceConfig, remai
     from api.tasks import RegisterTaskRequest, enqueue_register_task, has_active_register_task
 
     if has_active_register_task(platform="chatgpt", source=AUTO_REGISTER_SOURCE):
-        print("[CPA] 已存在进行中的自动补注册任务，跳过本轮补注册")
+        print("[CPA] There is already an automatic re-registration task in progress. Skip this round of re-registration.")
         return {"triggered": False, "reason": "task_running"}
 
     config_store = _get_config_store()
@@ -202,8 +202,8 @@ def _trigger_register(missing_count: int, *, config: CpaMaintenanceConfig, remai
         },
     )
     print(
-        f"[CPA] 剩余凭证 {remaining_count} 低于阈值 {config.threshold}，"
-        f"已创建自动注册任务 {task_id}，补充 {missing_count} 个"
+        f"[CPA] remaining vouchers {remaining_count} below threshold {config.threshold},"
+        f"Auto-registration task created {task_id},Replenish {missing_count} indivual"
     )
     return {"triggered": True, "task_id": task_id}
 
@@ -220,7 +220,7 @@ def maintain_cpa_credentials() -> dict[str, Any]:
     if error_names:
         delete_auth_files(error_names)
         deleted_count = len(error_names)
-        print(f"[CPA] 已删除 {deleted_count} 个 status=error 的凭证")
+        print(f"[CPA] Deleted {deleted_count} indivual status=error Voucher")
         files = list_auth_files()
 
     remaining_count = _count_remaining(files)
@@ -232,7 +232,7 @@ def maintain_cpa_credentials() -> dict[str, Any]:
     }
 
     if remaining_count >= config.threshold:
-        print(f"[CPA] 剩余凭证 {remaining_count}，阈值 {config.threshold}，无需补注册")
+        print(f"[CPA] remaining vouchers {remaining_count}, threshold {config.threshold}, no need to re-register")
         result["register"] = {"triggered": False, "reason": "enough_credentials"}
         return result
 

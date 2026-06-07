@@ -12,25 +12,25 @@ if "%RESTART_EXISTING%"=="" set "RESTART_EXISTING=1"
 
 where conda >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] 未找到 conda 命令。请先安装 Miniconda/Anaconda，并确保 conda 可在终端中使用。
+  echo [ERROR] not found conda Order. Please install first Miniconda/Anaconda, and ensure conda Available in Terminal.
   exit /b 1
 )
 
 cd /d "%~dp0"
-echo [INFO] 项目目录: %CD%
-echo [INFO] 使用 conda 环境: %ENV_NAME%
-echo [INFO] 启动后端: http://localhost:%PORT%
-echo [INFO] 按 Ctrl+C 可停止服务
+echo [INFO] Project directory: %CD%
+echo [INFO] use conda environment: %ENV_NAME%
+echo [INFO] Start backend: http://localhost:%PORT%
+echo [INFO] according to Ctrl+C Can stop service
 
 if "%RESTART_EXISTING%"=="1" (
-  echo [INFO] 启动前先清理旧的后端 / Solver 进程
+  echo [INFO] Clean old backend before launching / Solver process
   powershell -ExecutionPolicy Bypass -File "%~dp0stop_backend.ps1" -BackendPort %PORT% -SolverPort 8889 -FullStop 0
 )
 
 for /f "usebackq delims=" %%i in (`conda run --no-capture-output -n %ENV_NAME% python -c "import sys; print(sys.executable)"`) do set "PYTHON_EXE=%%i"
 
 if not exist "%PYTHON_EXE%" (
-  echo [ERROR] 无法解析 conda 环境 "%ENV_NAME%" 对应的 python 路径。
+  echo [ERROR] Unable to parse conda environment "%ENV_NAME%" Corresponding python path.
   exit /b 1
 )
 

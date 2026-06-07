@@ -1,4 +1,4 @@
-"""ChatGPT 专用功能 API"""
+"""ChatGPT Dedicated functions API"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from pydantic import BaseModel
@@ -24,12 +24,12 @@ class UploadRequest(BaseModel):
 def _get_account(account_id: int, session: Session) -> AccountModel:
     acc = session.get(AccountModel, account_id)
     if not acc or acc.platform != "chatgpt":
-        raise HTTPException(404, "账号不存在")
+        raise HTTPException(404, "Account does not exist")
     return acc
 
 
 def _to_codex_account(acc: AccountModel):
-    """转换为 codex-register 的 Account 对象（duck-typing）"""
+    """Convert to codex-register of Account object(duck-typing)"""
     extra = acc.get_extra()
 
     class _Acc:
@@ -58,7 +58,7 @@ def _persist_local_probe(acc: AccountModel, probe: dict, session: Session) -> No
     session.commit()
 
 
-# ── Token 刷新 ──────────────────────────────────────────────
+# ── Token refresh ──────────────────────────────────────────────
 @router.post("/{account_id}/refresh-token")
 def refresh_token(account_id: int, proxy: Optional[str] = None,
                   session: Session = Depends(get_session)):
@@ -84,7 +84,7 @@ def refresh_token(account_id: int, proxy: Optional[str] = None,
     raise HTTPException(400, result.error_message)
 
 
-# ── 生成支付链接 ────────────────────────────────────────────
+# ── Generate payment link ────────────────────────────────────────────
 class PaymentReq(BaseModel):
     plan: str = "plus"  # plus | team
     country: str = "SG"
@@ -112,7 +112,7 @@ def generate_payment_link(account_id: int, req: PaymentReq,
     return {"url": url, "plan": req.plan, "country": req.country}
 
 
-# ── 检查订阅状态 ────────────────────────────────────────────
+# ── Check subscription status ────────────────────────────────────────────
 @router.get("/{account_id}/subscription")
 def check_subscription(account_id: int, proxy: Optional[str] = None,
                        session: Session = Depends(get_session)):
@@ -143,7 +143,7 @@ def probe_local_status(account_id: int, proxy: Optional[str] = None,
     return {"ok": True, "email": acc.email, "probe": probe}
 
 
-# ── CPA 上传 ────────────────────────────────────────────────
+# ── CPA upload ────────────────────────────────────────────────
 class CpaUploadReq(BaseModel):
     api_url: str
     api_key: str = ""

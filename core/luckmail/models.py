@@ -1,5 +1,5 @@
 """
-数据模型定义
+Data model definition
 """
 from dataclasses import dataclass, field
 from typing import Optional, List, Any
@@ -7,7 +7,7 @@ from typing import Optional, List, Any
 
 @dataclass
 class UserInfo:
-    """用户信息"""
+    """User information"""
     id: int
     username: str
     email: str
@@ -19,7 +19,7 @@ class UserInfo:
 
 @dataclass
 class EmailItem:
-    """邮箱列表项"""
+    """Mailbox list items"""
     id: int
     address: str
     type: str
@@ -32,7 +32,7 @@ class EmailItem:
 
 @dataclass
 class ProjectPrice:
-    """项目定价"""
+    """Project Pricing"""
     email_type: str
     code_price: str
     buy_price: str
@@ -40,7 +40,7 @@ class ProjectPrice:
 
 @dataclass
 class ProjectItem:
-    """项目信息"""
+    """Project information"""
     id: int
     name: str
     code: str
@@ -54,7 +54,7 @@ class ProjectItem:
 
 @dataclass
 class OrderInfo:
-    """订单信息（创建后）"""
+    """Order information (after creation)"""
     order_no: str
     email_address: str
     project: str
@@ -65,7 +65,7 @@ class OrderInfo:
 
 @dataclass
 class OrderCode:
-    """订单验证码查询结果"""
+    """Order verification code query results"""
     order_no: str
     status: str  # pending / success / timeout / cancelled
     verification_code: Optional[str] = None
@@ -76,7 +76,7 @@ class OrderCode:
 
 @dataclass
 class PurchaseItem:
-    """已购邮箱"""
+    """Purchased email address"""
     id: int
     email_address: str
     token: str
@@ -93,7 +93,7 @@ class PurchaseItem:
 
 @dataclass
 class TokenCode:
-    """Token 查询验证码结果"""
+    """Token Query verification code results"""
     email_address: str
     project: str
     has_new_mail: bool
@@ -103,7 +103,7 @@ class TokenCode:
 
 @dataclass
 class TokenAliveResult:
-    """Token 测活结果"""
+    """Token Activity test results"""
     email_address: str
     project: str
     alive: bool
@@ -114,7 +114,7 @@ class TokenAliveResult:
 
 @dataclass
 class TokenMailItem:
-    """Token 邮件列表项"""
+    """Token mailing list item"""
     message_id: str
     from_addr: str = ""
     subject: str = ""
@@ -125,7 +125,7 @@ class TokenMailItem:
 
 @dataclass
 class TokenMailList:
-    """Token 邮件列表结果"""
+    """Token Mailing list results"""
     email_address: str
     project: str
     warranty_until: str = ""
@@ -134,7 +134,7 @@ class TokenMailList:
 
 @dataclass
 class TokenMailDetail:
-    """Token 邮件详情结果"""
+    """Token Email details results"""
     message_id: str
     from_addr: str = ""
     to: str = ""
@@ -147,7 +147,7 @@ class TokenMailDetail:
 
 @dataclass
 class AppealInfo:
-    """申述信息"""
+    """representation information"""
     appeal_no: str
     appeal_type: int
     reason: str
@@ -158,29 +158,29 @@ class AppealInfo:
 
 @dataclass
 class TagItem:
-    """邮箱标签"""
+    """Mailbox label"""
     id: int
     name: str
     remark: str = ""
-    limit_type: int = 0  # 0=不下发 1=可下发
+    limit_type: int = 0  # 0=Not issued 1=Can be issued
     purchase_count: int = 0
     created_at: Optional[str] = None
 
 
 @dataclass
 class PageResult:
-    """分页结果"""
+    """Paginated results"""
     list: List[Any]
     total: int
     page: int
     page_size: int
 
 
-# ===== 供应商模型 =====
+# ===== supplier model =====
 
 @dataclass
 class SupplierProfile:
-    """供应商个人信息"""
+    """Supplier personal information"""
     id: int
     username: str
     email: str
@@ -193,7 +193,7 @@ class SupplierProfile:
 
 @dataclass
 class SupplierEmailItem:
-    """供应商邮箱列表项"""
+    """Supplier mailbox list items"""
     id: int
     address: str
     type: str
@@ -207,7 +207,7 @@ class SupplierEmailItem:
 
 @dataclass
 class AppealItem:
-    """申述列表项（供应商端）"""
+    """Representation list items (supplier side)"""
     id: int
     appeal_no: str
     order_no: str
@@ -218,7 +218,7 @@ class AppealItem:
 
 @dataclass
 class AppealDetail:
-    """申述详情"""
+    """Details of representation"""
     appeal_no: str
     order_no: str
     reason: str
@@ -229,7 +229,7 @@ class AppealDetail:
 
 @dataclass
 class ImportResult:
-    """导入邮箱结果"""
+    """Import email results"""
     success: int
     duplicate: int
     failed: int
@@ -237,7 +237,7 @@ class ImportResult:
 
 @dataclass
 class DashboardSummary:
-    """供应商数据看板"""
+    """Supplier data dashboard"""
     total_emails: int
     active_emails: int
     total_assigned: int

@@ -1,4 +1,4 @@
-"""启动本地 Turnstile Solver 服务"""
+"""Start local Turnstile Solver Serve"""
 import sys
 import os
 from pathlib import Path
