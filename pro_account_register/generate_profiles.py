@@ -162,7 +162,7 @@ def generate_ai_saas_profile():
     if or_key:
         print("  [LLM] Using OpenRouter to generate business names and research domains...")
         prompt_candidates = """
-        Propose a JSON array containing 5 unique, realistic, brand-new AI SaaS startup company names and matching domain names (.com, .io, or .ai) that don't already exist.
+        Propose a JSON array containing 5 unique, realistic, brand-new AI SaaS startup company names and matching domain names (.com, or .ai) that don't already exist.
         Choose modern, creative names in the AI space.
         Respond ONLY with the JSON array, no conversational text. Example format:
         [
@@ -265,9 +265,63 @@ def generate_ai_saas_profile():
     print("  [LLM] Falling back to rule-based random AI SaaS generation...")
     return generate_fallback_saas_profile()
 
-def write_profile_to_file(filepath, biz_info):
+def parse_dataset_line(filepath, line_index=None):
+    """Parse a specific line of dataset or pick a random one if line_index is None."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Dataset not found at {filepath}")
+        
+    with open(filepath, 'r', encoding='utf-8') as f:
+        lines = [line.strip() for line in f.readlines() if line.strip()]
+        
+    if not lines:
+        raise ValueError(f"Dataset file is empty: {filepath}")
+        
+    import random
+    if line_index is None:
+        line_index = random.randint(0, len(lines) - 1)
+        print(f"  [Dataset] Randomly selected line index {line_index + 1} (1-based) out of {len(lines)} total lines")
+    elif line_index < 0 or line_index >= len(lines):
+        raise IndexError(f"Line index {line_index} out of bounds. Total lines: {len(lines)}")
+        
+    line = lines[line_index]
+    parts = line.split('|')
+    if len(parts) < 8:
+        raise ValueError(f"Unexpected line format in dataset: {line}")
+        
+    dob = parts[6]  # 12/04/1935
+    
+    return {
+        "first_name": parts[0],
+        "last_name": parts[1],
+        "address": parts[2],
+        "city": parts[3],
+        "state": parts[4],
+        "zip": parts[5],
+        "dob_str": dob,
+        "ssn": parts[7].replace("-", "")
+    }, line_index
+
+def write_profile_to_file(filepath, biz_info, owner_info=None):
     clean_domain = biz_info["website"].replace("https://", "").replace("http://", "").strip("/")
     
+    if owner_info:
+        first_name = owner_info["first_name"]
+        last_name = owner_info["last_name"]
+        full_name = f"{first_name} {last_name}"
+        dob = owner_info["dob_str"]
+        ssn_raw = owner_info["ssn"]
+        ssn = f"{ssn_raw[0:3]}-{ssn_raw[3:5]}-{ssn_raw[5:9]}" if len(ssn_raw) == 9 else ssn_raw
+        personal_address = f"{owner_info['address']}, {owner_info['city']}, {owner_info['state']} {owner_info['zip']}"
+        dl_number = "F" + ssn_raw[0:7]
+        email = f"{first_name.lower()}{last_name.lower()}@audioplexdesigns.com"
+    else:
+        full_name = "Robert Oliver"
+        dob = "04/06/1938"
+        ssn = "545-50-5372"
+        personal_address = "24647 Mohr, Hayward, CA 94545"
+        dl_number = "F5455053"
+        email = "robertoliver@audioplexdesigns.com"
+
     content = f"""============================================================
 STRIPE ACCOUNT REGISTRATION — MOCK BUSINESS PROFILE
 ============================================================
@@ -306,16 +360,16 @@ Estimated Monthly Volume: $15,000 - $50,000
 Refund Policy: 30-day money-back guarantee on all plans
 
 --- ACCOUNT REPRESENTATIVE (Owner) ---
-Full Name: Robert Oliver
+Full Name: {full_name}
 Title: Owner / CEO
-Date of Birth: 04/06/1938
-SSN: 545-50-5372
-Email: robertoliver@audioplexdesigns.com
+Date of Birth: {dob}
+SSN: {ssn}
+Email: {email}
 Phone: 669-250-6085
-Personal Address: 24647 Mohr, Hayward, CA 94545
+Personal Address: {personal_address}
 Ownership Percentage: 100%
 ID Type: California Driver's License
-ID Number: F5455053
+ID Number: {dl_number}
 
 --- BANK ACCOUNT FOR PAYOUTS ---
 Bank Name: Wells Fargo
@@ -325,7 +379,7 @@ Account Number: 4829103756
 Account Type: Business Checking
 
 --- STRIPE ACCOUNT CREDENTIALS ---
-Email: robertoliver@audioplexdesigns.com
+Email: {email}
 Password: Aud10Pl3x!D3s1gns#2026
 
 --- WEBSITE REQUIRED PAGES (for Stripe verification) ---
@@ -403,6 +457,8 @@ def main():
                         help="Number of profiles to generate (default: 1)")
     parser.add_argument("--out-dir", type=str, default=None,
                         help="Directory to save profiles (default: pro_account_register/generated_profiles/)")
+    parser.add_argument("--dataset", type=str, default="pointclickcare data.txt",
+                        help="Path to the user dataset file (default: pointclickcare data.txt)")
     args = parser.parse_args()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -416,13 +472,22 @@ def main():
     
     for i in range(args.count):
         print(f"\nGenerating profile {i+1} of {args.count}...")
+        
+        # Select owner details from dataset
+        owner_info = None
+        try:
+            owner_info, line_num = parse_dataset_line(args.dataset)
+            print(f"  [Dataset] Selected Owner: {owner_info['first_name']} {owner_info['last_name']} (Row {line_num + 1})")
+        except Exception as e:
+            print(f"  [Dataset] Warning: Could not select owner from dataset ({e}). Using fallback default owner.")
+            
         biz_info = generate_ai_saas_profile()
         
         name_clean = re.sub(r'[^a-zA-Z0-9]', '_', biz_info["dba"]).lower().strip('_')
         filename = f"profile_{name_clean}.txt"
         filepath = os.path.join(out_dir, filename)
         
-        write_profile_to_file(filepath, biz_info)
+        write_profile_to_file(filepath, biz_info, owner_info)
         print(f"[OK] Saved profile to: {os.path.abspath(filepath)}")
         
     print("\nUpdating index file...")
