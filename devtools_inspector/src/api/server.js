@@ -13,7 +13,7 @@ import {
 import {
   connectToTab, listTabs, getDOMSnapshot, queryDOM,
   evaluateJS, getPageInfo, getStorage, getClient,
-  getCurrentTarget, getSseClients
+  getCurrentTarget, getSseClients, getExecutionContexts
 } from '../bridge/cdp-client.js';
 
 export function createServer() {
@@ -153,11 +153,20 @@ export function createServer() {
 
   app.post('/eval', async (req, res) => {
     if (!getClient()) return res.status(503).json({ error: 'Not connected to Chrome' });
-    const { expression, awaitPromise } = req.body;
+    const { expression, awaitPromise, contextId } = req.body;
     if (!expression) return res.status(400).json({ error: 'Missing expression in body' });
     try {
-      const value = await evaluateJS(expression, { awaitPromise });
+      const value = await evaluateJS(expression, { awaitPromise, contextId });
       res.json({ result: value });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/contexts', async (req, res) => {
+    if (!getClient()) return res.status(503).json({ error: 'Not connected to Chrome' });
+    try {
+      res.json(getExecutionContexts());
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

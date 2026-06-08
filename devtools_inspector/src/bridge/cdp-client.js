@@ -16,10 +16,12 @@ const CAPTURABLE_TYPES = new Set(['application/json', 'text/', 'application/xml'
 let client = null;
 let currentTarget = null;
 const sseClients = new Set(); // SSE response objects
+const executionContexts = new Map();
 
 export function getSseClients() { return sseClients; }
 export function getClient() { return client; }
 export function getCurrentTarget() { return currentTarget; }
+export function getExecutionContexts() { return Array.from(executionContexts.values()); }
 
 /** Broadcast an event to all SSE listeners */
 function broadcast(type, data) {
@@ -63,6 +65,18 @@ export async function connectToTab(tabId = null) {
   currentTarget = tabId;
 
   const { Network, DOM, Console, Log, Page, Runtime } = client;
+
+  // Track execution contexts (register listeners BEFORE enable to avoid missing initial events)
+  executionContexts.clear();
+  Runtime.executionContextCreated(({ context }) => {
+    executionContexts.set(context.id, context);
+  });
+  Runtime.executionContextDestroyed(({ executionContextId }) => {
+    executionContexts.delete(executionContextId);
+  });
+  Runtime.executionContextsCleared(() => {
+    executionContexts.clear();
+  });
 
   // Enable all domains
   await Promise.all([
@@ -265,15 +279,19 @@ export async function queryDOM(selector) {
 }
 
 /** Evaluate arbitrary JS in the page context */
-export async function evaluateJS(expression, { awaitPromise = false } = {}) {
+export async function evaluateJS(expression, { awaitPromise = false, contextId = undefined } = {}) {
   if (!client) throw new Error('Not connected to Chrome');
   const { Runtime } = client;
-  const result = await Runtime.evaluate({
+  const options = {
     expression,
     returnByValue: true,
     awaitPromise,
     generatePreview: true,
-  });
+  };
+  if (contextId !== undefined && contextId !== null) {
+    options.contextId = contextId;
+  }
+  const result = await Runtime.evaluate(options);
   if (result.exceptionDetails) {
     throw new Error(result.exceptionDetails.text + '\n' + (result.exceptionDetails.exception?.description || ''));
   }
