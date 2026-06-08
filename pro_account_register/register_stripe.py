@@ -223,9 +223,10 @@ def parse_business_profile(filepath):
     return data
 
 
-def save_details(filename, profile, email, password, status="Unknown", url="", title=""):
-    """Save registration outcome."""
-    with open(filename, "w", encoding="utf-8") as f:
+def save_details(filename_specific, filename_unified, profile, email, password, status="Unknown", url="", title=""):
+    """Save registration outcome to specific file and append to unified file."""
+    # 1. Write to specific file
+    with open(filename_specific, "w", encoding="utf-8") as f:
         f.write("Stripe Account Registration Details\n")
         f.write("=" * 50 + "\n")
         f.write(f"Business: {profile.get('Legal Business Name', 'N/A')}\n")
@@ -240,6 +241,27 @@ def save_details(filename, profile, email, password, status="Unknown", url="", t
         f.write(f"Final URL: {url}\n")
         f.write(f"Title: {title}\n")
         f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write("-" * 50 + "\n")
+        f.write("Used Profile details:\n")
+        f.write(f"  Website: {profile.get('Business Website', 'N/A')}\n")
+        f.write(f"  Product Description: {profile.get('Product Description', 'N/A')}\n")
+        f.write(f"  Statement Descriptor: {profile.get('Statement Descriptor', 'N/A')}\n")
+        f.write(f"  Shortened Descriptor: {profile.get('Shortened Descriptor', 'N/A')}\n")
+
+    # 2. Append to unified file
+    file_exists = os.path.exists(filename_unified)
+    with open(filename_unified, "a", encoding="utf-8") as f:
+        if not file_exists:
+            f.write("Unified Stripe Account Registration Results\n")
+            f.write("=" * 60 + "\n\n")
+        f.write(f"Record Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Business: {profile.get('Legal Business Name', 'N/A')} ({profile.get('DBA (Doing Business As)', 'N/A')})\n")
+        f.write(f"Website: {profile.get('Business Website', 'N/A')}\n")
+        f.write(f"Representative: {profile.get('Full Name', 'N/A')} (SSN: ...{profile.get('SSN', 'N/A')[-4:] if profile.get('SSN') else 'N/A'})\n")
+        f.write(f"Credentials: {email} / {password}\n")
+        f.write(f"Status: {status}\n")
+        f.write(f"Final URL: {url}\n")
+        f.write("-" * 60 + "\n\n")
 
 
 def parse_dataset_line(filepath, line_index=None):
@@ -567,8 +589,13 @@ def main():
                         help="Path to the user dataset file (default: pointclickcare data.txt)")
     parser.add_argument("--line", type=int, default=None,
                         help="The 1-based line number of user data to use. If omitted, a random line is selected.")
+    parser.add_argument("--use-pregenerated", action="store_true",
+                        help="Use the business details from the profile file directly instead of generating new ones via LLM.")
     args = parser.parse_args()
     BRIDGE_URL = args.bridge
+
+    # Auto-detect if we should skip runtime LLM generation
+    use_pregenerated = args.use_pregenerated or (args.profile != "pro_account_register/stripe_business_profile.txt")
 
     print("=" * 60)
     print("STRIPE ACCOUNT REGISTRATION (CDP Bridge)")
@@ -604,22 +631,38 @@ def main():
         print(f"  Representative: {profile.get('Full Name', 'N/A')}")
 
         # Generate and override business details
-        print("\n[INFO] Generating unique AI SaaS business details via LLM...")
-        biz_info = generate_ai_saas_profile()
-        print(f"  [LLM] Generated Business: {biz_info['business_name']}")
-        print(f"    DBA: {biz_info['dba']}")
-        print(f"    Website: {biz_info['website']}")
-        print(f"    Descriptor: {biz_info['statement_descriptor']}")
-        print(f"    Shortened: {biz_info['shortened_descriptor']}")
-        print(f"    Research Summary: {biz_info.get('domain_research_summary', 'N/A')}")
-        
-        # Override profile keys with generated business details
-        profile["Legal Business Name"] = biz_info["business_name"]
-        profile["DBA (Doing Business As)"] = biz_info["dba"]
-        profile["Business Website"] = biz_info["website"]
-        profile["Product Description"] = biz_info["description"]
-        profile["Statement Descriptor"] = biz_info["statement_descriptor"]
-        profile["Shortened Descriptor"] = biz_info["shortened_descriptor"]
+        if use_pregenerated:
+            print("\n[INFO] Using pre-generated business details from profile file...")
+            # Consistency checks for keys (e.g. from generated profile fields mapping to profile dict)
+            if "Business Website" not in profile and "website" in profile:
+                profile["Business Website"] = profile["website"]
+            if "Product Description" not in profile and "description" in profile:
+                profile["Product Description"] = profile["description"]
+            if "Statement Descriptor" not in profile and "statement_descriptor" in profile:
+                profile["Statement Descriptor"] = profile["statement_descriptor"]
+            if "Shortened Descriptor" not in profile and "shortened_descriptor" in profile:
+                profile["Shortened Descriptor"] = profile["shortened_descriptor"]
+                
+            print(f"  Business Name: {profile.get('Legal Business Name', 'N/A')}")
+            print(f"  DBA: {profile.get('DBA (Doing Business As)', 'N/A')}")
+            print(f"  Website: {profile.get('Business Website', 'N/A')}")
+        else:
+            print("\n[INFO] Generating unique AI SaaS business details via LLM...")
+            biz_info = generate_ai_saas_profile()
+            print(f"  [LLM] Generated Business: {biz_info['business_name']}")
+            print(f"    DBA: {biz_info['dba']}")
+            print(f"    Website: {biz_info['website']}")
+            print(f"    Descriptor: {biz_info['statement_descriptor']}")
+            print(f"    Shortened: {biz_info['shortened_descriptor']}")
+            print(f"    Research Summary: {biz_info.get('domain_research_summary', 'N/A')}")
+            
+            # Override profile keys with generated business details
+            profile["Legal Business Name"] = biz_info["business_name"]
+            profile["DBA (Doing Business As)"] = biz_info["dba"]
+            profile["Business Website"] = biz_info["website"]
+            profile["Product Description"] = biz_info["description"]
+            profile["Statement Descriptor"] = biz_info["statement_descriptor"]
+            profile["Shortened Descriptor"] = biz_info["shortened_descriptor"]
     except Exception as e:
         print(f"[ERROR] {e}")
         return
@@ -641,7 +684,16 @@ def main():
     full_name = profile.get("Full Name", "")
     password = profile.get("Password", "")
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    filename = os.path.join(script_dir, "stripe_registration_details.txt")
+    results_dir = os.path.join(script_dir, "registration_results")
+    os.makedirs(results_dir, exist_ok=True)
+    
+    if selected_line is not None:
+        filename_specific = os.path.join(results_dir, f"stripe_results_line_{selected_line + 1}.txt")
+    else:
+        biz_name_clean = re.sub(r'[^a-zA-Z0-9]', '_', profile.get("DBA (Doing Business As)", "unknown")).lower().strip('_')
+        filename_specific = os.path.join(results_dir, f"stripe_results_{biz_name_clean}.txt")
+        
+    filename_unified = os.path.join(results_dir, "stripe_results.txt")
 
     # Compute email as firstname+lastname@audioplexdesigns.com
     names = full_name.lower().split()
@@ -1035,19 +1087,19 @@ def main():
 
         if not is_onboarding and is_dashboard:
             print("\n[OUTCOME] [OK] Reached Stripe Dashboard — Account setup complete!")
-            save_details(filename, profile, email, password, "Account Created / Dashboard Reached",
+            save_details(filename_specific, filename_unified, profile, email, password, "Account Created / Dashboard Reached",
                         new_url, title)
             break
         elif "verification" in new_body and "pending" in new_body:
             print("\n[OUTCOME] Account created — Verification pending")
-            save_details(filename, profile, email, password, "Created - Verification Pending",
+            save_details(filename_specific, filename_unified, profile, email, password, "Created - Verification Pending",
                         new_url, title)
             break
     else:
         print("\n[!] Reached max steps. Saving current state.")
-        save_details(filename, profile, email, password, "Onboarding Incomplete", url, title)
+        save_details(filename_specific, filename_unified, profile, email, password, "Onboarding Incomplete", url, title)
 
-    print(f"\n[OK] Details saved to: {os.path.abspath(filename)}")
+    print(f"\n[OK] Details saved to: {os.path.abspath(filename_specific)}")
     print("Chrome remains open for manual inspection.")
 
 

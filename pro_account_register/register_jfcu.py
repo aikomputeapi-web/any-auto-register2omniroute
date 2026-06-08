@@ -388,7 +388,9 @@ def main():
         print("If you need to enter OTP or CAPTCHA, please complete it in the browser window.")
         
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        filename = os.path.join(script_dir, f"jfcu_details_line_{args.line}.txt")
+        results_dir = os.path.join(script_dir, "registration_results")
+        os.makedirs(results_dir, exist_ok=True)
+        filename = os.path.join(results_dir, f"jfcu_details_line_{args.line}.txt")
         funding_handled = False  # Track if funding page has been handled
         for page_num in range(6, 25):
             print(f"\n--- Checking Page State {page_num} ---")

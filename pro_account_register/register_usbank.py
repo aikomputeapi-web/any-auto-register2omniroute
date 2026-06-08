@@ -277,7 +277,9 @@ def main():
         
         # Loop for up to 15 subsequent pages
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        filename = os.path.join(script_dir, f"usbank_details_line_{args.line}.txt")
+        results_dir = os.path.join(script_dir, "registration_results")
+        os.makedirs(results_dir, exist_ok=True)
+        filename = os.path.join(results_dir, f"usbank_details_line_{args.line}.txt")
         for page_num in range(1, 16):
             print(f"\n--- Checking Page State {page_num} ---")
             try:

@@ -93,7 +93,7 @@ Shirley|Obrine|16857 Clinton|San Leandro|CA|94578|12/04/1935|553-56-9291
 | **File**    | `pro_account_register/register_amex.py`                        |
 | **Account** | AMEX High Yield Savings Account                                |
 | **URL**     | `https://www.americanexpress.com/en-us/banking/personal/savings/apply/psa-begin` |
-| **Output**  | `pro_account_register/amex_details_line_<N>.txt`                             |
+| **Output**  | `pro_account_register/registration_results/amex_details_line_<N>.txt` |
 
 **What it automates:**
 1. Navigates to the AMEX savings application landing page
@@ -112,7 +112,7 @@ Shirley|Obrine|16857 Clinton|San Leandro|CA|94578|12/04/1935|553-56-9291
 | **File**    | `pro_account_register/register_usbank.py`                       |
 | **Account** | U.S. Bank Smartly® Checking Account                             |
 | **URL**     | `https://www.usbank.com/bank-accounts/checking-accounts/bank-smartly-checking.html` |
-| **Output**  | `pro_account_register/usbank_details_line_<N>.txt`                            |
+| **Output**  | `pro_account_register/registration_results/usbank_details_line_<N>.txt` |
 
 **What it automates:**
 1. Navigates to the U.S. Bank Smartly Checking product page
@@ -132,7 +132,7 @@ Shirley|Obrine|16857 Clinton|San Leandro|CA|94578|12/04/1935|553-56-9291
 | **File**    | `pro_account_register/register_jfcu.py`                         |
 | **Account** | JFCU Share Savings Account (new membership)                     |
 | **URL**     | `https://www.jfcu.org/Join/`                                    |
-| **Output**  | `pro_account_register/jfcu_details_line_<N>.txt`                              |
+| **Output**  | `pro_account_register/registration_results/jfcu_details_line_<N>.txt` |
 
 **What it automates:**
 1. Navigates to JFCU Join portal and clicks "JOIN NOW" (opens LoansPQ popup)
@@ -154,6 +154,26 @@ Shirley|Obrine|16857 Clinton|San Leandro|CA|94578|12/04/1935|553-56-9291
 7. Handles Funding page: selects Credit Card funding method, fills CC details
 8. Handles subsequent review/compliance pages (auto-selects dropdowns, checks agreements)
 9. Monitors for approval/decline/pending outcome
+
+---
+
+### Script 4: Stripe Merchant Account Registration
+
+| Field       | Value                                                           |
+|-------------|-----------------------------------------------------------------|
+| **File**    | `pro_account_register/register_stripe.py`                       |
+| **Account** | Stripe Merchant / Payments Account                              |
+| **URL**     | `https://dashboard.stripe.com/register`                         |
+| **Output**  | `pro_account_register/registration_results/stripe_results_line_<N>.txt` (specific) and `stripe_results.txt` (unified) |
+
+**What it automates:**
+1. Navigates to Stripe registration page.
+2. Fills in account registration credentials (email, name, password).
+3. Automates the onboarding flow page-by-page.
+4. Auto-fills generated or pre-generated AI SaaS business details: DBA, Business Website, Product Description, Statement Descriptor, etc.
+5. Auto-fills representative personal details, SSN last 4 or full, DOB, address, and bank routing/account details.
+6. Acknowledges tax declarations and terms checkbox, submitting the merchant registration.
+7. Logs credentials, status, and final outcomes.
 
 ---
 
@@ -202,13 +222,18 @@ for ($i = 39; $i -le 50; $i++) {
 
 ## Expected Output Files
 
-Each script writes a details text file inside the `pro_account_register` folder after completing the run:
+All registration scripts save their outcomes inside the `pro_account_register/registration_results/` folder:
 
 ```
-pro_account_register/amex_details_line_39.txt
-pro_account_register/usbank_details_line_39.txt
-pro_account_register/jfcu_details_line_39.txt
+pro_account_register/registration_results/amex_details_line_39.txt
+pro_account_register/registration_results/usbank_details_line_39.txt
+pro_account_register/registration_results/jfcu_details_line_39.txt
+pro_account_register/registration_results/stripe_results_line_39.txt
+pro_account_register/registration_results/stripe_results.txt
 ```
+
+- **Line-based files** (`<institution>_details_line_<N>.txt` or `stripe_results_line_<N>.txt`): Save the registration details of the specific run matching the dataset row number.
+- **Stripe results file** (`stripe_results.txt`): A unified transaction log listing all Stripe merchant registrations, credentials, and outcome statuses in one place.
 
 ### Output File Format
 
@@ -233,6 +258,32 @@ Timestamp: 2026-06-02 22:15:43
 - `Denied/Declined` — Application was rejected
 - `Under Review / Pending` — Application queued for manual review
 - `Pending Submission` — Script did not reach a final outcome page (check browser)
+
+---
+
+## Business Profile Pre-Generation & Stripe Usage
+
+To avoid calling the LLM at Stripe registration runtime, you can generate business profiles ahead of time and load them directly.
+
+### 1. Generating Business Profiles Ahead of Time
+
+Run the `generate_profiles.py` script from the project root. This calls OpenRouter/Gemini (or falls back to rule-based random generation) to create unique AI SaaS businesses:
+
+```bash
+# Generate 5 business profiles
+python pro_account_register/generate_profiles.py --count 5
+```
+
+- **Output Directory**: Profiles are saved under `pro_account_register/generated_profiles/` as individual text files (e.g., `profile_neuroflow.txt`).
+- **Profiles Index**: A unified Markdown index page is automatically updated at `pro_account_register/generated_profiles/business_profiles.md` with links and summaries of all pre-generated profiles.
+
+### 2. Using Pre-Generated Profiles in Stripe Registration
+
+Provide the path of a generated profile to the `--profile` argument of the Stripe registration script. When a custom profile is provided (or when `--use-pregenerated` is set), the script automatically skips LLM calls and registers using the pre-generated profile's data:
+
+```bash
+python pro_account_register/register_stripe.py --line 39 --phone 6692506085 --profile pro_account_register/generated_profiles/profile_neuroflow.txt
+```
 
 ---
 

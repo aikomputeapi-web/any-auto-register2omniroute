@@ -267,7 +267,9 @@ def main():
             
         # Save output details
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        filename = os.path.join(script_dir, f"amex_details_line_{args.line}.txt")
+        results_dir = os.path.join(script_dir, "registration_results")
+        os.makedirs(results_dir, exist_ok=True)
+        filename = os.path.join(results_dir, f"amex_details_line_{args.line}.txt")
         with open(filename, "w", encoding="utf-8") as f:
             f.write(f"AMEX Savings Account Application Details (Dataset Row {args.line})\n")
             f.write("=" * 50 + "\n")
