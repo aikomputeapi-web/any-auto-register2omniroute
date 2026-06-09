@@ -98,3 +98,22 @@ On matching a threshold:
 
 1. **Save Outcome details**: Always write intermediate and final account outputs (including generated usernames and passwords) to `pro_account_register/registration_results/` in the format `<platform>_details_line_<N>.txt`.
 2. **Commit Code**: Run the compilation checker `python -m py_compile pro_account_register/<filename>.py` and commit changes.
+
+---
+
+## 7. Solving Captchas & Profile Generation (CapSolver & OpenRouter)
+
+When automated registration flows encounter Captcha challenges (ReCaptcha, hCaptcha, Turnstile) or require realistic, pre-generated business/profile data, use the following API keys and setups:
+
+### A. CapSolver for Captcha Solving
+- **Integration**: The remote-debugging Chrome profile (`chrome-profile/`) is pre-installed with the CapSolver browser extension (`capsolver-ext/`).
+- **Configuration**: Configure the extension with your CapSolver API Key. This key is saved in the extension's local storage inside the Chrome user data directory. The extension will automatically detect and solve captchas in the background.
+- **Troubleshooting**: If a Captcha fails to solve automatically, the agent can pause the script's continue loop to let the user or extension solve it before continuing.
+
+### B. OpenRouter for Profile & Data Generation
+- **Integration**: OpenRouter is used by the LLM-backed scripts (e.g., [generate_profiles.py](file:///c:/Users/Administrator/coding/any-auto-register/pro_account_register/generate_profiles.py)) to generate high-quality business names, descriptions, and registration details.
+- **Configuration**: Save the OpenRouter API Key in the root [.env](file:///c:/Users/Administrator/coding/any-auto-register/.env) file:
+  ```env
+  OPENROUTER_API_KEY=sk-or-v1-...
+  ```
+- **How it's used**: The key is accessed via `os.environ.get("OPENROUTER_API_KEY")` to call LLM models. For example, `generate_profiles.py` uses it to recursively create business profiles and check domain availability, saving the output files to [generated_profiles/](file:///c:/Users/Administrator/coding/any-auto-register/pro_account_register/generated_profiles/) so they can be consumed by registration scripts at a later time.
