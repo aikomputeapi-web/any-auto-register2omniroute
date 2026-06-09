@@ -1,0 +1,15 @@
+Fidelity Cash Management Account Registration Details
+==================================================
+Name: Robert Oliver
+Address: 24647 Mohr, Hayward, CA 94545
+DOB: 04/06/1938
+SSN: 545505372
+Email: robertoliver@audioplexdesigns.com
+Phone: 6692506085
+Username: robertoliver38
+Password: RobertPass38!
+--------------------------------------------------
+Status: Pending Mobile Phone Verification / Reject VoIP or Landline
+Final URL: https://digital.fidelity.com/prgw/digital/aox/FCMAccountOpening/CollectBetterPhone?OFFER_CD=&dbs=&transactionContextKey=
+Title: You'll need to provide a different mobile number – Fidelity Investments
+Timestamp: 2026-06-08 22:21:08
