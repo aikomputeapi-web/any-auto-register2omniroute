@@ -6,6 +6,11 @@ import argparse
 import urllib.request
 import urllib.error
 import json
+import imaplib                                                                                                                                                                                                                                                                                                                                                                                                                                      
+import datetime
+import email as email_module
+from email.policy import default
+
 
 # Add root directory to python path so we can import from core
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,16 +41,22 @@ def find_context_by_origin(origin_substr):
 
 def get_current_context():
     """Identify which context contains the active form elements."""
-    # SWS Gateway hosts the credentials and OTP pages inside iframe lmsiframeid
-    ctx = find_context_by_origin("sws-gateway-nr.schwab.com")
+    ctx = find_context_by_origin("sws-gateway")
     if ctx:
         return ctx
     
-    # OLA Content houses some supplementary screens - only target if url contains olacontent
     info = bridge_get("/page")
     url = info.get("url", "") if info else ""
-    if "olacontent" in url.lower():
+    url_lower = url.lower()
+    
+    # OLA Content houses some supplementary screens
+    if "olacontent" in url_lower:
         ctx = find_context_by_origin("olacontent.schwab.com")
+        if ctx:
+            return ctx
+            
+    if "onboard.schwab.com" in url_lower:
+        ctx = find_context_by_origin("onboard.schwab.com")
         if ctx:
             return ctx
             
@@ -53,9 +64,9 @@ def get_current_context():
 
 
 
-def bridge_eval(expression, context_id=None):
+def bridge_eval(expression, context_id=None, force_main=False):
     """Execute JavaScript in the page (or a specific iframe context) via the CDP bridge."""
-    if context_id is None:
+    if context_id is None and not force_main:
         context_id = get_current_context()
         
     url = f"{BRIDGE_URL}/eval"
@@ -71,14 +82,14 @@ def bridge_eval(expression, context_id=None):
             return result.get("result")
     except Exception as e:
         # Fallback to default context if context_id failed
-        if context_id is not None:
-            return bridge_eval(expression, context_id=None)
+        if context_id is not None and not force_main:
+            return bridge_eval(expression, context_id=None, force_main=True)
         print(f"  [!] Bridge eval failed: {e}")
         return None
 
 def bridge_navigate(url):
     """Navigate the page to a URL via JS."""
-    bridge_eval(f"window.location.href = '{url}'", context_id=None)
+    bridge_eval(f"window.location.href = '{url}'", context_id=None, force_main=True)
 
 def get_page_info():
     """Get current page URL and title."""
@@ -340,6 +351,95 @@ def save_details(filename, user_info, email, phone, url, title, status="Unknown"
         f.write(f"Title: {title}\n")
         f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
+def get_schwab_otp(email_to, min_timestamp=None, exclude_codes=None):
+    """Connect to admin@audioplexdesigns.com inbox via IMAP and find the Schwab verification code."""
+    if exclude_codes is None:
+        exclude_codes = set()
+    print(f"  [IMAP] Checking inbox for security code sent to {email_to}...")
+    try:
+        conn = imaplib.IMAP4_SSL("imap.titan.email", 993, timeout=20)
+        conn.login("admin@audioplexdesigns.com", "Dirty2020!")
+        status, _ = conn.select("INBOX", readonly=True)
+        if status != "OK":
+            conn.logout()
+            return None
+            
+        # Search for messages sent to the specific address today
+        date_str = datetime.date.today().strftime("%d-%b-%Y")
+        search_criteria = f'(TO "{email_to}" SINCE {date_str})'
+        status, data = conn.uid("search", None, search_criteria)
+        if status != "OK" or not data or not data[0]:
+            # Fallback to general search without date if none found
+            status, data = conn.uid("search", None, f'TO "{email_to}"')
+            if status != "OK" or not data or not data[0]:
+                conn.logout()
+                return None
+                
+        uids = data[0].split()
+        if not uids:
+            conn.logout()
+            return None
+            
+        # Check from newest to oldest
+        for uid in reversed(uids):
+            status, msg_data = conn.uid("fetch", uid, "(RFC822)")
+            if status != "OK":
+                continue
+            raw = None
+            for item in msg_data or []:
+                if isinstance(item, tuple) and item[1]:
+                    raw = item[1]
+                    break
+            if not raw:
+                continue
+                
+            msg = email_module.message_from_bytes(raw, policy=default)
+            
+            # Check email timestamp if min_timestamp is specified
+            if min_timestamp is not None:
+                try:
+                    import email.utils
+                    date_hdr = msg.get("Date")
+                    if date_hdr:
+                        date_tuple = email.utils.parsedate_to_datetime(date_hdr)
+                        email_ts = date_tuple.timestamp()
+                        # Allow 15 minutes (900 seconds) of lookback for Schwab access codes
+                        if email_ts < min_timestamp - 900:
+                            continue
+                except Exception as te:
+                    print(f"  [Warning] Date parsing failed: {te}")
+                    
+            subject = str(msg.get("Subject", "")).lower()
+            
+            # Check if it's from Schwab or has verification / access code subjects
+            if "schwab" in subject or "security code" in subject or "access code" in subject or "verification" in subject:
+                # Extract body
+                parts = []
+                def _walk(payload):
+                    if payload.is_multipart():
+                        for sub in payload.iter_parts():
+                            _walk(sub)
+                    else:
+                        ct = str(payload.get_content_type() or "")
+                        if ct.startswith("text/"):
+                            b = payload.get_content()
+                            if isinstance(b, bytes):
+                                b = b.decode("utf-8", errors="ignore")
+                            parts.append(str(b or ""))
+                _walk(msg)
+                body = " ".join(parts)
+                
+                # Look for 6-digit code
+                matches = re.findall(r"\b\d{6}\b", body)
+                for code in matches:
+                    if code != "000000" and code not in exclude_codes:
+                        conn.logout()
+                        return code
+        conn.logout()
+    except Exception as e:
+        print(f"  [!] IMAP search failed: {e}")
+    return None
+
 def main():
     global BRIDGE_URL
 
@@ -354,6 +454,8 @@ def main():
                         help="Path to the dataset file")
     parser.add_argument("--bridge", type=str, default="http://localhost:3005",
                         help="CDP bridge URL")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Force navigate to the start page to begin a fresh registration")
     args = parser.parse_args()
     BRIDGE_URL = args.bridge
 
@@ -404,7 +506,7 @@ def main():
     filename = os.path.join(results_dir, f"schwab_details_line_{args.line}.txt")
 
     # 3. Check / navigate to entry point
-    if "schwab.com" not in url:
+    if args.fresh or ("open-an-account" not in url and "onboard" not in url):
         print("\nNavigating to Schwab open account page...")
         bridge_navigate("https://www.schwab.com/open-an-account")
         time.sleep(5)
@@ -412,6 +514,8 @@ def main():
 
     # 4. Onboarding Automation Loop
     print("\nStarting onboarding loop...")
+    script_start_time = time.time()
+    attempted_codes = set()
     for step_num in range(1, 35):
         time.sleep(3)
         url, title = get_page_info()
@@ -426,6 +530,8 @@ def main():
             save_details(filename, user_info, email, phone, url, title, "In Progress", username, password)
         except Exception:
             pass
+
+        curr_url_lower = url.lower()
 
         # ===== STEP 1: Overview page click "Individual Checking" =====
         if "open-an-account" in url and "checking" not in url:
@@ -474,7 +580,7 @@ def main():
             time.sleep(5)
 
         # ===== STEP 5: OTP Method Selection =====
-        elif "otp/targets" in url or "Which contact method do you prefer" in body:
+        elif "otp/targets" in url or "Which contact method do you prefer" in body or "Which contact method do you prefer" in body_lower or any("Which contact method do you prefer" in str(inp.get("text", "")) or "Which contact method do you prefer" in str(inp.get("label", "")) for inp in inputs) or any(inp.get("id") == "div1" for inp in inputs):
             print("  >> Step: Selecting OTP verification method (Email)...")
             # Select Email option (#div1)
             clicked_email = bridge_eval("""
@@ -504,6 +610,132 @@ def main():
             print(f"  Clicked Continue: {clicked_cont}")
             time.sleep(5)
 
+        # ===== STEP 5.2: OTP Code Entry =====
+        elif "otp/code" in curr_url_lower or "Enter access code" in body or "Enter access code" in body_lower or any("access code" in str(inp.get("text", "")).lower() or "access code" in str(inp.get("label", "")).lower() for inp in inputs):
+            print("\n[INFO] Reached OTP code entry screen. Polling for access code...")
+            otp_code = None
+            for attempt in range(1, 25):
+                otp_code = get_schwab_otp(email, min_timestamp=script_start_time, exclude_codes=attempted_codes)
+                if otp_code:
+                    break
+                print(f"  Waiting for OTP email (attempt {attempt}/24)...")
+                time.sleep(5)
+                
+            if otp_code:
+                print(f"[OK] Retrieved OTP code: {otp_code}")
+                attempted_codes.add(otp_code)
+                # Fill the OTP field
+                filled = fill_field('#securityCode', otp_code)
+                print(f"  Filled #securityCode: {filled}")
+                time.sleep(1)
+                
+                # Click Continue button
+                clicked = click_element('#continueButton')
+                print(f"  Clicked #continueButton: {clicked}")
+                time.sleep(5)
+            else:
+                print("\n[OUTCOME] [PENDING] Failed to retrieve OTP code automatically. Access code sent to email.")
+                save_details(filename, user_info, email, phone, url, title, "Pending OTP / Verification", username, password)
+                break
+
+        # ===== STEP 5.5: Address page =====
+        elif "retail/address" in url or "Where do you live" in body or "current-streetaddressone-input" in [inp["id"] for inp in inputs]:
+            print("  >> Step: Home Address form...")
+            
+            # Check if address suggestion modal is displayed (home-suggestedaddress-radio-id)
+            has_suggested = False
+            for inp in inputs:
+                if inp.get("id") == "home-suggestedaddress-radio-id":
+                    has_suggested = True
+                    break
+                    
+            if has_suggested:
+                print("    [Modal] Address suggestion detected. Selecting suggested address and continuing...")
+                clicked_modal = bridge_eval("""
+                (() => {
+                    try {
+                        const radio = document.getElementById('home-suggestedaddress-radio-id');
+                        if (radio) {
+                            radio.click();
+                            const btns = Array.from(document.querySelectorAll('button'))
+                                .filter(b => b.offsetWidth > 0 && b.textContent.trim() === 'Continue');
+                            if (btns.length > 1) {
+                                btns[1].click();
+                                return 'CLICKED_SUGGESTED_AND_SECOND_CONTINUE';
+                            } else if (btns.length > 0) {
+                                btns[0].click();
+                                return 'CLICKED_SUGGESTED_AND_ONLY_CONTINUE';
+                            }
+                        }
+                        return 'FAILED_TO_CLICK_RADIO';
+                    } catch(e) {
+                        return 'ERROR: ' + e.message;
+                    }
+                })()
+                """)
+                print(f"    Modal confirmation click result: {clicked_modal}")
+                time.sleep(5)
+            else:
+                fill_field('#current-streetaddressone-input', user_info["address"])
+                fill_field('#current-city-input', user_info["city"])
+                select_dropdown_option('#current-state-select-id', user_info["state"])
+                fill_field('#current-zip-input', user_info["zip"])
+                select_dropdown_option('#address-citizenship-country-select-id', "United States")
+                click_element('#ismailingaddressyes-radio-id')
+                
+                time.sleep(2)
+                if click_by_text("Continue", "button"):
+                    print("  Clicked Continue button")
+                time.sleep(5)
+
+        # ===== STEP 5.6: Goals page (Checking & Brokerage purposes / source of funds) =====
+        elif "retail/goals" in url or "source of funds" in body_lower or any("-checkbox-id" in str(inp.get("id")) for inp in inputs):
+            print("  >> Step: Onboarding goals/disclosures (purpose & source of funds)...")
+            
+            # Click checking purpose and source
+            click_element('#generalpersonal-savings-checkbox-id')
+            click_element('#checking-salarywagessavings-checkbox-checkbox-id')
+            
+            # Click brokerage purpose and source
+            click_element('#general-purposes-checkbox-id')
+            click_element('#brokerage-salarywagessavings-checkbox-checkbox-id')
+            
+            # Click frequency/tier radio
+            click_element('[id="1-radio-id"]')
+            click_element('[id="2-radio-id"]') # fallback
+            
+            time.sleep(2)
+            if click_by_text("Continue", "button"):
+                print("  Clicked Continue button")
+            time.sleep(5)
+
+        # ===== STEP 5.7: Verification / Identity check exit outcomes =====
+        elif any(k in curr_url_lower for k in ["confirm-identity", "kba", "identity-verification"]):
+            print("\n[OUTCOME] [PENDING] Reached identity verification (KBA/ID Scan).")
+            save_details(filename, user_info, email, phone, url, title, "Pending Identity Verification / KBA", username, password)
+            break
+            
+        elif any(k in curr_url_lower for k in ["confirmation", "success", "thank-you", "congratulations"]):
+            print("\n[OUTCOME] [OK] Registration complete / Application submitted successfully!")
+            save_details(filename, user_info, email, phone, url, title, "Submitted / Approved", username, password)
+            break
+            
+        elif any(k in curr_url_lower for k in ["declined", "denied", "reject"]):
+            print("\n[OUTCOME] Registration declined.")
+            save_details(filename, user_info, email, phone, url, title, "Declined", username, password)
+            break
+            
+        elif any(k in curr_url_lower for k in ["pending", "review"]):
+            print("\n[OUTCOME] Registration pending review.")
+            save_details(filename, user_info, email, phone, url, title, "Pending Review", username, password)
+            break
+
+        # If it's a verification screen other than otp/targets and otp/code, exit.
+        elif any(k in curr_url_lower for k in ["verify", "verification", "2fa", "security-code"]) or ("otp" in curr_url_lower and "otp/targets" not in curr_url_lower and "otp/code" not in curr_url_lower):
+            print("\n[OUTCOME] [PENDING] Reached verification check screen.")
+            save_details(filename, user_info, email, phone, url, title, "Pending OTP / Verification", username, password)
+            break
+
         # ===== STEP 6: Generic form field handler =====
         else:
             print("  [INFO] Checking visible elements dynamically...")
@@ -524,50 +756,53 @@ def main():
             for inp in inputs:
                 iid = inp["id"]
                 iname = inp["name"]
+                tag = inp["tag"]
+                itype = inp["type"]
                 combined = f"{iid} {iname} {inp.get('placeholder', '')} {inp.get('text', '')}".lower()
                 selector = f'[id="{iid}"]' if iid else f"[name='{iname}']" if iname else None
                 
                 if not selector:
                     continue
                 
-                # Check options and fill
-                if "occupation" in combined or "employment" in combined:
-                    if inp["tag"] == "select":
+                # Group by tag and type to avoid keyword collisions
+                if tag == "select":
+                    if "occupation" in combined or "employment" in combined:
                         print("    Selecting Occupation: Retired")
                         select_dropdown_option(selector, "Retired")
                         filled_any = True
-                elif "income" in combined:
-                    if inp["tag"] == "select":
+                    elif "income" in combined:
                         print("    Selecting Income option...")
                         bridge_eval(f"(() => {{ const el = document.querySelector('{selector}'); if(el && el.options.length > 1) {{ el.selectedIndex = Math.min(2, el.options.length - 1); el.dispatchEvent(new Event('change', {{ bubbles: true }})); }} }})()")
                         filled_any = True
-                elif "networth" in combined or "net-worth" in combined:
-                    if inp["tag"] == "select":
+                    elif "networth" in combined or "net-worth" in combined:
                         print("    Selecting Net Worth option...")
                         bridge_eval(f"(() => {{ const el = document.querySelector('{selector}'); if(el && el.options.length > 1) {{ el.selectedIndex = Math.min(2, el.options.length - 1); el.dispatchEvent(new Event('change', {{ bubbles: true }})); }} }})()")
                         filled_any = True
-                elif "username" in combined or "userid" in combined or "user-id" in combined:
-                    print(f"    Auto-filling Username: {username}")
-                    fill_field(selector, username)
-                    filled_any = True
-                elif "password" in combined:
-                    print(f"    Auto-filling Password: {password}")
-                    fill_field(selector, password)
-                    filled_any = True
-                elif "security" in combined or "challenge" in combined or "question" in combined:
-                    if inp["tag"] == "select":
+                    elif "security" in combined or "challenge" in combined or "question" in combined:
                         print("    Auto-selecting first security question")
                         bridge_eval(f"(() => {{ const el = document.querySelector('{selector}'); if(el && el.options.length > 1) {{ el.selectedIndex = 1; el.dispatchEvent(new Event('change', {{ bubbles: true }})); }} }})()")
                         filled_any = True
-                elif "answer" in combined:
-                    ans = "Hayward"
-                    print(f"    Auto-filling security answer: {ans}")
-                    fill_field(selector, ans)
-                    filled_any = True
-                elif inp["tag"] == "input" and inp["type"] == "radio" and iid.lower().endswith("no"):
-                    print(f"    Checking radio 'No': {iid}")
-                    bridge_eval(f"(() => {{ const el = document.getElementById('{iid}'); if(el && !el.checked) el.click(); }})()")
-                    filled_any = True
+                
+                elif tag == "input" and itype == "radio":
+                    if iid.lower().endswith("no") or "no-radio" in iid.lower() or inp.get("value") == "false":
+                        print(f"    Checking radio 'No': {iid}")
+                        bridge_eval(f"(() => {{ const el = document.getElementById('{iid}'); if(el && !el.checked) el.click(); }})()")
+                        filled_any = True
+                        
+                elif tag == "input" and (itype == "text" or itype == "password" or itype == ""):
+                    if any(k in combined for k in ["username", "userid", "user-id", "loginid", "login-id"]):
+                        print(f"    Auto-filling Username: {username}")
+                        fill_field(selector, username)
+                        filled_any = True
+                    elif "password" in combined:
+                        print(f"    Auto-filling Password: {password}")
+                        fill_field(selector, password)
+                        filled_any = True
+                    elif "answer" in combined or "sqa" in combined:
+                        ans = "Hayward"
+                        print(f"    Auto-filling security answer: {ans}")
+                        fill_field(selector, ans)
+                        filled_any = True
 
             # Check dynamic agreement checkboxes
             checked_cbs = False
@@ -576,7 +811,7 @@ def main():
                     iid = inp["id"]
                     iname = inp["name"]
                     combined = f"{iid} {iname} {inp.get('placeholder', '')} {inp.get('text', '')}".lower()
-                    if any(k in combined for k in ["agree", "accept", "terms", "consent", "disclosure", "ack"]):
+                    if any(k in combined for k in ["agree", "accept", "term", "consent", "disclosure", "ack"]):
                         is_checked = bridge_eval(f"!!(document.getElementById('{iid}') || document.querySelector('[name=\"{iname}\"]'))?.checked")
                         if not is_checked:
                             print(f"    Checking agreement checkbox: {iid or iname}")
@@ -586,42 +821,20 @@ def main():
 
             # Attempt submission
             continued = False
-            for btn_text in ["Continue", "Next", "Confirm", "Submit", "Agree and submit", "Agree and Open"]:
+            for btn_text in ["Continue", "Next", "Confirm", "Submit", "Agree and submit", "Agree and Open", "Log in", "Log In"]:
                 if click_by_text(btn_text, "button,a"):
                     print(f"    Clicked '{btn_text}'")
                     continued = True
                     break
             
+            if not continued:
+                if click_element('#btnLogin'):
+                    print("    Clicked '#btnLogin'")
+                    continued = True
+            
             if not continued and not filled_any and not checked_cbs:
                 print("  [!] No action made. Human solver or code entry required.")
                 time.sleep(5)
-
-        # ===== STEP 7: Exit outcomes and thresholds =====
-        curr_url_lower = url.lower()
-        if "otp/code" in curr_url_lower or "Enter access code" in body:
-            print("\n[OUTCOME] [PENDING] Reached OTP code entry screen. Access code sent to email.")
-            save_details(filename, user_info, email, phone, url, title, "Pending OTP / Verification", username, password)
-            break
-        elif any(k in curr_url_lower for k in ["otp", "verify", "verification", "2fa", "security-code"]):
-            print("\n[OUTCOME] [PENDING] Reached verification check screen.")
-            save_details(filename, user_info, email, phone, url, title, "Pending OTP / Verification", username, password)
-            break
-        elif any(k in curr_url_lower for k in ["confirm-identity", "kba", "identity-verification"]):
-            print("\n[OUTCOME] [PENDING] Reached identity verification (KBA/ID Scan).")
-            save_details(filename, user_info, email, phone, url, title, "Pending Identity Verification / KBA", username, password)
-            break
-        elif any(k in curr_url_lower for k in ["confirmation", "success", "thank-you", "congratulations"]):
-            print("\n[OUTCOME] [OK] Registration complete / Application submitted successfully!")
-            save_details(filename, user_info, email, phone, url, title, "Submitted / Approved", username, password)
-            break
-        elif any(k in curr_url_lower for k in ["declined", "denied", "reject"]):
-            print("\n[OUTCOME] Registration declined.")
-            save_details(filename, user_info, email, phone, url, title, "Declined", username, password)
-            break
-        elif any(k in curr_url_lower for k in ["pending", "review"]):
-            print("\n[OUTCOME] Registration pending review.")
-            save_details(filename, user_info, email, phone, url, title, "Pending Review", username, password)
-            break
     else:
         print("\n[!] Reached max loop iterations. Saving state.")
         save_details(filename, user_info, email, phone, url, title, "Incomplete / Max Steps Reached", username, password)

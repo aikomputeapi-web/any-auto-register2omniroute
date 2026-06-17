@@ -121,8 +121,11 @@ You can query the bridge server dynamically to examine the state of the registra
 ## ⚠️ Troubleshooting
 
 1. **"Failed to launch browser: port 9222 in use"**
-   - **Reason**: A standalone Chrome instance or another test task is already occupying port 9222.
-   - **Solution**: Kill any lingering Chrome processes or shut down the debug browser before restarting the registration task.
+   - **Reason**: A standalone Chrome instance, background test task, or Windows System WebView2 process (`msedgewebview2.exe`) is already occupying port `9222`.
+   - **Solution**: Kill any lingering Chrome processes, or configure the system to use a different port like `9223`.
+   - **How to change ports**: 
+     1. In the Playwright launch options/arguments, use `--remote-debugging-port=9223`.
+     2. Update `CHROME_PORT=9223` in `devtools-inspector/.env`.
 
 2. **"DevTools not connecting/No tabs found"**
    - **Reason**: The registration task is running in pure protocol mode and has not launched a browser.

@@ -34,6 +34,8 @@ if (-not (Test-Path $pythonExe)) {
 
 $env:HOST = $BindHost
 $env:PORT = [string]$Port
+$env:PYTHONIOENCODING = "utf-8"
 
 Write-Host "[INFO] Python: $pythonExe"
+Start-Process "http://$displayHost`:$Port"
 & $pythonExe main.py

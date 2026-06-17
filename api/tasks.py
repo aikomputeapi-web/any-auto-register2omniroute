@@ -342,7 +342,13 @@ def _log(task_id: str, msg: str):
     entry = f"[{ts}] {msg}"
     _task_store.append_log(task_id, entry)
     _persist_task_snapshot(task_id)
-    print(entry)
+    try:
+        print(entry)
+    except (UnicodeEncodeError, UnicodeDecodeError, OSError):
+        # Windows console may use cp1252 which can't encode emoji/CJK.
+        # Fall back to printing with replacement characters.
+        safe = entry.encode("ascii", errors="replace").decode("ascii")
+        print(safe)
 
 
 def _save_task_log(
@@ -426,7 +432,10 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                 from core.db import ProxyModel
                 from sqlmodel import select as _sel
                 _active = _s.exec(
-                    _sel(ProxyModel).where(ProxyModel.is_active == True)
+                    _sel(ProxyModel).where(
+                        ProxyModel.is_active == True,
+                        ProxyModel.region == "US",
+                    )
                 ).all()
                 _prefetched_proxies = [p.url for p in _active if p.url]
 

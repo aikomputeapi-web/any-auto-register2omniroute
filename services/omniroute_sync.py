@@ -44,11 +44,12 @@ def build_omniroute_payload(account: Any) -> dict[str, Any]:
     provider_map = {
         "chatgpt": "codex",
         "kiro": "kiro",
+        "kiro2": "kiro",
     }
     provider = provider_map.get(platform, platform)
 
     # Define which platforms are authenticated via OAuth
-    oauth_platforms = {"chatgpt", "kiro", "grok", "cursor", "openblocklabs"}
+    oauth_platforms = {"chatgpt", "kiro", "kiro2", "grok", "cursor", "openblocklabs"}
     if platform in oauth_platforms:
         auth_type = "oauth"
     else:
@@ -89,7 +90,7 @@ def build_omniroute_payload(account: Any) -> dict[str, Any]:
         if platform == "chatgpt":
             client_id = extra.get("client_id") or extra.get("clientId") or "app_EMoamEEZ73f0CkXaXp7hrann"
             payload["providerSpecificData"]["clientId"] = str(client_id).strip()
-        elif platform == "kiro":
+        elif platform in ("kiro", "kiro2"):
             payload["providerSpecificData"] = {
                 "clientId": extra.get("clientId") or extra.get("client_id") or "",
                 "clientSecret": extra.get("clientSecret") or extra.get("client_secret") or "",
@@ -492,7 +493,7 @@ def upload_to_omniroute(
     cookies = {"auth_token": auth_token} if auth_token else {}
 
     # ── Kiro: prefer direct-import (creates NEW connections via OIDC) ──
-    if platform == "kiro":
+    if platform in ("kiro", "kiro2"):
         extra = _get_extra(account)
         has_client_creds = bool(
             (extra.get("clientId") or extra.get("client_id"))

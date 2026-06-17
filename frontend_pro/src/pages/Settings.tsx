@@ -421,6 +421,7 @@ const TAB_ITEMS = [
           { key: 'omniroute_admin_password', label: 'Dashboard Password', secret: true, placeholder: 'Used to bypass API key bug via automated login' },
           { key: 'omniroute_chatgpt_enabled', label: 'Auto-push ChatGPT accounts (as Codex)', type: 'boolean' },
           { key: 'omniroute_kiro_enabled', label: 'Auto-push Kiro accounts', type: 'boolean' },
+          { key: 'omniroute_kiro2_enabled', label: 'Auto-push Kiro 2 accounts', type: 'boolean' },
           { key: 'omniroute_cloudflare_enabled', label: 'Auto-push Cloudflare accounts', type: 'boolean' },
           { key: 'omniroute_cursor_enabled', label: 'Auto-push Cursor accounts', type: 'boolean' },
           { key: 'omniroute_grok_enabled', label: 'Auto-push Grok accounts', type: 'boolean' },
@@ -1899,6 +1900,10 @@ export default function Settings() {
         data.omniroute_kiro_enabled,
         Boolean(String(data.omniroute_api_url ?? '').trim()),
       )
+      data.omniroute_kiro2_enabled = resolveFeatureEnabledConfig(
+        data.omniroute_kiro2_enabled,
+        Boolean(String(data.omniroute_api_url ?? '').trim()),
+      )
       data.omniroute_cloudflare_enabled = resolveFeatureEnabledConfig(
         data.omniroute_cloudflare_enabled,
         Boolean(String(data.omniroute_api_url ?? '').trim()),
@@ -2005,6 +2010,7 @@ export default function Settings() {
       values.email_domain_rule_enabled = parseBooleanConfigValue(values.email_domain_rule_enabled)
       values.omniroute_chatgpt_enabled = parseBooleanConfigValue(values.omniroute_chatgpt_enabled)
       values.omniroute_kiro_enabled = parseBooleanConfigValue(values.omniroute_kiro_enabled)
+      values.omniroute_kiro2_enabled = parseBooleanConfigValue(values.omniroute_kiro2_enabled)
       values.omniroute_cerebras_enabled = parseBooleanConfigValue(values.omniroute_cerebras_enabled)
       const rawDomainLevelCount = Number.parseInt(String(values.email_domain_level_count ?? '').trim(), 10)
       if (values.mail_provider === 'cfworker' && values.email_domain_rule_enabled) {

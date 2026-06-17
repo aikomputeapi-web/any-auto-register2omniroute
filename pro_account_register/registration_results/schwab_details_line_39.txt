@@ -9,7 +9,7 @@ Phone: 6692506085
 Username: robertoliver38
 Password: RobertPass38!
 --------------------------------------------------
-Status: Pending OTP / Verification
-Final URL: https://onboard.schwab.com/retail/credentials
-Title: Create Your Login Credentials - Open an Account | Charles Schwab
-Timestamp: 2026-06-11 16:30:12
+Status: In Progress
+Final URL: https://sws-gateway.schwab.com/ui/host/#/authenticators
+Title: Confirm Your Identity
+Timestamp: 2026-06-11 21:48:55

@@ -125,6 +125,7 @@ CONFIG_KEYS = [
     "omniroute_admin_password",
     "omniroute_chatgpt_enabled",
     "omniroute_kiro_enabled",
+    "omniroute_kiro2_enabled",
     "omniroute_cloudflare_enabled",
     "omniroute_cursor_enabled",
     "omniroute_grok_enabled",

@@ -280,6 +280,7 @@ export default function RegisterTaskPage() {
                 { value: 'cloudflare', label: 'Cloudflare' },
                 { value: 'cursor', label: 'Cursor' },
                 { value: 'kiro', label: 'Kiro' },
+                { value: 'kiro2', label: 'Kiro 2' },
                 { value: 'grok', label: 'Grok' },
                 { value: 'tavily', label: 'Tavily' },
                 { value: 'openblocklabs', label: 'OpenBlockLabs' },

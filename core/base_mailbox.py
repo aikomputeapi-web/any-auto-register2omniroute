@@ -1993,11 +1993,19 @@ class GPTMailMailbox(BaseMailbox):
         def poll_once() -> Optional[str]:
             try:
                 messages = self._list_messages(account.email)
+                self._log(f"[GPTMail] Poll: {len(messages)} total messages in mailbox")
+                
+                new_count = 0
                 for message in messages:
                     message_id = str(message.get("id") or "").strip()
                     if not message_id or message_id in seen:
                         continue
                     seen.add(message_id)
+                    new_count += 1
+                    
+                    subject = str(message.get("subject") or "")
+                    from_addr = str(message.get("from_address") or "")
+                    self._log(f"[GPTMail] New email #{new_count}: from={from_addr[:50]} subject='{subject[:60]}'")
 
                     try:
                         detail = self._get_message_detail(message_id)
@@ -2022,17 +2030,25 @@ class GPTMailMailbox(BaseMailbox):
                         "",
                         search_text,
                     )
+                    
                     if keyword and keyword.lower() not in search_text.lower():
+                        self._log(f"[GPTMail] Email #{new_count} doesn't match keyword '{keyword}'")
                         continue
 
                     code = self._safe_extract(search_text, code_pattern)
                     if code and code in exclude_codes:
+                        self._log(f"[GPTMail] Email #{new_count} code {code} already used, skipping")
                         continue
                     if code:
-                        self._log(f"[GPTMail] Receive verification code: {code}")
+                        self._log(f"[GPTMail] Extracted code from email #{new_count}: {code}")
                         return code
-            except Exception:
-                pass
+                    else:
+                        self._log(f"[GPTMail] Email #{new_count} no code found in content")
+                        
+                if new_count == 0:
+                    self._log(f"[GPTMail] Poll: no new emails")
+            except Exception as e:
+                self._log(f"[GPTMail] Poll error: {e}")
             return None
 
         return self._run_polling_wait(

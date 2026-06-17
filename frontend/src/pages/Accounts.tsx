@@ -729,7 +729,7 @@ export default function Accounts() {
       URL.revokeObjectURL(url)
     }
 
-    if (currentPlatform === 'kiro') {
+    if (currentPlatform === 'kiro' || currentPlatform === 'kiro2') {
       const header = ['Email', 'Nickname', 'Login method', 'RefreshToken', 'ClientId', 'ClientSecret', 'Region']
       const rows = accounts.map((a) => {
         const nickname = a.extra?.name || String(a.email || '').split('@')[0] || ''
@@ -755,7 +755,7 @@ export default function Accounts() {
     }
 
     const header = ['email', 'password', 'status', 'region', 'cashier_url', 'created_at']
-    if (currentPlatform === 'kiro') {
+    if (currentPlatform === 'kiro' || currentPlatform === 'kiro2') {
       header.push('accessToken', 'refreshToken', 'clientId', 'clientSecret')
     } else if (currentPlatform === 'chatgpt') {
       header.push('token', 'refresh_token')
@@ -765,7 +765,7 @@ export default function Accounts() {
 
     const rows = accounts.map((a) => {
       const baseRow = [a.email, a.password, a.status, a.region, a.cashier_url, a.created_at].map(quoteCsv)
-      if (currentPlatform === 'kiro') {
+      if (currentPlatform === 'kiro' || currentPlatform === 'kiro2') {
         baseRow.push(quoteCsv(a.extra?.accessToken || a.extra?.webAccessToken || a.token))
         baseRow.push(quoteCsv(a.extra?.refreshToken))
         baseRow.push(quoteCsv(a.extra?.clientId))
@@ -1736,7 +1736,7 @@ export default function Accounts() {
                 </div>
               )
             })()}
-            {currentPlatform === 'kiro' && currentAccount?.extra ? (
+            {(currentPlatform === 'kiro' || currentPlatform === 'kiro2') && currentAccount?.extra ? (
               <DetailSection title="Kiro client information">
                 <SummaryField label="Client ID" value={currentAccount.extra?.clientId} code />
                 <SummaryField label="Client Secret" value={currentAccount.extra?.clientSecret} code />

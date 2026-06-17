@@ -19,6 +19,11 @@ class BaseCaptcha(ABC):
         ...
 
     @abstractmethod
+    def solve_hcaptcha(self, page_url: str, site_key: str) -> str:
+        """return hCaptcha token"""
+        ...
+
+    @abstractmethod
     def solve_image(self, image_b64: str) -> str:
         """Return image verification code text"""
         ...
@@ -79,6 +84,31 @@ class YesCaptcha(BaseCaptcha):
             if d.get("errorId", 0) != 0:
                 raise RuntimeError(f"YesCaptcha mistake: {d}")
         raise TimeoutError("YesCaptcha reCAPTCHA time out")
+
+    def solve_hcaptcha(self, page_url: str, site_key: str) -> str:
+        import requests, time, urllib3
+        urllib3.disable_warnings()
+        r = requests.post(f"{self.api}/createTask", json={
+            "clientKey": self.client_key,
+            "task": {
+                "type": "HCaptchaTaskProxyless",
+                "websiteURL": page_url,
+                "websiteKey": site_key
+            }
+        }, timeout=30, verify=False)
+        task_id = r.json().get("taskId")
+        if not task_id:
+            raise RuntimeError(f"YesCaptcha Failed to create hCaptcha task: {r.text}")
+        for _ in range(60):
+            time.sleep(3)
+            d = requests.post(f"{self.api}/getTaskResult", json={
+                "clientKey": self.client_key, "taskId": task_id
+            }, timeout=30, verify=False).json()
+            if d.get("status") == "ready":
+                return d["solution"]["gRecaptchaResponse"]
+            if d.get("errorId", 0) != 0:
+                raise RuntimeError(f"YesCaptcha mistake: {d}")
+        raise TimeoutError("YesCaptcha hCaptcha time out")
 
     def solve_image(self, image_b64: str) -> str:
         raise NotImplementedError
@@ -143,6 +173,49 @@ class CapSolver(BaseCaptcha):
                 raise RuntimeError(f"CapSolver mistake: {d}")
         raise TimeoutError("CapSolver reCAPTCHA time out")
 
+    def solve_hcaptcha(self, page_url: str, site_key: str) -> str:
+        import requests, time, urllib3
+        urllib3.disable_warnings()
+        # Try multiple task types — NVIDIA uses hCaptcha Enterprise
+        task_types = [
+            "HCaptchaEnterpriseTaskProxyLess",
+            "HCaptchaTurboTaskProxyLess",
+            "HCaptchaTaskProxyLess",
+        ]
+        last_error = None
+        for task_type in task_types:
+            try:
+                r = requests.post(f"{self.api}/createTask", json={
+                    "clientKey": self.client_key,
+                    "task": {
+                        "type": task_type,
+                        "websiteURL": page_url,
+                        "websiteKey": site_key
+                    }
+                }, timeout=30, verify=False)
+                data = r.json()
+                task_id = data.get("taskId")
+                if not task_id:
+                    last_error = f"CapSolver {task_type} failed: {r.text}"
+                    continue
+                for _ in range(60):
+                    time.sleep(3)
+                    d = requests.post(f"{self.api}/getTaskResult", json={
+                        "clientKey": self.client_key, "taskId": task_id
+                    }, timeout=30, verify=False).json()
+                    if d.get("status") == "ready":
+                        return d["solution"]["gRecaptchaResponse"]
+                    if d.get("errorId", 0) != 0:
+                        raise RuntimeError(f"CapSolver mistake: {d}")
+                raise TimeoutError(f"CapSolver {task_type} hCaptcha time out")
+            except (TimeoutError, RuntimeError) as e:
+                last_error = str(e)
+                # If it's a real solve timeout or mistake, don't try other types
+                if "time out" in str(e).lower() or "mistake" in str(e).lower():
+                    raise
+                continue
+        raise RuntimeError(f"CapSolver Failed to create hCaptcha task: {last_error}")
+
     def solve_image(self, image_b64: str) -> str:
         raise NotImplementedError
 
@@ -154,6 +227,9 @@ class ManualCaptcha(BaseCaptcha):
 
     def solve_recaptcha(self, page_url: str, site_key: str, enterprise: bool = False, invisible: bool = False) -> str:
         return input(f"Please obtain it manually reCAPTCHA token ({page_url}): ").strip()
+
+    def solve_hcaptcha(self, page_url: str, site_key: str) -> str:
+        return input(f"Please solve hCaptcha manually in the browser window and press Enter (or paste token): ").strip()
 
     def solve_image(self, image_b64: str) -> str:
         return input("Please enter the image verification code: ").strip()

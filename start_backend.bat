@@ -36,5 +36,6 @@ if not exist "%PYTHON_EXE%" (
 
 set "HOST=%HOST%"
 set "PORT=%PORT%"
+set "PYTHONIOENCODING=utf-8"
 echo [INFO] Python: %PYTHON_EXE%
 "%PYTHON_EXE%" main.py

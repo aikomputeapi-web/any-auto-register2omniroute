@@ -101,3 +101,32 @@ def toggle_proxy(proxy_id: int, session: Session = Depends(get_session)):
 def check_proxies(background_tasks: BackgroundTasks):
     background_tasks.add_task(proxy_pool.check_all)
     return {"message": "The detection task has been started"}
+
+
+@router.post("/scrape")
+def scrape_proxies(background_tasks: BackgroundTasks):
+    background_tasks.add_task(proxy_pool.scrape_proxies)
+    return {"message": "Scraping task started in the background"}
+
+
+@router.post("/clear-all")
+def clear_all_proxies(session: Session = Depends(get_session)):
+    proxies = session.exec(select(ProxyModel)).all()
+    for p in proxies:
+        session.delete(p)
+    session.commit()
+    return {"deleted": len(proxies)}
+
+
+@router.post("/delete-inactive")
+def delete_inactive_proxies(session: Session = Depends(get_session)):
+    proxies = session.exec(
+        select(ProxyModel).where(
+            (ProxyModel.is_active == False)
+            | ((ProxyModel.fail_count > 0) & (ProxyModel.success_count == 0))
+        )
+    ).all()
+    for p in proxies:
+        session.delete(p)
+    session.commit()
+    return {"deleted": len(proxies)}

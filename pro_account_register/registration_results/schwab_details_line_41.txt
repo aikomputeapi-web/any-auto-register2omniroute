@@ -1,0 +1,15 @@
+Charles Schwab Brokerage / Checking Account Details
+==================================================
+Name: William Jimenez
+Address: 438 South 23rd Street, Richmond, CA 94804
+DOB: 09/15/1947
+SSN: 566765698
+Email: williamjimenez@audioplexdesigns.com
+Phone: 6692506085
+Username: williamjimenez47
+Password: WilliamPass47!
+--------------------------------------------------
+Status: Submitted / Approved
+Final URL: https://onboard.schwab.com/confirmation
+Title: Thank You - Open an Account | Charles Schwab
+Timestamp: 2026-06-11 22:26:15

@@ -214,7 +214,12 @@ class KiroRegister:
         return self.context
 
     def log(self, msg):
-        self.log_fn(f"[{self.tag}] {msg}")
+        tagged = f"[{self.tag}] {msg}"
+        try:
+            self.log_fn(tagged)
+        except (UnicodeEncodeError, UnicodeDecodeError, OSError):
+            safe = tagged.encode("ascii", errors="replace").decode("ascii")
+            self.log_fn(safe)
 
     def _human_sleep(self, min_seconds: float = 0.18, max_seconds: float = 0.65):
         time.sleep(random.uniform(min_seconds, max_seconds))
