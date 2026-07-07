@@ -300,6 +300,32 @@ class OAuthClient:
         )
         return any(marker in combined for marker in blacklist_markers)
 
+    @classmethod
+    def _is_otp_network_error(cls, detail=""):
+        msg = str(detail or "").lower()
+        if not msg:
+            return False
+        markers = (
+            "connect tunnel failed",
+            "tunnel connection failed",
+            "connection refused",
+            "couldn't connect",
+            "could not connect",
+            "recv failure",
+            "failed to perform",
+            "timeout",
+            "timed out",
+            "connection reset",
+            "connection aborted",
+            "proxy",
+            "ssl",
+            "tls",
+            "no route",
+            "host unreachable",
+            "broken pipe",
+        )
+        return any(marker in msg for marker in markers)
+
     def _blacklist_phone_if_needed(
         self, phone_service, entry, detail="", state: FlowState | None = None
     ):
@@ -3624,8 +3650,10 @@ class OAuthClient:
             f"Maximum per round 5 Resend after no response times, up to 3 wheel"
         )
 
+        otp_net_retry_counts = {}
+        _max_net_retries = 3
+
         def validate_otp(code):
-            tried_codes.add(code)
             self._log(f"try OTP: {code}")
 
             try:
@@ -3640,18 +3668,35 @@ class OAuthClient:
                 self._browser_pause(0.12, 0.25)
                 resp_otp = self.session.post(request_url, **kwargs)
             except Exception as e:
-                self._log(f"email-otp/validate abnormal: {e}")
+                if self._is_otp_network_error(e):
+                    otp_net_retry_counts[code] = otp_net_retry_counts.get(code, 0) + 1
+                    if otp_net_retry_counts[code] <= _max_net_retries:
+                        self._log(
+                            f"email-otp/validate network/proxy error, will retry same code "
+                            f"({otp_net_retry_counts[code]}/{_max_net_retries}): {e}"
+                        )
+                        time.sleep(min(6, 3 + otp_net_retry_counts[code]))
+                        return None
+                    self._log(
+                        f"email-otp/validate network/proxy error, retries exhausted, "
+                        f"skip this code: {e}"
+                    )
+                else:
+                    self._log(f"email-otp/validate abnormal: {e}")
+                tried_codes.add(code)
                 return None
 
             self._log(f"/email-otp/validate -> {resp_otp.status_code}")
             if resp_otp.status_code != 200:
                 self._log(f"OTP invalid: {resp_otp.text[:160]}")
+                tried_codes.add(code)
                 return None
 
             try:
                 otp_data = resp_otp.json()
             except Exception:
                 self._log("email-otp/validate The response is not JSON")
+                tried_codes.add(code)
                 return None
 
             next_state = self._state_from_payload(
@@ -3660,6 +3705,7 @@ class OAuthClient:
                 or (state.current_url or state.continue_url or request_url),
             )
             self._log(f"OTP Verification passed {describe_flow_state(next_state)}")
+            tried_codes.add(code)
             self._log(
                 f"otp Response details: current_url={str(resp_otp.url)[:120]} tried_codes={len(tried_codes)}"
             )

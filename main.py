@@ -69,6 +69,23 @@ async def lifespan(app: FastAPI):
     start_async()
     from services.devtools_manager import start_async as start_devtools_async
     start_devtools_async()
+
+    # Clean up dead proxies at startup (background, non-blocking)
+    def _cleanup_dead_proxies():
+        try:
+            from core.proxy_pool import proxy_pool
+            import time
+            deleted = proxy_pool.delete_dead_proxies()
+            if deleted:
+                print(f"[Proxy] Cleaned up {deleted} dead proxy/proxies on startup")
+            # Also trigger fresh scraping in background
+            result = proxy_pool.scrape_proxies()
+            print(f"[Proxy] Scraped proxies: added={result.get('added', 0)} updated={result.get('updated', 0)} checked={result.get('checked', 0)}")
+        except Exception as e:
+            print(f"[Proxy] Startup cleanup skipped: {e}")
+    import threading
+    threading.Thread(target=_cleanup_dead_proxies, daemon=True).start()
+
     yield
     from core.scheduler import scheduler as _scheduler
     _scheduler.stop()

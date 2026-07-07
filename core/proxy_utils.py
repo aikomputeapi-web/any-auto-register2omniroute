@@ -62,6 +62,30 @@ def build_requests_proxy_config(proxy_url: Optional[str]) -> Optional[dict[str, 
     return {"http": proxy_url, "https": proxy_url}
 
 
+def check_proxy(proxy_url: Optional[str], target: str = "https://chatgpt.com/", timeout: int = 8) -> bool:
+    """Quickly verify proxy connectivity."""
+    if not proxy_url:
+        return False
+    try:
+        import urllib.request
+        proxy_handler = urllib.request.ProxyHandler({
+            "http": proxy_url,
+            "https": proxy_url,
+        })
+        opener = urllib.request.build_opener(proxy_handler)
+        opener.addheaders = [("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"),
+                             ("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")]
+        r = opener.open(target, timeout=timeout)
+        code = r.status
+        r.close()
+        if code == 200:
+            return True
+        # Also treat redirects (3xx) as healthy — the proxy tunnel works
+        return 200 <= code < 400
+    except Exception:
+        return False
+
+
 def build_playwright_proxy_config(proxy_url: Optional[str]) -> Optional[dict[str, str]]:
     if not proxy_url:
         return None
@@ -120,23 +144,31 @@ def resolve_us_profile(proxy_url: Optional[str]) -> dict[str, any]:
         try:
             import urllib.request
             import json
-            
-            # Configure proxy handler
+
+            # Configure proxy handler. Using HTTPS here forces a CONNECT
+            # tunnel, so a transparent proxy that answers 405 to CONNECT
+            # (and would break every real HTTPS request) is detected here
+            # instead of silently falling back to a random US timezone.
             proxy_handler = urllib.request.ProxyHandler({'http': proxy_url, 'https': proxy_url})
             opener = urllib.request.build_opener(proxy_handler)
             opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')]
-            
-            # Query ip-api
-            with opener.open('http://ip-api.com/json/', timeout=4) as response:
+
+            # ipwho.is is free over HTTPS and returns country_code / latitude /
+            # longitude plus a timezone object whose "id" is the IANA name.
+            # (ip-api.com's free endpoint is HTTP-only, so it can't validate
+            # CONNECT-capable proxies.)
+            with opener.open('https://ipwho.is/', timeout=8) as response:
                 data = json.loads(response.read().decode('utf-8'))
-                if data.get('status') == 'success':
-                    country_code = data.get('countryCode', '').upper()
+                if data.get('success') is not False:
+                    country_code = str(data.get('country_code', '') or '').upper()
                     tz = data.get('timezone')
+                    # ipwho.is returns timezone as {"id": "America/New_York", ...}
+                    tz_id = tz.get('id') if isinstance(tz, dict) else tz
                     # We only match the proxy timezone/location if it is in the US
-                    if country_code == 'US' and tz:
-                        timezone = tz
-                        latitude = data.get('lat')
-                        longitude = data.get('lon')
+                    if country_code == 'US' and tz_id:
+                        timezone = tz_id
+                        latitude = data.get('latitude')
+                        longitude = data.get('longitude')
         except Exception:
             pass
             

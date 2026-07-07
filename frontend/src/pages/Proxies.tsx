@@ -8,6 +8,7 @@ import {
   CloseCircleOutlined,
   SwapRightOutlined,
   SwapLeftOutlined,
+  SyncOutlined,
 } from '@ant-design/icons'
 import { apiFetch } from '@/lib/utils'
 
@@ -16,6 +17,7 @@ export default function Proxies() {
   const [newProxy, setNewProxy] = useState('')
   const [region, setRegion] = useState('')
   const [checking, setChecking] = useState(false)
+  const [scraping, setScraping] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([])
 
@@ -108,12 +110,57 @@ export default function Proxies() {
 
   const check = async () => {
     setChecking(true)
-    await apiFetch('/proxies/check', { method: 'POST' })
-    setTimeout(() => {
-      load()
+    try {
+      await apiFetch('/proxies/check', { method: 'POST' })
+      message.success('Verification task started. Refreshing in 3 seconds...')
+      setTimeout(() => {
+        load()
+        setChecking(false)
+      }, 3000)
+    } catch (e: any) {
+      message.error(e.message || 'Failed to trigger verification')
       setChecking(false)
-    }, 3000)
+    }
   }
+
+  const scrape = async () => {
+    setScraping(true)
+    try {
+      await apiFetch('/proxies/scrape', { method: 'POST' })
+      message.success('Public proxy scraping task started. Refreshing in 3 seconds...')
+      setTimeout(() => {
+        load()
+        setScraping(false)
+      }, 3000)
+    } catch (e: any) {
+      message.error(e.message || 'Failed to scrape proxies')
+      setScraping(false)
+    }
+  }
+
+  const clearAll = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL proxies from the database? This cannot be undone.')) return
+    try {
+      const res = await apiFetch('/proxies/clear-all', { method: 'POST' })
+      message.success(`Cleared database: deleted ${res.deleted} proxies`)
+      load()
+    } catch (e: any) {
+      message.error(e.message || 'Failed to clear proxies')
+    }
+  }
+
+  const cleanInactive = async () => {
+    try {
+      const res = await apiFetch('/proxies/delete-inactive', { method: 'POST' })
+      message.success(`Cleaned up: deleted ${res.deleted} inactive/failed proxies`)
+      load()
+    } catch (e: any) {
+      message.error(e.message || 'Failed to clean inactive proxies')
+    }
+  }
+
+  const activeCount = proxies.filter((p) => p.is_active).length
+  const inactiveCount = proxies.length - activeCount
 
   const columns: any[] = [
     {
@@ -126,7 +173,16 @@ export default function Proxies() {
       title: 'Region',
       dataIndex: 'region',
       key: 'region',
-      render: (text: string) => text || '-',
+      filters: [
+        { text: 'US Only', value: 'US' },
+      ],
+      onFilter: (value: any, record: any) => record.region === value,
+      render: (text: string) => {
+        if (text === 'US') {
+          return <Tag color="blue">US</Tag>
+        }
+        return text ? <Tag>{text}</Tag> : '-'
+      },
     },
     {
       title: 'Success/Failed',
@@ -181,17 +237,46 @@ export default function Proxies() {
           <h1 style={{ fontSize: 24, fontWeight: 'bold', margin: 0 }}>Proxy Management</h1>
           <p style={{ color: '#7a8ba3', marginTop: 4 }}>Total {proxies.length} proxies</p>
         </div>
-        <Button icon={<ReloadOutlined spin={checking} />} onClick={check} loading={checking}>
-          Check All
-        </Button>
       </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+        <Card size="small">
+          <div style={{ color: '#7a8ba3', fontSize: 12 }}>Total Proxies</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', marginTop: 4 }}>{proxies.length}</div>
+        </Card>
+        <Card size="small">
+          <div style={{ color: '#52c41a', fontSize: 12 }}>Active Proxies</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', marginTop: 4, color: '#52c41a' }}>{activeCount}</div>
+        </Card>
+        <Card size="small">
+          <div style={{ color: '#ff4d4f', fontSize: 12 }}>Inactive/Failed</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', marginTop: 4, color: '#ff4d4f' }}>{inactiveCount}</div>
+        </Card>
+      </div>
+
+      <Card title="Proxy Actions">
+        <Space wrap>
+          <Button type="primary" icon={<SyncOutlined spin={scraping} />} onClick={scrape} loading={scraping}>
+            Scrape Free Proxies
+          </Button>
+          <Button icon={<ReloadOutlined spin={checking} />} onClick={check} loading={checking}>
+            Verify All Proxies
+          </Button>
+          <Button danger onClick={cleanInactive}>
+            Clean Inactive/Failed
+          </Button>
+          <Button danger type="dashed" onClick={clearAll}>
+            Clear Database
+          </Button>
+        </Space>
+      </Card>
 
       <Card title="Add Proxy (one per line)">
         <Space direction="vertical" style={{ width: '100%' }}>
           <Input.TextArea
             value={newProxy}
             onChange={(e) => setNewProxy(e.target.value)}
-            placeholder="http://user:pass@host:port"
+            placeholder="http://user:pass@host:port&#10;socks5://host:port"
             rows={3}
             style={{ fontFamily: 'monospace' }}
           />
@@ -203,14 +288,14 @@ export default function Proxies() {
               style={{ width: 200 }}
             />
             <Button type="primary" icon={<PlusOutlined />} onClick={add}>
-              Add
+              Add manually
             </Button>
           </Space>
         </Space>
       </Card>
 
-      <Card>
-        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
+      <Card title="Proxy Database List">
+        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ color: '#7a8ba3' }}>
             Selected {selectedRowKeys.length} items
           </div>
@@ -236,7 +321,7 @@ export default function Proxies() {
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys),
           }}
-          pagination={false}
+          pagination={{ pageSize: 10, showSizeChanger: true }}
         />
       </Card>
     </div>

@@ -91,6 +91,9 @@ CONFIG_KEYS = [
     "cpa_cleanup_threshold",
     "cpa_cleanup_concurrency",
     "cpa_cleanup_register_delay_seconds",
+    "proxy_auto_maintain_enabled",
+    "proxy_scrape_interval_minutes",
+    "proxy_check_interval_minutes",
     "sub2api_enabled",
     "sub2api_api_url",
     "sub2api_api_key",
@@ -189,6 +192,12 @@ def get_config():
         all_cfg["imap_catchall_folders"] = "INBOX"
     if not all_cfg.get("pro_dataset_path"):
         all_cfg["pro_dataset_path"] = "pointclickcare data.txt"
+    if not str(all_cfg.get("proxy_auto_maintain_enabled", "")).strip():
+        all_cfg["proxy_auto_maintain_enabled"] = "1"
+    if not all_cfg.get("proxy_scrape_interval_minutes"):
+        all_cfg["proxy_scrape_interval_minutes"] = "30"
+    if not all_cfg.get("proxy_check_interval_minutes"):
+        all_cfg["proxy_check_interval_minutes"] = "10"
     # Only return known key, returns an empty string if not set
     return {k: all_cfg.get(k, "") for k in CONFIG_KEYS}
 

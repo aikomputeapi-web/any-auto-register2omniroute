@@ -30,7 +30,12 @@ class NvidiaNimPlatform(BasePlatform):
         requested_headless = (self.config.executor_type or "headless") != "headed"
 
         captcha_solver = self._make_captcha()
-        reg = NvidiaNimRegister(proxy=proxy, headless=requested_headless, captcha_solver=captcha_solver)
+        reg = NvidiaNimRegister(
+            proxy=proxy,
+            headless=requested_headless,
+            captcha_solver=captcha_solver,
+            config=getattr(self.config, "extra", {}) or {},
+        )
         reg.log = lambda msg: log_fn(f"[NVIDIA NIM] {msg}")
 
         otp_timeout = self.get_mailbox_otp_timeout() or 180
@@ -69,7 +74,7 @@ class NvidiaNimPlatform(BasePlatform):
                             # Try to use the mailbox's internal method to get email content
                             if hasattr(mailbox, '_list_messages'):
                                 try:
-                                    messages = mailbox._list_messages(mail_acct.email)
+                                    messages = mailbox._list_messages(mail_acct)
                                     for msg in messages:
                                         msg_id = str(msg.get('id', ''))
                                         if msg_id not in _before:
@@ -125,6 +130,12 @@ class NvidiaNimPlatform(BasePlatform):
                 
                 elapsed = int(time.time() - start_time)
                 if code:
+                    # Mark all current emails as processed so the next OTP call
+                    # (e.g. for phone-verify fallback) does not re-use the same code
+                    try:
+                        _before.update(mailbox.get_current_ids(mail_acct))
+                    except Exception:
+                        pass
                     log_fn(f"Verification code received after {elapsed}s: {code}")
                 else:
                     log_fn(f"No verification code received after {elapsed}s")

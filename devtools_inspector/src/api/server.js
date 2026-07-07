@@ -13,7 +13,8 @@ import {
 import {
   connectToTab, listTabs, getDOMSnapshot, queryDOM,
   evaluateJS, getPageInfo, getStorage, getClient,
-  getCurrentTarget, getSseClients, getExecutionContexts
+  getCurrentTarget, getSseClients, getExecutionContexts,
+  navigatePage, clearBrowserCookies
 } from '../bridge/cdp-client.js';
 
 export function createServer() {
@@ -66,10 +67,24 @@ export function createServer() {
 
   app.post('/connect', async (req, res) => {
     try {
-      await connectToTab(req.body?.tabId || null);
+      await connectToTab(req.body?.tabId || null, req.body?.port || null);
       res.json({ ok: true });
     } catch (err) {
       res.status(503).json({ error: err.message });
+    }
+  });
+
+  // ─── Navigation ────────────────────────────────────────────────────────────
+
+  app.post('/navigate', async (req, res) => {
+    if (!getClient()) return res.status(503).json({ error: 'Not connected to Chrome' });
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'Missing url in body' });
+    try {
+      const result = await navigatePage(url);
+      res.json({ ok: true, result });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -194,7 +209,97 @@ export function createServer() {
     }
   });
 
+  // ─── NVIDIA API Key Extraction ─────────────────────────────────────────────
+
+  app.get('/nvidia/extract-key', async (req, res) => {
+    // Auto-connect to the NVIDIA tab if needed
+    const port = 9223; // default port for nvidia
+    try {
+      const tabs = await listTabs(process.env.CHROME_HOST || 'localhost', port);
+      const nvidiaTab = tabs.find(t => t.url && (t.url.includes('nvidia') || t.url.includes('build.nvidia.com')));
+      if (nvidiaTab) {
+        if (!getClient() || nvidiaTab.id !== getCurrentTarget()) {
+          console.log(`[DevTools] Connecting to NVIDIA tab: ${nvidiaTab.url}`);
+          await connectToTab(nvidiaTab.id, port);
+        }
+      } else {
+        const activeTab = tabs.find(t => t.url && !t.url.startsWith('chrome:'));
+        if (activeTab && (!getClient() || activeTab.id !== getCurrentTarget())) {
+          console.log(`[DevTools] Connecting to active tab: ${activeTab.url}`);
+          await connectToTab(activeTab.id, port);
+        }
+      }
+    } catch (err) {
+      console.warn('[DevTools] Failed to ensure connection to NVIDIA tab:', err.message);
+    }
+
+    // 1. Search in network responses
+    try {
+      for (const body of networkBodies.values()) {
+        const match = body.match(/(nvapi-[a-zA-Z0-9_-]{30,})/);
+        if (match) {
+          return res.json({ ok: true, key: match[1], source: 'network' });
+        }
+      }
+    } catch (err) {
+      console.warn('[DevTools] Network body extraction failed:', err.message);
+    }
+
+    // 2. Search in console logs
+    try {
+      for (const log of consoleLogs.all()) {
+        const match = log.text?.match(/(nvapi-[a-zA-Z0-9_-]{30,})/);
+        if (match) {
+          return res.json({ ok: true, key: match[1], source: 'console' });
+        }
+      }
+    } catch (err) {
+      console.warn('[DevTools] Console log extraction failed:', err.message);
+    }
+
+    // 3. Search in DOM / Evaluate JS in browser context
+    if (getClient()) {
+      try {
+        const expr = `(() => {
+          const selectors = ['[data-testid="api-key"]', 'code', 'pre', '.api-key', '[class*="api-key"]', 'input[readonly]'];
+          for (const sel of selectors) {
+            const els = document.querySelectorAll(sel);
+            for (const el of els) {
+              const text = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') ? el.value.trim() : el.textContent.trim();
+              if (text.startsWith('nvapi-')) return text;
+            }
+          }
+          for (const el of document.querySelectorAll('input, textarea')) {
+            const val = el.value.trim();
+            if (val.startsWith('nvapi-')) return val;
+          }
+          const match = document.documentElement.outerHTML.match(/(nvapi-[a-zA-Z0-9_-]{30,})/);
+          if (match) return match[1];
+          return null;
+        })()`;
+        const key = await evaluateJS(expr);
+        if (key) {
+          return res.json({ ok: true, key, source: 'dom' });
+        }
+      } catch (err) {
+        console.warn('[DevTools] DOM extraction failed:', err.message);
+      }
+    }
+
+    res.status(404).json({ ok: false, error: 'NVIDIA API key not found' });
+  });
+
   // ─── Buffer Control ───────────────────────────────────────────────────────
+
+  app.post('/clear-cookies', async (req, res) => {
+    if (!getClient()) return res.status(503).json({ error: 'Not connected to Chrome' });
+    try {
+      await clearBrowserCookies();
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   app.post('/clear', (req, res) => {
     clearAll();

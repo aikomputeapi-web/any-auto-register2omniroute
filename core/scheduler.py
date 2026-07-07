@@ -8,6 +8,22 @@ import threading
 import time
 
 
+def _to_bool(value, default: bool = False) -> bool:
+    raw = str(value or "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _to_int(value, default: int, minimum: int = 0) -> int:
+    try:
+        return max(minimum, int(float(str(value or "").strip())))
+    except Exception:
+        return default
+
+
 class Scheduler:
     def __init__(self):
         self._running = False
@@ -18,6 +34,10 @@ class Scheduler:
         self._last_cpa_maintenance_at = 0.0
         self._last_kiro_refresh_at = 0.0
         self._last_chatgpt_refresh_at = 0.0
+        self._last_proxy_scrape_at = 0.0
+        self._last_proxy_check_at = 0.0
+        self._proxy_maint_running = False
+        self._proxy_maint_lock = threading.Lock()
 
     def start(self):
         if self._running:
@@ -30,6 +50,8 @@ class Scheduler:
         self._last_cpa_maintenance_at = now
         self._last_kiro_refresh_at = now
         self._last_chatgpt_refresh_at = now
+        self._last_proxy_scrape_at = now
+        self._last_proxy_check_at = now
 
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -74,7 +96,77 @@ class Scheduler:
                 except Exception as e:
                     print(f"[Scheduler] CPA Maintenance error: {e}")
 
+            # Periodically scrape fresh proxies to refill the pool
+            scrape_interval = self._get_proxy_scrape_interval_seconds()
+            if scrape_interval and now - self._last_proxy_scrape_at >= scrape_interval:
+                if self._try_start_proxy_maint():
+                    self._last_proxy_scrape_at = now
+                    self._spawn_proxy_maint("scrape", self.maintain_proxy_scrape)
+
+            # Periodically re-check existing proxies to refresh is_active flags
+            check_interval = self._get_proxy_check_interval_seconds()
+            if check_interval and now - self._last_proxy_check_at >= check_interval:
+                if self._try_start_proxy_maint():
+                    self._last_proxy_check_at = now
+                    self._spawn_proxy_maint("check", self.maintain_proxy_check)
+
             time.sleep(self._loop_interval_seconds)
+
+    def _try_start_proxy_maint(self) -> bool:
+        with self._proxy_maint_lock:
+            if self._proxy_maint_running:
+                return False
+            self._proxy_maint_running = True
+            return True
+
+    def _spawn_proxy_maint(self, label: str, fn):
+        def _runner():
+            try:
+                fn()
+            except Exception as e:
+                print(f"[Scheduler] Proxy {label} error: {e}")
+            finally:
+                with self._proxy_maint_lock:
+                    self._proxy_maint_running = False
+
+        t = threading.Thread(target=_runner, daemon=True)
+        t.start()
+
+    def _get_proxy_scrape_interval_seconds(self) -> int:
+        from core.config_store import config_store
+
+        if not _to_bool(config_store.get("proxy_auto_maintain_enabled", "1"), default=True):
+            return 0
+        minutes = _to_int(config_store.get("proxy_scrape_interval_minutes", "30"), default=30, minimum=1)
+        return minutes * 60
+
+    def _get_proxy_check_interval_seconds(self) -> int:
+        from core.config_store import config_store
+
+        if not _to_bool(config_store.get("proxy_auto_maintain_enabled", "1"), default=True):
+            return 0
+        minutes = _to_int(config_store.get("proxy_check_interval_minutes", "10"), default=10, minimum=1)
+        return minutes * 60
+
+    def maintain_proxy_scrape(self):
+        print("[Scheduler] Proxy auto-scrape starting...")
+        from core.proxy_pool import proxy_pool
+
+        result = proxy_pool.scrape_proxies()
+        print(
+            f"[Scheduler] Proxy auto-scrape done: "
+            f"added={result.get('added', 0)} updated={result.get('updated', 0)} "
+            f"deleted={result.get('deleted', 0)} checked={result.get('checked', 0)}"
+        )
+
+    def maintain_proxy_check(self):
+        print("[Scheduler] Proxy auto-check starting...")
+        from core.proxy_pool import proxy_pool
+
+        result = proxy_pool.check_all()
+        print(
+            f"[Scheduler] Proxy auto-check done: ok={result.get('ok', 0)} fail={result.get('fail', 0)}"
+        )
 
     def _get_cpa_maintenance_interval_seconds(self) -> int:
         from services.cpa_manager import get_cpa_maintenance_interval_seconds

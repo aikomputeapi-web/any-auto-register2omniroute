@@ -45,7 +45,7 @@ class CerebrasPlatform(BasePlatform):
                     keyword="",  # Accept any verification email from Cerebras/Clerk
                     timeout=otp_timeout,
                     before_ids=_before,
-                    code_pattern=r"(?is)(?:verification\s+code|code|verify|otp)[^0-9]{0,50}(\d{6})|\b\d{6}\b|https?://[^\s\"\'><]*(?:clerk|cerebras)[^\s\"\'><]*(?:accept|verify|ticket)[^\s\"\'><]*",
+                    code_pattern=r"https?://[^\s\"\'><]*(?:clerk|cerebras)[^\s\"\'><]*(?:magic-link|token|accept|verify|ticket)[^\s\"\'><]*",
                 )
                 if code:
                     if code.startswith("http"):

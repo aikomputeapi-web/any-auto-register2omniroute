@@ -439,15 +439,37 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                 ).all()
                 _prefetched_proxies = [p.url for p in _active if p.url]
 
-        def _get_proxy() -> Optional[str]:
+        def _validate_proxy(proxy_url: Optional[str]) -> bool:
+            if not proxy_url:
+                return False
+            from core.proxy_utils import check_proxy
+            return check_proxy(proxy_url, timeout=5)
+
+        def _get_proxy(exclude: Optional[set] = None) -> Optional[str]:
             if req.proxy:
                 return req.proxy
+            exclude = exclude or set()
             if _prefetched_proxies:
                 with _prefetch_lock:
-                    if _prefetched_proxies:
+                    available = [p for p in _prefetched_proxies if p not in exclude]
+                    if available:
                         import random
-                        return random.choice(_prefetched_proxies)
-            return _proxy_pool.get_next()
+                        return random.choice(available)
+                    return None
+            # Round-robin a few times to find a non-excluded active proxy
+            for _ in range(3):
+                us_proxy = _proxy_pool.get_next(region="US")
+                if not us_proxy:
+                    break
+                if us_proxy not in exclude:
+                    return us_proxy
+            for _ in range(3):
+                any_proxy = _proxy_pool.get_next()
+                if not any_proxy:
+                    break
+                if any_proxy not in exclude:
+                    return any_proxy
+            return None
 
         def _build_mailbox(proxy: Optional[str], first_name: str = None, last_name: str = None):
             mailbox_extra = _base_extra.copy()
@@ -461,145 +483,202 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
                 proxy=proxy,
             )
 
+        def _proxy_related_error(e: Exception) -> bool:
+            msg = str(e).lower()
+            markers = (
+                "connect tunnel failed",
+                "tunnel connection failed",
+                "connection refused",
+                "couldn't connect",
+                "could not connect",
+                "failed to connect",
+                "proxy connection",
+                "400 bad request",
+                "502 bad gateway",
+                "503 service unavailable",
+                "connection timed out",
+                "proxy connect error",
+                "cannot connect to proxy",
+            )
+            return any(m in msg for m in markers)
+
         def _do_one(i: int):
             nonlocal next_start_time
             _proxy = None
             current_email = req.email or ""
             attempt_id: int | None = None
-            try:
-                control.checkpoint()
-                attempt_id = control.start_attempt()
-                control.checkpoint(attempt_id=attempt_id)
-                _proxy = normalize_proxy_url(_get_proxy())
-                if req.register_delay_seconds > 0:
-                    with start_gate_lock:
-                        control.checkpoint(attempt_id=attempt_id)
-                        now = time.time()
-                        wait_seconds = max(0.0, next_start_time - now)
-                        if wait_seconds > 0:
-                            _log(
-                                task_id,
-                                f"No. {i + 1} Delay before account activation {wait_seconds:g} Second",
-                            )
-                            _sleep_with_control(
-                                wait_seconds,
-                                attempt_id=attempt_id,
-                            )
-                        next_start_time = time.time() + req.register_delay_seconds
-                control.checkpoint(attempt_id=attempt_id)
+            _last_error: Optional[str] = None
+            _tried_proxies: set = set()
+            _max_proxy_attempts = 2
 
-                merged_extra = _base_extra.copy()
-                merged_extra["task_index"] = i
-                merged_extra["task_id"] = task_id
-                if "phone_number" in merged_extra and merged_extra["phone_number"]:
-                    merged_extra["phone"] = merged_extra["phone_number"]
-                
-                # Generate names for this registration
-                from platforms.chatgpt.utils import generate_random_name
-                first_name, last_name = generate_random_name()
+            # Up to _max_proxy_attempts distinct proxies, then one direct (no-proxy) attempt
+            for _proxy_retry in range(_max_proxy_attempts + 1):
+                _proxy = None
+                attempt_id = None
+                try:
+                    control.checkpoint()
+                    attempt_id = control.start_attempt()
+                    control.checkpoint(attempt_id=attempt_id)
 
-                _config = RegisterConfig(
-                    executor_type=req.executor_type,
-                    captcha_solver=req.captcha_solver,
-                    proxy=_proxy,
-                    extra=merged_extra,
-                )
-                _mailbox = _build_mailbox(_proxy, first_name, last_name)
-                _platform = PlatformCls(config=_config, mailbox=_mailbox)
-                _platform._task_attempt_token = attempt_id
-                _platform._log_fn = lambda msg: _log(task_id, msg)
-                _platform.bind_task_control(control)
-                if getattr(_platform, "mailbox", None) is not None:
-                    _platform.mailbox._task_attempt_token = attempt_id
-                    _platform.mailbox._log_fn = _platform._log_fn
-                _task_store.set_progress(task_id, f"{i + 1}/{req.count}")
-                _persist_task_snapshot(task_id)
-                _log(task_id, f"Start registration {i + 1}/{req.count} accounts")
-                if _proxy:
-                    _log(task_id, f"Use a proxy: {_proxy}")
-                account = _platform.register(
-                    email=req.email or None,
-                    password=req.password,
-                )
-                current_email = account.email or current_email
-                if str(merged_extra.get("mail_provider", "")).strip() == "cfworker":
-                    from core.email_domain_policy import validate_email_domain_policy
+                    if _proxy_retry < _max_proxy_attempts:
+                        _candidate = _get_proxy(exclude=_tried_proxies)
+                        if _candidate:
+                            _proxy = normalize_proxy_url(_candidate)
+                            _tried_proxies.add(_proxy)
+                        else:
+                            _proxy = None
+                            _log(task_id, "No active proxy available, trying without proxy...")
+                    else:
+                        _proxy = None
+                        _log(task_id, "Proxy retries exhausted, retrying without proxy...")
 
-                    validate_email_domain_policy(
-                        account.email,
-                        {
-                            "email_domain_rule_enabled": merged_extra.get(
-                                "email_domain_rule_enabled", "0"
-                            ),
-                            "email_domain_level_count": merged_extra.get(
-                                "email_domain_level_count", "2"
-                            ),
-                        },
+                    if req.register_delay_seconds > 0:
+                        with start_gate_lock:
+                            control.checkpoint(attempt_id=attempt_id)
+                            now = time.time()
+                            wait_seconds = max(0.0, next_start_time - now)
+                            if wait_seconds > 0:
+                                _log(
+                                    task_id,
+                                    f"No. {i + 1} Delay before account activation {wait_seconds:g} Second",
+                                )
+                                _sleep_with_control(
+                                    wait_seconds,
+                                    attempt_id=attempt_id,
+                                )
+                            next_start_time = time.time() + req.register_delay_seconds
+                    control.checkpoint(attempt_id=attempt_id)
+
+                    merged_extra = _base_extra.copy()
+                    merged_extra["task_index"] = i
+                    merged_extra["task_id"] = task_id
+                    if "phone_number" in merged_extra and merged_extra["phone_number"]:
+                        merged_extra["phone"] = merged_extra["phone_number"]
+                    
+                    # Generate names for this registration
+                    from platforms.chatgpt.utils import generate_random_name
+                    first_name, last_name = generate_random_name()
+
+                    _config = RegisterConfig(
+                        executor_type=req.executor_type,
+                        captcha_solver=req.captcha_solver,
+                        proxy=_proxy,
+                        extra=merged_extra,
                     )
-                if isinstance(account.extra, dict):
-                    mail_provider = merged_extra.get("mail_provider", "")
-                    if mail_provider:
-                        account.extra.setdefault("mail_provider", mail_provider)
-                    if mail_provider == "luckmail" and req.platform == "chatgpt":
-                        mailbox_token = getattr(_mailbox, "_token", "") or ""
-                        if mailbox_token:
-                            account.extra.setdefault("mailbox_token", mailbox_token)
-                        if merged_extra.get("luckmail_project_code"):
-                            account.extra.setdefault(
-                                "luckmail_project_code",
-                                merged_extra.get("luckmail_project_code"),
-                            )
-                        if merged_extra.get("luckmail_email_type"):
-                            account.extra.setdefault(
-                                "luckmail_email_type",
-                                merged_extra.get("luckmail_email_type"),
-                            )
-                        if merged_extra.get("luckmail_domain"):
-                            account.extra.setdefault(
-                                "luckmail_domain", merged_extra.get("luckmail_domain")
-                            )
-                        if merged_extra.get("luckmail_base_url"):
-                            account.extra.setdefault(
-                                "luckmail_base_url",
-                                merged_extra.get("luckmail_base_url"),
-                            )
-                saved_account = save_account(account)
-                if _proxy:
-                    _proxy_pool.report_success(_proxy)
-                _log(task_id, f"[OK] Registration successful: {account.email}")
-                _save_task_log(req.platform, account.email, "success")
-                _auto_upload_integrations(task_id, saved_account or account)
-                cashier_url = (account.extra or {}).get("cashier_url", "")
-                if cashier_url:
-                    _log(task_id, f"  [Upgrade link] {cashier_url}")
-                    _task_store.add_cashier_url(task_id, cashier_url)
+                    _mailbox = _build_mailbox(_proxy, first_name, last_name)
+                    _platform = PlatformCls(config=_config, mailbox=_mailbox)
+                    _platform._task_attempt_token = attempt_id
+                    _platform._log_fn = lambda msg: _log(task_id, msg)
+                    _platform.bind_task_control(control)
+                    if getattr(_platform, "mailbox", None) is not None:
+                        _platform.mailbox._task_attempt_token = attempt_id
+                        _platform.mailbox._log_fn = _platform._log_fn
+                    _task_store.set_progress(task_id, f"{i + 1}/{req.count}")
                     _persist_task_snapshot(task_id)
-                return AttemptResult.success()
-            except SkipCurrentAttemptRequested as e:
-                _log(task_id, f"[SKIP] Current account has been skipped: {e}")
-                _save_task_log(
-                    req.platform,
-                    current_email,
-                    "skipped",
-                    error=str(e),
-                )
-                return AttemptResult.skipped(str(e))
-            except StopTaskRequested as e:
-                _log(task_id, f"[STOP] {e}")
-                return AttemptResult.stopped(str(e))
-            except Exception as e:
-                if _proxy:
-                    _proxy_pool.report_fail(_proxy)
-                _log(task_id, f"[FAIL] Registration failed: {e}")
-                _save_task_log(
-                    req.platform,
-                    current_email,
-                    "failed",
-                    error=str(e),
-                )
-                return AttemptResult.failed(str(e))
-            finally:
-                control.finish_attempt(attempt_id)
+                    _log(task_id, f"Start registration {i + 1}/{req.count} accounts")
+                    if _proxy:
+                        _log(task_id, f"Use a proxy: {_proxy}")
+                    else:
+                        _log(task_id, "No proxy (direct connection)")
+                    account = _platform.register(
+                        email=req.email or None,
+                        password=req.password,
+                    )
+                    current_email = account.email or current_email
+                    if str(merged_extra.get("mail_provider", "")).strip() == "cfworker":
+                        from core.email_domain_policy import validate_email_domain_policy
+
+                        validate_email_domain_policy(
+                            account.email,
+                            {
+                                "email_domain_rule_enabled": merged_extra.get(
+                                    "email_domain_rule_enabled", "0"
+                                ),
+                                "email_domain_level_count": merged_extra.get(
+                                    "email_domain_level_count", "2"
+                                ),
+                            },
+                        )
+                    if isinstance(account.extra, dict):
+                        mail_provider = merged_extra.get("mail_provider", "")
+                        if mail_provider:
+                            account.extra.setdefault("mail_provider", mail_provider)
+                        if mail_provider == "luckmail" and req.platform == "chatgpt":
+                            mailbox_token = getattr(_mailbox, "_token", "") or ""
+                            if mailbox_token:
+                                account.extra.setdefault("mailbox_token", mailbox_token)
+                            if merged_extra.get("luckmail_project_code"):
+                                account.extra.setdefault(
+                                    "luckmail_project_code",
+                                    merged_extra.get("luckmail_project_code"),
+                                )
+                            if merged_extra.get("luckmail_email_type"):
+                                account.extra.setdefault(
+                                    "luckmail_email_type",
+                                    merged_extra.get("luckmail_email_type"),
+                                )
+                            if merged_extra.get("luckmail_domain"):
+                                account.extra.setdefault(
+                                    "luckmail_domain", merged_extra.get("luckmail_domain")
+                                )
+                            if merged_extra.get("luckmail_base_url"):
+                                account.extra.setdefault(
+                                    "luckmail_base_url",
+                                    merged_extra.get("luckmail_base_url"),
+                                )
+                    saved_account = save_account(account)
+                    if _proxy:
+                        _proxy_pool.report_success(_proxy)
+                    _log(task_id, f"[OK] Registration successful: {account.email}")
+                    _save_task_log(req.platform, account.email, "success")
+                    _auto_upload_integrations(task_id, saved_account or account)
+                    cashier_url = (account.extra or {}).get("cashier_url", "")
+                    if cashier_url:
+                        _log(task_id, f"  [Upgrade link] {cashier_url}")
+                        _task_store.add_cashier_url(task_id, cashier_url)
+                        _persist_task_snapshot(task_id)
+                    return AttemptResult.success()
+                except SkipCurrentAttemptRequested as e:
+                    _log(task_id, f"[SKIP] Current account has been skipped: {e}")
+                    _save_task_log(
+                        req.platform,
+                        current_email,
+                        "skipped",
+                        error=str(e),
+                    )
+                    return AttemptResult.skipped(str(e))
+                except StopTaskRequested as e:
+                    _log(task_id, f"[STOP] {e}")
+                    return AttemptResult.stopped(str(e))
+                except Exception as e:
+                    is_proxy_err = _proxy_related_error(e) and _proxy is not None
+                    if _proxy:
+                        _proxy_pool.report_fail(_proxy)
+                    _last_error = str(e)
+
+                    # On a proxy/network error (and not using an explicit req.proxy),
+                    # rotate to another active proxy first; only fall back to direct
+                    # once proxy attempts are exhausted.
+                    if is_proxy_err and not req.proxy and _proxy_retry < _max_proxy_attempts:
+                        _log(task_id, f"Proxy failed ({_proxy}), rotating to another proxy...")
+                        control.finish_attempt(attempt_id)
+                        continue
+
+                    _log(task_id, f"[FAIL] Registration failed: {e}")
+                    _save_task_log(
+                        req.platform,
+                        current_email,
+                        "failed",
+                        error=str(e),
+                    )
+                    return AttemptResult.failed(str(e))
+                finally:
+                    control.finish_attempt(attempt_id)
+
+            # If loop exhausted (should not reach here normally)
+            _log(task_id, f"[FAIL] Registration failed: {_last_error or 'Unknown error'}")
+            _save_task_log(req.platform, current_email, "failed", error=_last_error or "")
+            return AttemptResult.failed(_last_error or "Unknown error")
 
         from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 

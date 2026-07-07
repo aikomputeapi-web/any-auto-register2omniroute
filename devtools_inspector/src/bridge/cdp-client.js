@@ -47,19 +47,19 @@ export async function listTabs(host = process.env.CHROME_HOST || 'localhost', po
   }
 }
 
-export async function connectToTab(tabId = null) {
+export async function connectToTab(tabId = null, port = null) {
   if (client) {
     try { await client.close(); } catch {}
     client = null;
   }
 
   const host = process.env.CHROME_HOST || 'localhost';
-  const port = parseInt(process.env.CHROME_PORT || '9222', 10);
+  const targetPort = port ? parseInt(port, 10) : parseInt(process.env.CHROME_PORT || '9222', 10);
 
-  const opts = { host, port };
+  const opts = { host, port: targetPort };
   if (tabId) opts.target = tabId;
 
-  console.log(`[CDP] Connecting to Chrome at ${host}:${port}${tabId ? ` (tab: ${tabId})` : ' (default tab)'}...`);
+  console.log(`[CDP] Connecting to Chrome at ${host}:${targetPort}${tabId ? ` (tab: ${tabId})` : ' (default tab)'}...`);
 
   client = await CDP(opts);
   currentTarget = tabId;
@@ -298,6 +298,14 @@ export async function evaluateJS(expression, { awaitPromise = false, contextId =
   return result.result.value ?? result.result.description;
 }
 
+/** Navigate the page using the CDP Page.navigate command (does not interrupt JS challenges) */
+export async function navigatePage(url) {
+  if (!client) throw new Error('Not connected to Chrome');
+  const { Page } = client;
+  const result = await Page.navigate({ url });
+  return result;
+}
+
 /** Get page metadata: URL, title, cookies */
 export async function getPageInfo() {
   if (!client) throw new Error('Not connected to Chrome');
@@ -335,4 +343,12 @@ export async function getStorage() {
     returnByValue: true,
   });
   return result.result.value;
+}
+
+/** Clear all browser cookies via CDP (including HttpOnly ones) */
+export async function clearBrowserCookies() {
+  if (!client) throw new Error('Not connected to Chrome');
+  const { Network } = client;
+  await Network.clearBrowserCookies();
+  return true;
 }

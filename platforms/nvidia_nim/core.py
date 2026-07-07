@@ -48,10 +48,11 @@ def _rand_name():
 
 
 class NvidiaNimRegister:
-    def __init__(self, proxy: str = None, headless: bool = True, captcha_solver = None):
+    def __init__(self, proxy: str = None, headless: bool = True, captcha_solver = None, config: dict = None):
         self.proxy = proxy
         self.headless = headless
         self.captcha_solver = captcha_solver
+        self.config = dict(config or {})
         self.pw = None
         self.browser = None
         self.context = None
@@ -61,6 +62,335 @@ class NvidiaNimRegister:
 
     def _human_sleep(self, min_sec: float = 0.5, max_sec: float = 1.5):
         time.sleep(random.uniform(min_sec, max_sec))
+
+    def _handle_phone_verification(self, page, otp_callback=None):
+        """Handle NVIDIA phone (SMS) verification modal for API access.
+
+        Returns True only when phone verification actually succeeds. Clicking
+        "Skip" (when present) only dismisses the modal so the UI is not stuck,
+        but it does NOT complete verification — the API key section stays
+        blocked until a real SMS verification succeeds.
+        """
+        phone_input = page.locator('input[autocomplete="tel"], input[placeholder*="phone" i]').first
+        if phone_input.count() == 0:
+            self.log("No phone verification modal detected.")
+            return False
+        self.log("Phone verification modal detected (NVIDIA requires SMS for API access).")
+        sms_api_key = str(self.config.get("smspool_api_key", "") or "").strip()
+        if not sms_api_key:
+            self.log(
+                "No SMSPool API key configured (set 'smspool_api_key' in config). "
+                "Phone verification cannot be completed — API key extraction will fail."
+            )
+            self._try_skip_phone_modal(page)
+            return False
+        try:
+            from platforms.chatgpt.smspool_service import SMSPoolPhoneService
+        except ImportError as e:
+            self.log(f"SMSPool service module not available: {e}")
+            self._try_skip_phone_modal(page)
+            return False
+        sms_service_config = dict(self.config)
+        # NOTE: SMSPool NVIDIA service ID is 651. Users may override it via
+        # the smspool_service config key; otherwise fall back to 651 instead of
+        # the SMSPoolPhoneService ChatGPT default (671) so NVIDIA registrations
+        # work out of the box.
+        # unset keys, so we simply pass the config through.
+        sms_service = SMSPoolPhoneService(config=sms_service_config, log_fn=lambda msg: self.log(f"[SMS] {msg}"))
+        if not sms_service.enabled:
+            self.log(
+                "SMSPool service not enabled. Phone verification cannot be completed — "
+                "API key extraction will fail."
+            )
+            self._try_skip_phone_modal(page)
+            sms_service.close()
+            return False
+        order = None
+        max_attempts = sms_service.max_attempts
+        for attempt in range(max_attempts):
+            try:
+                order = sms_service.purchase_number()
+                self.log(f"Phone number purchased (attempt {attempt+1}/{max_attempts}): {order.phone_number}")
+                break
+            except Exception as e:
+                self.log(f"Failed to purchase phone number (attempt {attempt+1}/{max_attempts}): {e}")
+                if attempt + 1 < max_attempts:
+                    time.sleep(3)
+                continue
+        if not order:
+            self.log(
+                "All SMSPool purchase attempts failed. Phone verification cannot be "
+                "completed — API key extraction will fail."
+            )
+            self._try_skip_phone_modal(page)
+            sms_service.close()
+            return False
+        return self._complete_phone_verification(page, sms_service, order)
+
+    def _try_skip_phone_modal(self, page):
+        """Best-effort click of the 'Skip' button on the phone verification
+        modal. This only dismisses the modal so the UI is not stuck; it does
+        NOT complete phone verification, so the API key section remains
+        blocked until a real SMS verification succeeds.
+        """
+        try:
+            skip_btn = page.locator('button:has-text("Skip")').first
+            if skip_btn.count() > 0 and skip_btn.is_visible():
+                skip_btn.click(force=True)
+                self._human_sleep(2, 3)
+                self.log(
+                    "Clicked 'Skip' on phone verification modal to unblock the UI. "
+                    "NOTE: API key extraction will still fail until phone verification succeeds."
+                )
+            else:
+                self.log("No 'Skip' button found on phone verification modal.")
+        except Exception as e:
+            self.log(f"Could not click 'Skip' on phone verification modal: {e}")
+
+    def _complete_phone_verification(self, page, sms_service, order):
+        """Enter phone number, send code, receive SMS, and submit verification."""
+        try:
+            phone_number = str(order.phone_number).strip()
+            if not phone_number.startswith("+"):
+                phone_number = "+" + phone_number
+            self.log(f"Entering phone number: {phone_number}")
+            phone_input = page.locator('input[autocomplete="tel"], input[placeholder*="phone" i]').first
+            phone_input.click()
+            self._human_sleep(0.3, 0.5)
+            phone_input.click(click_count=3)
+            self._human_sleep(0.1, 0.2)
+            page.keyboard.press("Delete")
+            self._human_sleep(0.1, 0.2)
+            phone_input.fill(phone_number)
+            self._human_sleep(0.5, 1)
+            send_btn = page.locator('button:has-text("Send Code")').first
+            send_ready = False
+            for _ in range(15):
+                if send_btn.count() > 0:
+                    try:
+                        if send_btn.is_enabled() and send_btn.is_visible():
+                            send_ready = True
+                            break
+                    except Exception:
+                        pass
+                self._human_sleep(0.5, 1)
+            if not send_ready:
+                self.log("'Send Code to Phone' button is not enabled after entering number.")
+                try:
+                    page.screenshot(path="scratch/nvidia_phone_send_disabled.png")
+                except Exception:
+                    pass
+                sms_service.cancel_order(order.order_id)
+                return False
+            self.log("Clicking 'Send Code to Phone'...")
+            send_btn.click(force=True)
+            self._human_sleep(3, 5)
+            return self._enter_and_submit_sms_code(page, sms_service, order)
+        finally:
+            try:
+                sms_service.close()
+            except Exception:
+                pass
+
+    def _enter_and_submit_sms_code(self, page, sms_service, order):
+        """Wait for SMS code input, retrieve code from SMSPool, enter and submit it."""
+        code_input_selectors = [
+            'input[autocomplete="one-time-code"]',
+            'input[placeholder*="code" i]',
+            'input[placeholder*="verification" i]',
+            'input[maxlength="6"]',
+            'input[inputmode="numeric"]',
+        ]
+        code_input = None
+        code_input_sel = None
+        for sel in code_input_selectors:
+            try:
+                page.wait_for_selector(sel, timeout=15000)
+                if page.locator(sel).count() > 0:
+                    code_input = page.locator(sel).first
+                    code_input_sel = sel
+                    self.log(f"Found SMS code input: {sel}")
+                    break
+            except Exception:
+                continue
+        digit_inputs = []
+        if not code_input:
+            try:
+                digit_inputs = page.locator('input[maxlength="1"]').all()
+                if len(digit_inputs) >= 4:
+                    self.log(f"Found {len(digit_inputs)} individual digit input boxes for SMS code.")
+                    code_input = digit_inputs[0]
+                    code_input_sel = "digit-boxes"
+            except Exception:
+                pass
+        if not code_input:
+            self.log("No SMS code input found after sending code.")
+            try:
+                os.makedirs("scratch", exist_ok=True)
+                page.screenshot(path="scratch/nvidia_phone_code_input_missing.png")
+            except Exception:
+                pass
+            sms_service.cancel_order(order.order_id)
+            return False
+        self.log("Waiting for SMS code from SMSPool...")
+        sms_code = sms_service.wait_for_code(order.order_id)
+        if not sms_code:
+            self.log("No SMS code received from SMSPool.")
+            try:
+                os.makedirs("scratch", exist_ok=True)
+                page.screenshot(path="scratch/nvidia_phone_sms_timeout.png")
+            except Exception:
+                pass
+            sms_service.cancel_order(order.order_id)
+            return False
+        self.log(f"Received SMS code: {sms_code}")
+        if code_input_sel == "digit-boxes" and len(digit_inputs) >= len(sms_code):
+            for idx, digit in enumerate(sms_code[:len(digit_inputs)]):
+                digit_inputs[idx].click()
+                self._human_sleep(0.1, 0.2)
+                digit_inputs[idx].fill(digit)
+        else:
+            code_input.click()
+            self._human_sleep(0.1, 0.2)
+            code_input.fill("")
+            self._human_sleep(0.1, 0.2)
+            code_input.fill(sms_code)
+        self.log(f"Entered SMS code: {sms_code}")
+        self._human_sleep(0.5, 1)
+        submit_selectors = [
+            'button:has-text("Verify Code")',
+            'button:has-text("Submit Code")',
+            'button:has-text("Submit")',
+            'button:has-text("Continue")',
+            'button[type="submit"]:has-text("Verify")',
+            'button[class*="primary"]:has-text("Verify")',
+        ]
+        submitted = False
+        for sel in submit_selectors:
+            try:
+                if page.locator(sel).count() > 0:
+                    btn = page.locator(sel).first
+                    if btn.is_visible() and btn.is_enabled():
+                        btn.click(force=True)
+                        self.log(f"Clicked submit button: {sel}")
+                        submitted = True
+                        break
+            except Exception:
+                continue
+        if not submitted:
+            try:
+                if code_input_sel == "digit-boxes":
+                    digit_inputs[-1].press("Enter")
+                else:
+                    code_input.press("Enter")
+                self.log("Pressed Enter to submit SMS code.")
+                submitted = True
+            except Exception:
+                pass
+        self._human_sleep(3, 5)
+        try:
+            page.wait_for_timeout(2000)
+        except Exception:
+            pass
+        banner = page.locator('[data-testid="nv-banner-heading"]:has-text("Please verify your account")')
+        if banner.count() == 0:
+            self.log("Phone verification succeeded! 'Verify your account' banner is gone.")
+            return True
+        else:
+            self.log("Phone verification may have failed - banner still present.")
+            try:
+                os.makedirs("scratch", exist_ok=True)
+                page.screenshot(path="scratch/nvidia_phone_verify_failed.png")
+            except Exception:
+                pass
+            return False
+
+    def _dismiss_cookie_consent(self, page):
+        """Hide/dismiss the OneTrust cookie consent banner so it doesn't
+        overlap the account verification banner or phone verification modal."""
+        try:
+            page.add_style_tag(
+                content=(
+                    "#onetrust-consent-sdk, .onetrust-pc-dark-filter, "
+                    ".onetrust-banner-sdk { display: none !important; }"
+                )
+            )
+        except Exception:
+            pass
+        cookie_buttons = [
+            '#onetrust-accept-btn-handler',
+            'button:has-text("Accept")',
+            'button:has-text("Accept All")',
+            'button[id*="accept"]',
+        ]
+        for btn_sel in cookie_buttons:
+            try:
+                if page.locator(btn_sel).count() > 0:
+                    page.locator(btn_sel).first.click(timeout=2000, force=True)
+                    self._human_sleep(0.5, 1)
+                    break
+            except Exception:
+                continue
+
+    def _attempt_account_verification(self, page, otp_callback=None, max_tries: int = 3) -> bool:
+        """Detect the 'Please verify your account to get API access' banner,
+        click its action button, and run phone verification.
+
+        Returns True if the verification banner is gone after the attempts,
+        False if it is still present (or phone verification failed).
+
+        Unlike the previous implementation, this does NOT silently click a
+        "Skip" button — phone verification is required to obtain an API key,
+        so skipping would only guarantee key extraction fails.
+        """
+        for attempt in range(1, max_tries + 1):
+            try:
+                self.log(
+                    f"Checking for 'Please verify your account to get API access' "
+                    f"banner (attempt {attempt}/{max_tries})..."
+                )
+                banner_heading = page.locator(
+                    '[data-testid="nv-banner-heading"]:has-text("Please verify your account")'
+                )
+                if banner_heading.count() == 0:
+                    self.log("No account verification banner detected (good).")
+                    return True
+
+                self.log("Account verification required banner detected.")
+                verify_btn = page.locator(
+                    '[data-testid="nv-banner-actions-section"] button'
+                ).first
+                if verify_btn.count() == 0 or not verify_btn.is_visible():
+                    self.log("Verification banner present but no visible action button.")
+                    return False
+
+                self.log("Clicking account verification action button...")
+                verify_btn.click(force=True)
+                self._human_sleep(3, 5)
+
+                # Handle the phone verification modal that opens
+                ok = self._handle_phone_verification(page, otp_callback)
+                if ok:
+                    self.log("Phone verification reported success.")
+                    # Wait for the page to refresh / banner to disappear
+                    for _ in range(10):
+                        self._human_sleep(1, 1.5)
+                        if (
+                            page.locator(
+                                '[data-testid="nv-banner-heading"]:has-text("Please verify your account")'
+                            ).count()
+                            == 0
+                        ):
+                            self.log("Verification banner is gone after phone verification.")
+                            return True
+                    self.log("Banner still present shortly after phone verification — retrying.")
+                else:
+                    self.log(f"Phone verification failed on attempt {attempt}/{max_tries}.")
+            except Exception as banner_err:
+                self.log(f"Error handling account verification banner: {banner_err}")
+
+        self.log("All account verification attempts exhausted; banner still present.")
+        return False
 
     def _init_browser(self):
         import os
@@ -129,6 +459,27 @@ class NvidiaNimRegister:
             self.context = self.browser.new_context(**context_opts)
             self.extension_loaded = False
             self.log(f"Browser mode: {'headless' if headless else 'headed'} ({reason})")
+
+        # Connect the DevTools Inspector bridge to our Playwright browser on port 9223
+        try:
+            import urllib.request
+            import json
+            bridge_port = 3005
+            try:
+                from core.config_store import config_store
+                bridge_port = int(config_store.get("devtools_bridge_port", 3005))
+            except:
+                pass
+            connect_url = f"http://localhost:{bridge_port}/connect"
+            req = urllib.request.Request(
+                connect_url,
+                data=json.dumps({"port": 9223}).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.log("Connected DevTools Inspector bridge to browser on port 9223")
+        except Exception as ce:
+            self.log(f"Failed to connect DevTools Inspector bridge to port 9223: {ce}")
 
     def _close_browser(self):
         if self.context:
@@ -288,6 +639,27 @@ class NvidiaNimRegister:
             self._init_browser()
             page = self.context.new_page()
             page.on("console", lambda msg: self.log(f"[BROWSER CONSOLE] {msg.type}: {msg.text}"))
+
+            # Connect DevTools Inspector bridge to the new page we just opened
+            try:
+                import urllib.request
+                import json
+                bridge_port = 3005
+                try:
+                    from core.config_store import config_store
+                    bridge_port = int(config_store.get("devtools_bridge_port", 3005))
+                except:
+                    pass
+                connect_url = f"http://localhost:{bridge_port}/connect"
+                req = urllib.request.Request(
+                    connect_url,
+                    data=json.dumps({"port": 9223}).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.log("Connected DevTools Inspector bridge to the active browser tab on port 9223")
+            except Exception as ce:
+                self.log(f"Failed to connect DevTools Inspector bridge to active tab: {ce}")
 
             # Step 1: Navigate to signup page
             self.log(f"Navigating to signup page for {email}")
@@ -552,7 +924,7 @@ class NvidiaNimRegister:
                     self.log(f"Received OTP: {otp}")
                     self.log("Entering verification code...")
                     
-                    # Check if there are 6 separate digit inputs
+                    # Check if there are 6 separate text inputs
                     digit_inputs = []
                     try:
                         all_inputs = page.locator('input').all()
@@ -766,32 +1138,51 @@ class NvidiaNimRegister:
                     else:
                         self.log("Waiting for page redirect or next state...")
                         self._human_sleep(2, 3)
+                
+                # After loop, ensure we are on the dashboard
+                if "build.nvidia.com" not in page.url or "login" in page.url:
+                    self.log("Post-verification loop timed out, forcing navigation to dashboard...")
+                    page.goto(NVIDIA_BASE, wait_until="domcontentloaded", timeout=20000)
+                    self._human_sleep(2, 3)
+                    
             except Exception as loop_err:
                 self.log(f"Error in post-verification redirection loop: {loop_err}")
 
-            # Step 4: Try to get API key from the dashboard
+            # Step 3.6: Dismiss cookie consent FIRST so it doesn't overlap the
+            # "Please verify your account" banner or the phone verification modal.
+            self._dismiss_cookie_consent(page)
+
+            # Step 3.7: Handle "Please verify your account" banner if present.
+            # NVIDIA requires SMS phone verification before API keys can be
+            # generated. We attempt phone verification up to 3 times; only if
+            # every attempt fails do we give up (no silent "Skip").
+            phone_verified = self._attempt_account_verification(page, otp_callback)
+
+            # Step 3.8: Navigate to the API Keys settings page and extract the key.
             try:
                 self.log(f"Navigating to API Keys settings page: {NVIDIA_API}")
                 page.goto(NVIDIA_API, wait_until="domcontentloaded", timeout=25000)
                 self._human_sleep(5, 7)
-                
-                # Dismiss cookie consent if present on settings page
+
+                # Re-check for verification banner on the API keys page. If the
+                # banner is still here, phone verification failed earlier — try
+                # once more before giving up on key extraction.
                 try:
-                    page.add_style_tag(content="#onetrust-consent-sdk, .onetrust-pc-dark-filter, .onetrust-banner-sdk { display: none !important; }")
-                    cookie_buttons = [
-                        '#onetrust-accept-btn-handler',
-                        'button:has-text("Accept")',
-                        'button:has-text("Accept All")',
-                        'button[id*="accept"]',
-                    ]
-                    for btn_sel in cookie_buttons:
-                        if page.locator(btn_sel).count() > 0:
-                            page.locator(btn_sel).first.click(timeout=2000, force=True)
-                            self._human_sleep(0.5, 1)
-                            break
-                except Exception as cookie_err:
-                    self.log(f"Cookie consent dismiss failed (non-critical): {cookie_err}")
-                
+                    banner_heading = page.locator('[data-testid="nv-banner-heading"]:has-text("Please verify your account")')
+                    if banner_heading.count() > 0:
+                        self.log("Verification banner still present on API keys page. Attempting phone verification once more...")
+                        self._dismiss_cookie_consent(page)
+                        phone_verified = self._attempt_account_verification(page, otp_callback)
+                        # Re-navigate to API keys after verification attempt
+                        self._human_sleep(2, 3)
+                        page.goto(NVIDIA_API, wait_until="domcontentloaded", timeout=25000)
+                        self._human_sleep(3, 5)
+                except Exception as recheck_err:
+                    self.log(f"Error re-checking banner on API keys page: {recheck_err}")
+
+                # Dismiss cookie consent again on the settings page
+                self._dismiss_cookie_consent(page)
+
                 # Take diagnostic screenshot and HTML dump
                 try:
                     os.makedirs("scratch", exist_ok=True)
@@ -802,7 +1193,13 @@ class NvidiaNimRegister:
                     self.log("Saved diagnostic HTML: scratch/nvidia_nim_dashboard_success.html")
                 except Exception as dump_err:
                     self.log(f"Failed to save diagnostics: {dump_err}")
-                
+
+                # If phone verification never succeeded, the API key section
+                # will be blocked by the verification banner — skip key
+                # extraction entirely and report the failure clearly.
+                if not phone_verified:
+                    self.log("Phone verification did not succeed — API key extraction will likely fail, but attempting anyway.")
+
                 # Check for "Generate Key" / "Create Key" button if no key is present or if permissions allow
                 generate_btn_selectors = [
                     'button:has-text("Generate Key")',
@@ -888,6 +1285,7 @@ class NvidiaNimRegister:
 
                 # Fallback 2: Regex on the entire page content
                 if not api_key:
+                    self.log("Attempting regex extraction for API key...")
                     try:
                         content = page.content()
                         match = re.search(r'(nvapi-[a-zA-Z0-9_-]{30,})', content)
@@ -896,6 +1294,33 @@ class NvidiaNimRegister:
                             self.log(f"Found API key in page content via regex: {api_key[:12]}...")
                     except Exception as e:
                         self.log(f"Regex page search failed: {e}")
+                 
+                # Fallback 3: Retry after generating key via button click if still not found.
+                # After clicking Generate Key, NVIDIA shows the key in a modal/toast that
+                # may take a moment to render — poll for up to ~30s before giving up.
+                if not api_key:
+                    self.log("Retrying key generation as a last resort...")
+                    for btn_sel in generate_btn_selectors:
+                        if page.locator(btn_sel).count() > 0:
+                            btn = page.locator(btn_sel).first
+                            if btn.is_visible() and btn.is_enabled():
+                                self.log(f"Retrying key generation: {btn_sel}")
+                                btn.click(force=True)
+                                self._human_sleep(5, 7)
+                                # Re-scan for key with a longer poll (up to ~30s)
+                                for _ in range(15):
+                                    try:
+                                        content = page.content()
+                                        match = re.search(r'(nvapi-[a-zA-Z0-9_-]{30,})', content)
+                                        if match:
+                                            api_key = match.group(1)
+                                            self.log(f"Found API key after retry: {api_key[:12]}...")
+                                            break
+                                    except Exception:
+                                        pass
+                                    self._human_sleep(1, 2)
+                                if api_key:
+                                    break
             except Exception as e:
                 self.log(f"Could not retrieve API key: {e}")
 

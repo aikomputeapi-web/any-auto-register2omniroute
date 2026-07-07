@@ -130,3 +130,20 @@ def delete_inactive_proxies(session: Session = Depends(get_session)):
         session.delete(p)
     session.commit()
     return {"deleted": len(proxies)}
+
+
+@router.post("/cleanup")
+def cleanup_proxies(background_tasks: BackgroundTasks):
+    """Check all proxies, delete dead ones, and scrape fresh proxies."""
+    def _cleanup():
+        count = proxy_pool.delete_dead_proxies()
+        return count
+    background_tasks.add_task(_cleanup)
+    return {"message": "Proxy cleanup started in the background"}
+
+
+@router.post("/verify")
+def verify_proxies(background_tasks: BackgroundTasks):
+    """Check each proxy in the pool and deactivate/delete dead ones."""
+    background_tasks.add_task(proxy_pool.check_all)
+    return {"message": "Proxy verification started in the background"}

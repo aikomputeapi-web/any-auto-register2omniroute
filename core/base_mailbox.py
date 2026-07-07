@@ -121,11 +121,15 @@ class BaseMailbox(ABC):
         text = str(raw or "")
         if not text:
             return ""
-        # Simple segmentation Header and Body
-        if "\r\n\r\n" in text:
-            text = text.split("\r\n\r\n", 1)[1]
-        elif "\n\n" in text:
-            text = text.split("\n\n", 1)[1]
+        # Only split headers if the text looks like a raw email
+        if re.search(
+            r"(?im)^(?:Return-Path|Received|Date|From|To|Subject|Content-Type):", text
+        ):
+            # Simple segmentation Header and Body
+            if "\r\n\r\n" in text:
+                text = text.split("\r\n\r\n", 1)[1]
+            elif "\n\n" in text:
+                text = text.split("\n\n", 1)[1]
         try:
             # deal with Quoted-Printable
             decoded_bytes = quopri.decodestring(text)
