@@ -57,6 +57,7 @@ class OAuthPkceClient:
         self.session = curl_requests.Session(
             proxies=self._proxies,
             impersonate="chrome",
+            verify=False,
         )
 
         self._device_id: Optional[str] = None

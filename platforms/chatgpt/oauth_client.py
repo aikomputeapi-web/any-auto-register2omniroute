@@ -67,7 +67,7 @@ class OAuthClient:
         self.impersonate = ""
 
         # create session
-        self.session = curl_requests.Session()
+        self.session = curl_requests.Session(verify=False)
         if self.proxy:
             self.session.proxies = build_requests_proxy_config(self.proxy)
 
@@ -817,6 +817,8 @@ class OAuthClient:
                 headless=self.browser_mode != "headed",
                 device_id=device_id,
                 log_fn=lambda msg: self._log(f"authorize_continue: {msg}"),
+                user_agent=user_agent,
+                sec_ch_ua=sec_ch_ua,
             )
             if sentinel_token:
                 self._log("authorize_continue: Passed Playwright SentinelSDK get token")
@@ -947,6 +949,8 @@ class OAuthClient:
             headless=self.browser_mode != "headed",
             device_id=device_id,
             log_fn=lambda msg: self._log(f"password_verify: {msg}"),
+            user_agent=user_agent,
+            sec_ch_ua=sec_ch_ua,
         )
         if sentinel_pwd:
             self._log("password_verify: Passed Playwright SentinelSDK get token")
@@ -1106,6 +1110,8 @@ class OAuthClient:
             headless=self.browser_mode != "headed",
             device_id=device_id,
             log_fn=lambda msg: self._log(f"username_password_create: {msg}"),
+            user_agent=user_agent,
+            sec_ch_ua=sec_ch_ua,
         )
         if sentinel_token:
             self._log("username_password_create: Passed Playwright SentinelSDK get token")
@@ -1592,12 +1598,14 @@ class OAuthClient:
                 f"current_url={str(r.url)[:120]} referer={(referer or '')[:100]}"
             )
 
-            if (
-                r.status_code in (401, 403)
+            need_sentinel_retry = (
+                r.status_code in (401, 403, 400)
                 or "sentinel" in (r.text or "").lower()
                 or "challenge" in (r.text or "").lower()
-            ):
-                self._log("create_account The first request requires additional challenges and is reissued. sentinel Try again later...")
+            )
+
+            if need_sentinel_retry:
+                self._log(f"create_account The first request requires additional challenge (HTTP {r.status_code}), acquiring sentinel token...")
                 sentinel_token = build_sentinel_token(
                     self.session,
                     device_id,
@@ -1617,12 +1625,23 @@ class OAuthClient:
                     f"current_url={str(r.url)[:120]} referer={(referer or '')[:100]}"
                 )
 
-            if r.status_code == 400 and "already_exists" in (r.text or ""):
-                consent_state = self._state_from_url(
-                    f"{self.oauth_issuer}/sign-in-with-chatgpt/codex/consent"
-                )
-                self._log(f"about_you hit already_exists, transfer to {describe_flow_state(consent_state)}")
-                return consent_state
+            if r.status_code == 400:
+                error_lower = (r.text or "").lower()
+                if "already_exists" in error_lower:
+                    consent_state = self._state_from_url(
+                        f"{self.oauth_issuer}/sign-in-with-chatgpt/codex/consent"
+                    )
+                    self._log(f"about_you hit already_exists, transfer to {describe_flow_state(consent_state)}")
+                    return consent_state
+                if "registration_" in error_lower or "cannot create" in error_lower:
+                    # Account was already partially created by register_user flow.
+                    # The OAuth session is reusing the existing account, so skip
+                    # create_account and treat as already_exists.
+                    consent_state = self._state_from_url(
+                        f"{self.oauth_issuer}/sign-in-with-chatgpt/codex/consent"
+                    )
+                    self._log(f"about_you hit existing account (HTTP {r.status_code}), treating as already_exists, transferring to {describe_flow_state(consent_state)}")
+                    return consent_state
 
             if r.status_code != 200:
                 self._set_error(f"about_you Submission failed: {r.status_code} - {r.text[:180]}")
@@ -1658,7 +1677,7 @@ class OAuthClient:
 
     def _recreate_session(self):
         """Re-create the session container."""
-        self.session = curl_requests.Session()
+        self.session = curl_requests.Session(verify=False)
         if self.proxy:
             self.session.proxies = build_requests_proxy_config(self.proxy)
 
@@ -3575,6 +3594,8 @@ class OAuthClient:
             headless=self.browser_mode != "headed",
             device_id=device_id,
             log_fn=lambda msg: self._log(f"email_otp_validate: {msg}"),
+            user_agent=user_agent,
+            sec_ch_ua=sec_ch_ua,
         )
         if sentinel_otp:
             self._log("email_otp_validate: Passed Playwright SentinelSDK get token")

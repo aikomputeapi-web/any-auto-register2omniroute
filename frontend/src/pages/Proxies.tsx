@@ -1,5 +1,5 @@
 import { useEffect, useState, type Key } from 'react'
-import { Card, Table, Button, Input, Tag, Space, Popconfirm, message, Modal } from 'antd'
+import { Card, Table, Button, Input, Tag, Space, Popconfirm, message, Modal, Select, Radio, Tooltip } from 'antd'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -9,6 +9,8 @@ import {
   SwapRightOutlined,
   SwapLeftOutlined,
   SyncOutlined,
+  PushpinOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons'
 import { apiFetch } from '@/lib/utils'
 
@@ -20,6 +22,51 @@ export default function Proxies() {
   const [scraping, setScraping] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([])
+
+  // Pinned proxy state
+  const [pinnedMode, setPinnedMode] = useState<'auto' | 'select' | 'custom'>('auto')
+  const [pinnedProxyId, setPinnedProxyId] = useState<number | null>(null)
+  const [pinnedCustomUrl, setPinnedCustomUrl] = useState('')
+  const [pinnedResolvedUrl, setPinnedResolvedUrl] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
+
+  const loadPinned = async () => {
+    try {
+      const data = await apiFetch('/proxies/pinned')
+      setPinnedMode(data.mode || 'auto')
+      setPinnedProxyId(data.proxy_id ?? null)
+      setPinnedCustomUrl(data.custom_url || '')
+      setPinnedResolvedUrl(data.resolved_url || '')
+    } catch {
+      // ignore
+    }
+  }
+
+  const savePinned = async (mode: 'auto' | 'select' | 'custom', proxyId?: number | null, customUrl?: string) => {
+    setPinSaving(true)
+    try {
+      const body: any = { mode }
+      if (mode === 'select') body.proxy_id = proxyId ?? pinnedProxyId
+      if (mode === 'custom') body.custom_url = customUrl ?? pinnedCustomUrl
+      const data = await apiFetch('/proxies/pinned', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      setPinnedMode(data.mode || 'auto')
+      setPinnedProxyId(data.proxy_id ?? null)
+      setPinnedCustomUrl(data.custom_url || '')
+      setPinnedResolvedUrl(data.resolved_url || '')
+      message.success(
+        mode === 'auto' ? 'Proxy mode set to Auto (random)' :
+        mode === 'select' ? `Pinned to proxy #${data.proxy_id}` :
+        'Pinned to custom proxy'
+      )
+    } catch (e: any) {
+      message.error(`Failed to set proxy: ${e.message}`)
+    } finally {
+      setPinSaving(false)
+    }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -33,6 +80,7 @@ export default function Proxies() {
 
   useEffect(() => {
     load()
+    loadPinned()
   }, [])
 
   const add = async () => {
@@ -253,6 +301,97 @@ export default function Proxies() {
           <div style={{ fontSize: 24, fontWeight: 'bold', marginTop: 4, color: '#ff4d4f' }}>{inactiveCount}</div>
         </Card>
       </div>
+
+      <Card title="Pinned Proxy" extra={<PushpinOutlined />} style={{ borderColor: pinnedMode !== 'auto' ? '#1677ff' : undefined }}>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Radio.Group
+            value={pinnedMode}
+            onChange={(e) => {
+              const newMode = e.target.value as 'auto' | 'select' | 'custom'
+              setPinnedMode(newMode)
+              if (newMode === 'auto') savePinned('auto')
+            }}
+          >
+            <Radio.Button value="auto">
+              <Tooltip title="Randomly assign proxies from the pool">
+                <Space size={4}><GlobalOutlined /> Auto (Random)</Space>
+              </Tooltip>
+            </Radio.Button>
+            <Radio.Button value="select">
+              <Tooltip title="Select a specific proxy from the pool">
+                <Space size={4}><PushpinOutlined /> Select from Pool</Space>
+              </Tooltip>
+            </Radio.Button>
+            <Radio.Button value="custom">
+              <Tooltip title="Enter a custom proxy URL">
+                <Space size={4}>Custom URL</Space>
+              </Tooltip>
+            </Radio.Button>
+          </Radio.Group>
+
+          {pinnedMode === 'select' && (
+            <Space style={{ width: '100%' }}>
+              <Select
+                style={{ flex: 1, minWidth: 400 }}
+                placeholder="Select a proxy from the pool"
+                value={pinnedProxyId ?? undefined}
+                onChange={(val) => setPinnedProxyId(val)}
+                options={proxies.map((p) => ({
+                  value: p.id,
+                  label: `${p.url} ${p.region ? `[${p.region}]` : ''} ${p.is_active ? '✓' : '✗'}`,
+                }))}
+                showSearch
+                optionFilterProp="label"
+              />
+              <Button
+                type="primary"
+                icon={<PushpinOutlined />}
+                loading={pinSaving}
+                disabled={!pinnedProxyId}
+                onClick={() => savePinned('select', pinnedProxyId)}
+              >
+                Pin This Proxy
+              </Button>
+            </Space>
+          )}
+
+          {pinnedMode === 'custom' && (
+            <Space style={{ width: '100%' }}>
+              <Input
+                style={{ flex: 1, minWidth: 400 }}
+                placeholder="http://user:pass@host:port  or  socks5://host:port"
+                value={pinnedCustomUrl}
+                onChange={(e) => setPinnedCustomUrl(e.target.value)}
+              />
+              <Button
+                type="primary"
+                icon={<PushpinOutlined />}
+                loading={pinSaving}
+                disabled={!pinnedCustomUrl.trim()}
+                onClick={() => savePinned('custom', null, pinnedCustomUrl)}
+              >
+                Pin This Proxy
+              </Button>
+            </Space>
+          )}
+
+          {pinnedMode !== 'auto' && pinnedResolvedUrl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Tag color="blue" icon={<PushpinOutlined />}>
+                Pinned: {pinnedResolvedUrl}
+              </Tag>
+              <Button size="small" type="link" onClick={() => savePinned('auto')}>
+                Reset to Auto
+              </Button>
+            </div>
+          )}
+          {pinnedMode === 'auto' && (
+            <div style={{ color: '#7a8ba3', fontSize: 13 }}>
+              Proxies are randomly assigned from the pool for each registration run.
+            </div>
+          )}
+        </Space>
+      </Card>
 
       <Card title="Proxy Actions">
         <Space wrap>

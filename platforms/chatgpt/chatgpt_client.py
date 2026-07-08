@@ -107,7 +107,7 @@ class ChatGPTClient:
         ) = _random_chrome_version()
 
         # create session
-        self.session = curl_requests.Session(impersonate=self.impersonate)
+        self.session = curl_requests.Session(impersonate=self.impersonate, verify=False)
 
         if self.proxy:
             self.session.proxies = build_requests_proxy_config(self.proxy)
@@ -228,7 +228,7 @@ class ChatGPTClient:
             ]
         )
 
-        self.session = curl_requests.Session(impersonate=self.impersonate)
+        self.session = curl_requests.Session(impersonate=self.impersonate, verify=False)
         if self.proxy:
             self.session.proxies = build_requests_proxy_config(self.proxy)
 
@@ -782,7 +782,7 @@ class ChatGPTClient:
                     fetch_site="same-origin",
                     extra_headers={"oai-device-id": self.device_id},
                 ),
-                allow_redirects=True,
+                allow_redirects=False,
                 timeout=30,
             )
             self._log(f"Verification code sending status: {r.status_code}")
@@ -844,7 +844,7 @@ class ChatGPTClient:
 
         try:
             self._browser_pause()
-            r = self.session.post(url, json=payload, headers=headers, timeout=30)
+            r = self.session.post(url, json=payload, headers=headers, allow_redirects=False, timeout=30)
 
             if r.status_code == 200:
                 try:
@@ -1198,6 +1198,20 @@ class ChatGPTClient:
 
             if self._state_is_email_otp(state):
                 self._enter_stage("otp", describe_flow_state(state))
+                # If we landed directly on email-verification (login OTP path), the OTP
+                # may already have been sent by OpenAI during the authorize redirect.
+                # Only call send_email_otp if this is a fresh attempt and we know
+                # it hasn't been sent yet (register_submitted == True means we came
+                # from the password registration path).
+                if otp_send_attempts == 0 and register_submitted:
+                    self._log("Sending initial verification code...")
+                    self.send_email_otp(
+                        referer=state.current_url or state.continue_url or f"{self.AUTH}/email-verification"
+                    )
+                    otp_send_attempts += 1
+                if otp_send_attempts == 0:
+                    self._log("The OTP was automatically sent by OpenAI during authorization. Waiting for code...")
+                    otp_send_attempts = 1
                 self._log("Waiting for email verification code...")
                 otp_code = skymail_client.wait_for_verification_code(
                     email, timeout=otp_wait_timeout

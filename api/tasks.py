@@ -423,11 +423,26 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
             {k: v for k, v in req.extra.items() if v is not None and v != ""}
         )
 
+        # Check for pinned proxy from config_store
+        from core.config_store import config_store as _cs_pin
+        _pinned_mode = _cs_pin.get("pinned_proxy_mode", "auto")
+        _pinned_proxy_url = ""
+        if _pinned_mode == "select":
+            _pin_id_str = _cs_pin.get("pinned_proxy_id", "")
+            if _pin_id_str.isdigit():
+                with Session(engine) as _s:
+                    from core.db import ProxyModel
+                    _pin_p = _s.get(ProxyModel, int(_pin_id_str))
+                    if _pin_p:
+                        _pinned_proxy_url = _pin_p.url
+        elif _pinned_mode == "custom":
+            _pinned_proxy_url = _cs_pin.get("pinned_proxy_custom_url", "").strip()
+
         # Prefetch proxies in batches (when there is no fixed proxy), reducing the need for separate checks per thread DB
         from core.proxy_pool import proxy_pool as _proxy_pool
         _prefetched_proxies: list[str] = []
         _prefetch_lock = threading.Lock()
-        if not req.proxy and req.count > 1:
+        if not req.proxy and not _pinned_proxy_url and req.count > 1:
             with Session(engine) as _s:
                 from core.db import ProxyModel
                 from sqlmodel import select as _sel
@@ -448,6 +463,9 @@ def _run_register(task_id: str, req: RegisterTaskRequest):
         def _get_proxy(exclude: Optional[set] = None) -> Optional[str]:
             if req.proxy:
                 return req.proxy
+            # Use pinned proxy if configured
+            if _pinned_proxy_url:
+                return _pinned_proxy_url
             exclude = exclude or set()
             if _prefetched_proxies:
                 with _prefetch_lock:

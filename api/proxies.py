@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from typing import Optional
-from core.db import ProxyModel, get_session
+from core.db import ProxyModel, engine, get_session
 from core.proxy_pool import proxy_pool
+from core.config_store import config_store
 
 router = APIRouter(prefix="/proxies", tags=["proxies"])
 
@@ -147,3 +148,74 @@ def verify_proxies(background_tasks: BackgroundTasks):
     """Check each proxy in the pool and deactivate/delete dead ones."""
     background_tasks.add_task(proxy_pool.check_all)
     return {"message": "Proxy verification started in the background"}
+
+
+# ---------------------------------------------------------------------------
+# Proxy pinning — select a specific proxy (or custom proxy URL) to use for
+# all subsequent registration runs until changed back to "auto" (random).
+# ---------------------------------------------------------------------------
+
+class PinnedProxyConfig(BaseModel):
+    """Pinned proxy configuration.
+
+    mode: "auto"   → randomly assign proxies from the pool (default)
+    mode: "select" → use a specific proxy from the pool (by proxy_id)
+    mode: "custom" → use a custom proxy URL entered by the user
+    """
+    mode: str = "auto"          # "auto" | "select" | "custom"
+    proxy_id: Optional[int] = None
+    custom_url: Optional[str] = None
+
+
+@router.get("/pinned")
+def get_pinned_proxy():
+    """Get the current pinned proxy configuration."""
+    mode = config_store.get("pinned_proxy_mode", "auto")
+    proxy_id_str = config_store.get("pinned_proxy_id", "")
+    custom_url = config_store.get("pinned_proxy_custom_url", "")
+
+    result = {
+        "mode": mode,
+        "proxy_id": int(proxy_id_str) if proxy_id_str.isdigit() else None,
+        "custom_url": custom_url,
+        "resolved_url": "",
+    }
+
+    if mode == "select" and result["proxy_id"]:
+        with Session(engine) as s:
+            p = s.get(ProxyModel, result["proxy_id"])
+            if p:
+                result["resolved_url"] = p.url
+            else:
+                # Proxy was deleted, fall back to auto
+                result["mode"] = "auto"
+    elif mode == "custom" and custom_url:
+        result["resolved_url"] = custom_url
+
+    return result
+
+
+@router.post("/pinned")
+def set_pinned_proxy(body: PinnedProxyConfig):
+    """Set the pinned proxy configuration."""
+    if body.mode not in ("auto", "select", "custom"):
+        raise HTTPException(400, "mode must be 'auto', 'select', or 'custom'")
+
+    config_store.set("pinned_proxy_mode", body.mode)
+
+    if body.mode == "select":
+        if not body.proxy_id:
+            raise HTTPException(400, "proxy_id is required when mode='select'")
+        config_store.set("pinned_proxy_id", str(body.proxy_id))
+        config_store.set("pinned_proxy_custom_url", "")
+    elif body.mode == "custom":
+        if not body.custom_url or not body.custom_url.strip():
+            raise HTTPException(400, "custom_url is required when mode='custom'")
+        config_store.set("pinned_proxy_custom_url", body.custom_url.strip())
+        config_store.set("pinned_proxy_id", "")
+    else:
+        # auto — clear both
+        config_store.set("pinned_proxy_id", "")
+        config_store.set("pinned_proxy_custom_url", "")
+
+    return get_pinned_proxy()

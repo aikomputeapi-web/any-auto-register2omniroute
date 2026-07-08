@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Progress, Tag, Button, Spin } from 'antd'
+import { Card, Row, Col, Statistic, Progress, Tag, Button, Spin, Select, Space, message } from 'antd'
 import {
   UserOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   ReloadOutlined,
+  PushpinOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons'
 import { apiFetch } from '@/lib/utils'
 
@@ -25,6 +27,11 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [proxies, setProxies] = useState<any[]>([])
+  const [pinnedMode, setPinnedMode] = useState<'auto' | 'select' | 'custom'>('auto')
+  const [pinnedProxyId, setPinnedProxyId] = useState<number | null>(null)
+  const [pinnedResolvedUrl, setPinnedResolvedUrl] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -36,8 +43,46 @@ export default function Dashboard() {
     }
   }
 
+  const loadProxies = async () => {
+    try {
+      const [proxyData, pinnedData] = await Promise.all([
+        apiFetch('/proxies'),
+        apiFetch('/proxies/pinned'),
+      ])
+      setProxies(proxyData || [])
+      setPinnedMode(pinnedData.mode || 'auto')
+      setPinnedProxyId(pinnedData.proxy_id ?? null)
+      setPinnedResolvedUrl(pinnedData.resolved_url || '')
+    } catch {
+      // ignore
+    }
+  }
+
+  const quickPin = async (mode: 'auto' | 'select', proxyId?: number | null) => {
+    setPinSaving(true)
+    try {
+      const body: any = { mode }
+      if (mode === 'select') body.proxy_id = proxyId ?? pinnedProxyId
+      const data = await apiFetch('/proxies/pinned', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      setPinnedMode(data.mode || 'auto')
+      setPinnedProxyId(data.proxy_id ?? null)
+      setPinnedResolvedUrl(data.resolved_url || '')
+      message.success(
+        mode === 'auto' ? 'Proxy set to Auto (random)' : `Pinned to: ${data.resolved_url}`
+      )
+    } catch (e: any) {
+      message.error(`Failed: ${e.message}`)
+    } finally {
+      setPinSaving(false)
+    }
+  }
+
   useEffect(() => {
     load()
+    loadProxies()
   }, [])
 
   const statCards = [
@@ -74,9 +119,53 @@ export default function Dashboard() {
           <h1 style={{ fontSize: 24, fontWeight: 'bold', margin: 0 }}>Dashboard</h1>
           <p style={{ color: '#7a8ba3', marginTop: 4 }}>Account Overview</p>
         </div>
-        <Button icon={<ReloadOutlined spin={loading} />} onClick={load} loading={loading}>
-          Refresh
-        </Button>
+        <Space>
+          {/* Quick proxy selection dropdown */}
+          <Select
+            style={{ width: 280 }}
+            loading={pinSaving}
+            value={pinnedMode === 'auto' ? '__auto__' : pinnedMode === 'select' ? pinnedProxyId : '__custom__'}
+            onChange={(val) => {
+              if (val === '__auto__') {
+                setPinnedMode('auto')
+                quickPin('auto')
+              } else if (val === '__custom__') {
+                // Redirect to proxies page for custom URL entry
+                message.info('Custom proxy URL can be set on the Proxies page')
+              } else if (typeof val === 'number') {
+                setPinnedMode('select')
+                setPinnedProxyId(val)
+                quickPin('select', val)
+              }
+            }}
+            options={[
+              { value: '__auto__', label: <Space><GlobalOutlined /> Auto (Random Proxy)</Space> },
+              ...(pinnedResolvedUrl && pinnedMode === 'custom'
+                ? [{ value: '__custom__', label: <Space><PushpinOutlined /> Custom: {pinnedResolvedUrl.slice(0, 30)}...</Space> }]
+                : []),
+              { value: '__divider__', label: '─── Select from Pool ───', disabled: true },
+              ...proxies.map((p) => ({
+                value: p.id,
+                label: (
+                  <Space>
+                    <PushpinOutlined style={{ color: p.id === pinnedProxyId ? '#1677ff' : undefined }} />
+                    <span style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                      {p.url.length > 35 ? p.url.slice(0, 35) + '...' : p.url}
+                    </span>
+                    {p.region && <Tag style={{ fontSize: 10, lineHeight: '16px', margin: 0 }}>{p.region}</Tag>}
+                    {p.is_active ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
+                  </Space>
+                ),
+              })),
+            ]}
+            placeholder="Select proxy for next run"
+            showSearch
+            optionFilterProp="label"
+          />
+          <Button icon={<ReloadOutlined spin={loading} />} onClick={load} loading={loading}>
+            Refresh
+          </Button>
+        </Space>
       </div>
 
       <Row gutter={[16, 16]}>

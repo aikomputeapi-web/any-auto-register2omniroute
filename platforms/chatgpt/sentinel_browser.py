@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 import uuid
@@ -20,6 +21,13 @@ from core.proxy_utils import (
     is_authenticated_socks5_proxy,
     resolve_us_profile,
 )
+from core.user_agent_generator import UserAgentGenerator
+
+
+def _extract_chrome_version(user_agent: str) -> str:
+    """Extract Chrome version from user agent string."""
+    match = re.search(r"Chrome/([0-9.]+)", user_agent)
+    return match.group(1) if match else ""
 
 
 SENTINEL_VERSION = "20260219f9f6"
@@ -208,7 +216,7 @@ def _get_sentinel_token_via_quickjs(
         return None
 
     did = str(device_id or uuid.uuid4())
-    session = curl_requests.Session(impersonate="chrome136")
+    session = curl_requests.Session(impersonate="chrome136", verify=False)
     if proxy:
         session.proxies = build_requests_proxy_config(proxy)
 
@@ -292,6 +300,8 @@ def get_sentinel_token_via_browser(
     headless: bool = True,
     device_id: Optional[str] = None,
     log_fn: Optional[Callable[[str], None]] = None,
+    user_agent: Optional[str] = None,
+    sec_ch_ua: Optional[str] = None,
 ) -> Optional[str]:
     """Call directly through the browser SentinelSDK.token(flow) get complete token."""
     logger = log_fn or (lambda _msg: None)
@@ -333,16 +343,31 @@ def get_sentinel_token_via_browser(
     logger(f"Sentinel Browser start up: flow={flow}, url={target_url}")
 
     us_loc = resolve_us_profile(proxy)
+
+    # Build fingerprint: use caller-supplied UA for consistency with HTTP layer,
+    # or generate a fresh random one if not provided.
+    if user_agent:
+        ua_data = {
+            "user_agent": user_agent,
+            "sec_ch_ua": sec_ch_ua or "",
+            "chrome_version": _extract_chrome_version(user_agent),
+        }
+    else:
+        ua_data = UserAgentGenerator.generate()
+    vp_w, vp_h = UserAgentGenerator.get_random_viewport()
+    hw = UserAgentGenerator.get_random_hardware()
+    logger(
+        f"Sentinel fingerprint: Chrome/{ua_data['chrome_version']}, "
+        f"Viewport {vp_w}x{vp_h}, CPU {hw['hardware_concurrency']}C, RAM {hw['device_memory']}GB"
+    )
+
     with sync_playwright() as p:
         browser = p.chromium.launch(**launch_args)
         try:
             context = browser.new_context(
-                viewport={"width": 1440, "height": 900},
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/136.0.7103.92 Safari/537.36"
-                ),
+                viewport={"width": vp_w, "height": vp_h},
+                screen={"width": vp_w, "height": vp_h},
+                user_agent=ua_data["user_agent"],
                 locale=us_loc["locale"],
                 timezone_id=us_loc["timezone"],
                 geolocation={"latitude": us_loc["latitude"], "longitude": us_loc["longitude"]},
