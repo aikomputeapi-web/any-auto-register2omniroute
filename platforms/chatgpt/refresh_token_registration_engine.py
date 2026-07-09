@@ -574,6 +574,10 @@ class RefreshTokenRegistrationEngine:
                     self._log("3. Preface to take over session, keep walking OAuth passwordless process")
                     self._log("4. Following the preamble stage cookie / device_id / browser fingerprint")
                     self._log("5. Submit after successful login about_you, and continue workspace/token process")
+                    # CRITICAL: Clear registration-phase used codes so OAuth login
+                    # does not try the (now-expired) registration OTP.
+                    if hasattr(email_adapter, "_used_codes"):
+                        email_adapter._used_codes.clear()
                     tokens = oauth_client.login_and_get_tokens(
                         result.email,
                         self.password,

@@ -3709,8 +3709,16 @@ class OAuthClient:
 
             self._log(f"/email-otp/validate -> {resp_otp.status_code}")
             if resp_otp.status_code != 200:
-                self._log(f"OTP invalid: {resp_otp.text[:160]}")
+                err_text = resp_otp.text[:160]
+                self._log(f"OTP invalid: {err_text}")
                 tried_codes.add(code)
+                # If OpenAI returns "Too many tries" or rate-limit message,
+                # bail out immediately instead of looping on stale codes.
+                if "too many tries" in err_text.lower() or "rate_limit" in err_text.lower():
+                    err_msg = "OTP rate-limit hit, aborting OTP phase"
+                    self._log(err_msg)
+                    self._set_error(err_msg)
+                    return None
                 return None
 
             try:
