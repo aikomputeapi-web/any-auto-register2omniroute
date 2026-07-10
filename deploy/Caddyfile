@@ -1,0 +1,45 @@
+# Caddy reverse proxy for the multi-app stack.
+# Substitute {$VAR} from deploy/.env. Caddy provisions and renews
+# Let's Encrypt certs automatically for each site block.
+#
+# Prereq: each domain's DNS A record must point at this VPS BEFORE starting,
+# otherwise the first certificate request will fail.
+
+{
+	email {$ACME_EMAIL:you@example.com}
+	# Uncomment to use the Let's Encrypt staging endpoint while testing:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# --- any-auto-register (standard) ---
+{$AAR_DOMAIN:register.example.com} {
+	encode zstd gzip
+	reverse_proxy any-auto-register:8000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		# flush immediately so SSE / streaming responses work
+		flush_interval -1
+	}
+}
+
+# --- any-auto-register (pro) ---
+# Remove this block if you are not running the pro instance.
+{$AARPRO_DOMAIN:pro.example.com} {
+	encode zstd gzip
+	reverse_proxy any-auto-register-pro:8000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		flush_interval -1
+	}
+}
+
+# --- bank statement generator ---
+# Remove this block if you are not running the bank app.
+{$BANK_DOMAIN:bank.example.com} {
+	encode zstd gzip
+	reverse_proxy bank-statement-generator:8000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		flush_interval -1
+	}
+}

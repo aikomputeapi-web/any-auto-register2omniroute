@@ -1,0 +1,113 @@
+name: apps
+
+# Multi-app VPS stack: Caddy (auto-HTTPS reverse proxy) + any-auto-register
+# (+ optional 2nd instance "pro" and a bank-statement-generator).
+#
+# Layout this expects on the VPS (see deploy/README.md):
+#   /opt/apps/
+#   ├── any-auto-register/        <- this repo
+#   ├── any-auto-register-pro/    <- optional, clone of the pro repo
+#   ├── bank-statement-generator/ <- optional
+#   └── deploy/                   <- this directory (can live inside any-auto-register)
+#
+# Start everything:   docker compose --profile pro --profile bank up -d --build
+# Start core only:     docker compose up -d --build
+# (profiles are opt-in; caddy + any-auto-register always run)
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+    depends_on: [any-auto-register]
+
+  any-auto-register:
+    build:
+      context: ${AAR_CONTEXT:-..}
+      dockerfile: Dockerfile
+      args:
+        CAMOUFOX_VERSION: ${CAMOUFOX_VERSION:-135.0.1}
+        CAMOUFOX_RELEASE: ${CAMOUFOX_RELEASE:-beta.24}
+    image: any-auto-register:latest
+    container_name: any-auto-register
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      APP_RELOAD: "0"
+      APP_CONDA_ENV: docker
+      APP_RUNTIME_DIR: /runtime
+      APP_ENABLE_SOLVER: ${APP_ENABLE_SOLVER:-1}
+      SOLVER_PORT: "8889"
+      SOLVER_BIND_HOST: 0.0.0.0
+      LOCAL_SOLVER_URL: http://127.0.0.1:8889
+      SOLVER_BROWSER_TYPE: ${SOLVER_BROWSER_TYPE:-camoufox}
+      PLAYWRIGHT_HEADLESS: ${PLAYWRIGHT_HEADLESS:-}
+    volumes:
+      - ${AAR_DATA:-./data/any-auto-register}:/runtime
+      - ${AAR_EXT:-./_ext_targets/any-auto-register}:/_ext_targets
+    expose:
+      - "8000"
+    shm_size: "1gb"
+    networks: [web]
+
+  any-auto-register-pro:
+    profiles: ["pro"]
+    build:
+      context: ${AARPRO_CONTEXT:-../any-auto-register-pro}
+      dockerfile: Dockerfile
+      args:
+        CAMOUFOX_VERSION: ${CAMOUFOX_VERSION:-135.0.1}
+        CAMOUFOX_RELEASE: ${CAMOUFOX_RELEASE:-beta.24}
+    image: any-auto-register-pro:latest
+    container_name: any-auto-register-pro
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      APP_RELOAD: "0"
+      APP_CONDA_ENV: docker
+      APP_RUNTIME_DIR: /runtime
+      APP_ENABLE_SOLVER: ${APP_ENABLE_SOLVER:-1}
+      SOLVER_PORT: "8889"
+      SOLVER_BIND_HOST: 0.0.0.0
+      LOCAL_SOLVER_URL: http://127.0.0.1:8889
+      SOLVER_BROWSER_TYPE: ${SOLVER_BROWSER_TYPE:-camoufox}
+      PLAYWRIGHT_HEADLESS: ${PLAYWRIGHT_HEADLESS:-}
+    volumes:
+      - ${AARPRO_DATA:-./data/any-auto-register-pro}:/runtime
+      - ${AARPRO_EXT:-./_ext_targets/any-auto-register-pro}:/_ext_targets
+    expose:
+      - "8000"
+    shm_size: "1gb"
+    networks: [web]
+
+  bank-statement-generator:
+    profiles: ["bank"]
+    build:
+      context: ${BANK_CONTEXT:-../bank-statement-generator}
+      dockerfile: Dockerfile
+    image: bank-statement-generator:latest
+    container_name: bank-statement-generator
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - ${BANK_DATA:-./data/bank-statement-generator}:/data
+    networks: [web]
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

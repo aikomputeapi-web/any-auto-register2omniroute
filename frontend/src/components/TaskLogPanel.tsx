@@ -328,7 +328,16 @@ export function TaskLogPanel({ taskId, onDone }: TaskLogPanelProps) {
           wordBreak: 'break-word',
         }}
       >
-        {lines.length === 0 && !error && <div style={{ color: '#9ca3af' }}>Waiting for logs...</div>}
+        {lines.length === 0 && !error && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16 }}>
+            <div style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="ant-spin-dot ant-spin-dot-spin">
+                <i className="ant-spin-dot-item" />
+              </div>
+              Connecting to task logger...
+            </div>
+          </div>
+        )}
         {error && <div style={{ color: '#dc2626' }}>{error}</div>}
         {lines.map((line, index) => (
           <div
