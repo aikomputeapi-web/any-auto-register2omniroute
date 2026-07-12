@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { App, Card, Form, Input, Select, Button, message, Tabs, Space, Tag, Typography, Modal, QRCode, Switch, Alert } from 'antd'
+import { Card, Form, Input, Select, Button, message, Tabs, Space, Tag, Typography, Modal, Switch, Alert } from 'antd'
 import {
   SaveOutlined,
   EyeOutlined,
@@ -1573,246 +1573,32 @@ function ContributionPanel({
   )
 }
 
-type TotpSetupState = 'idle' | 'setup'
-
 function SecurityPanel() {
-  const { message: msg } = App.useApp()
-  const [status, setStatus] = useState<{ has_password: boolean; has_totp: boolean } | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const [enableForm] = Form.useForm()
-  const [pwForm] = Form.useForm()
-  const [codeForm] = Form.useForm()
-
-  const [totpSetupState, setTotpSetupState] = useState<TotpSetupState>('idle')
-  const [totpSecret, setTotpSecret] = useState('')
-  const [totpUri, setTotpUri] = useState('')
-
-  const loadStatus = async () => {
-    try {
-      const s = await apiFetch('/auth/status')
-      setStatus(s)
-    } catch {}
-  }
-
-  useEffect(() => { loadStatus() }, [])
-
-  const handleEnable = async (values: { password: string; confirm: string }) => {
-    if (values.password !== values.confirm) {
-      msg.error('The two passwords do not match')
-      return
-    }
-    setLoading(true)
-    try {
-      const d = await apiFetch('/auth/setup', {
-        method: 'POST',
-        body: JSON.stringify({ password: values.password }),
-      })
-      localStorage.setItem('auth_token', d.access_token)
-      msg.success('Password protection enabled')
-      enableForm.resetFields()
-      await loadStatus()
-    } catch (e: any) {
-      msg.error(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDisableAuth = async () => {
-    setLoading(true)
-    try {
-      await apiFetch('/auth/disable', { method: 'POST' })
-      localStorage.removeItem('auth_token')
-      msg.success('Password protection disabled')
-      await loadStatus()
-    } catch (e: any) {
-      msg.error(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleChangePassword = async (values: { current_password: string; new_password: string; confirm: string }) => {
-    if (values.new_password !== values.confirm) {
-      msg.error('The two new passwords do not match')
-      return
-    }
-    setLoading(true)
-    try {
-      await apiFetch('/auth/change-password', {
-        method: 'POST',
-        body: JSON.stringify({ current_password: values.current_password, new_password: values.new_password }),
-      })
-      msg.success('Password updated')
-      pwForm.resetFields()
-    } catch (e: any) {
-      msg.error(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSetupTotp = async () => {
-    setLoading(true)
-    try {
-      const d = await apiFetch('/auth/2fa/setup')
-      setTotpSecret(d.secret)
-      setTotpUri(d.uri)
-      setTotpSetupState('setup')
-    } catch (e: any) {
-      msg.error(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleEnableTotp = async (values: { code: string }) => {
-    setLoading(true)
-    try {
-      await apiFetch('/auth/2fa/enable', {
-        method: 'POST',
-        body: JSON.stringify({ secret: totpSecret, code: values.code }),
-      })
-      msg.success('Two-factor authentication enabled')
-      setTotpSetupState('idle')
-      codeForm.resetFields()
-      await loadStatus()
-    } catch (e: any) {
-      msg.error(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDisableTotp = async () => {
-    setLoading(true)
-    try {
-      await apiFetch('/auth/2fa/disable', { method: 'POST' })
-      msg.success('Two-factor authentication disabled')
-      await loadStatus()
-    } catch (e: any) {
-      msg.error(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const authPortal = 'https://auth.' + window.location.hostname.replace(/^www\./, '')
+  const signOutUrl = `${authPortal}/logout?rd=${encodeURIComponent(window.location.origin)}`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card
-        title="Password protection"
-        extra={
-          status?.has_password
-            ? <Tag color="green"><CheckCircleOutlined /> Enabled</Tag>
-            : <Tag color="default"><CloseCircleOutlined /> Disabled</Tag>
-        }
+        title="Authentication"
+        extra={<Tag color="blue"><CheckCircleOutlined /> Managed by Authelia</Tag>}
       >
-        {!status?.has_password ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Typography.Text type="secondary">
-              When enabled, users must enter a password to access the page. It is disabled by default, so anyone who can reach this address can use it.
-            </Typography.Text>
-            <Form form={enableForm} layout="vertical" onFinish={handleEnable} requiredMark={false} style={{ maxWidth: 360, marginTop: 8 }}>
-              <Form.Item name="password" label="Set access password" rules={[{ required: true, message: 'Please enter a password' }, { min: 6, message: 'At least 6 characters' }]}>
-                <Input.Password placeholder="At least 6 characters" />
-              </Form.Item>
-              <Form.Item name="confirm" label="Confirm password" rules={[{ required: true, message: 'Please enter it again' }]}>
-                <Input.Password placeholder="Enter the password again" />
-              </Form.Item>
-              <Form.Item style={{ marginBottom: 0 }}>
-                <Button type="primary" htmlType="submit" loading={loading} icon={<LockOutlined />}>
-                  Enable password protection
-                </Button>
-              </Form.Item>
-            </Form>
-          </Space>
-        ) : (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Typography.Text type="secondary">Password protection is currently enabled. After disabling it, anyone can access the page without a password.</Typography.Text>
-            <Button danger loading={loading} onClick={handleDisableAuth}>
-              Disable password protection
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Typography.Text type="secondary">
+            Sign-in, passwords, and two-factor authentication (TOTP &amp; passkeys) are now managed
+            centrally by Authelia, the identity provider in front of this application. Manage your
+            credentials and second factors from your Authelia user profile.
+          </Typography.Text>
+          <Space>
+            <Button type="primary" icon={<SafetyOutlined />} href={`${authPortal}/settings`}>
+              Manage in Authelia
+            </Button>
+            <Button danger icon={<LockOutlined />} href={signOutUrl}>
+              Sign out
             </Button>
           </Space>
-        )}
+        </Space>
       </Card>
-
-      {status?.has_password && (
-        <>
-          <Card title="Change password">
-            <Form form={pwForm} layout="vertical" onFinish={handleChangePassword} requiredMark={false} style={{ maxWidth: 360 }}>
-              <Form.Item name="current_password" label="Current password" rules={[{ required: true, message: 'Please enter the current password' }]}>
-                <Input.Password placeholder="Current password" />
-              </Form.Item>
-              <Form.Item name="new_password" label="New password" rules={[{ required: true, message: 'Please enter a new password' }, { min: 6, message: 'At least 6 characters' }]}>
-                <Input.Password placeholder="New password (at least 6 characters)" />
-              </Form.Item>
-              <Form.Item name="confirm" label="Confirm new password" rules={[{ required: true, message: 'Please enter it again' }]}>
-                <Input.Password placeholder="Enter the new password again" />
-              </Form.Item>
-              <Form.Item style={{ marginBottom: 0 }}>
-                <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
-                  Update password
-                </Button>
-              </Form.Item>
-            </Form>
-          </Card>
-
-          <Card
-            title="Two-factor authentication (2FA)"
-            extra={
-              status?.has_totp
-                ? <Tag color="green"><CheckCircleOutlined /> Enabled</Tag>
-                : <Tag color="default"><CloseCircleOutlined /> Disabled</Tag>
-            }
-          >
-            {status?.has_totp ? (
-              <Space direction="vertical">
-                <Typography.Text type="secondary">
-                  You will need to enter the 6-digit code from apps such as Google Authenticator or Authy when signing in.
-                </Typography.Text>
-                <Button danger loading={loading} onClick={handleDisableTotp}>
-                  Disable 2FA
-                </Button>
-              </Space>
-            ) : totpSetupState === 'idle' ? (
-              <Space direction="vertical">
-                <Typography.Text type="secondary">
-                  When enabled, sign-in requires the 6-digit code from an authenticator app in addition to your password, greatly improving security.
-                </Typography.Text>
-                <Button type="primary" loading={loading} onClick={handleSetupTotp} icon={<SafetyOutlined />}>
-                  Enable 2FA
-                </Button>
-              </Space>
-            ) : (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Typography.Text strong>1. Scan the QR code below with your authenticator app</Typography.Text>
-                <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <QRCode value={totpUri} size={180} />
-                  <div style={{ flex: 1 }}>
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>Can't scan it? Enter the secret key manually:</Typography.Text>
-                    <Typography.Paragraph copyable style={{ fontFamily: 'monospace', fontSize: 13, marginTop: 4 }}>
-                      {totpSecret}
-                    </Typography.Paragraph>
-                  </div>
-                </div>
-                <Typography.Text strong>2. Enter the 6-digit code shown in the app to confirm the binding</Typography.Text>
-                <Form form={codeForm} layout="inline" onFinish={handleEnableTotp}>
-                  <Form.Item name="code" rules={[{ required: true, message: 'Please enter the code' }, { len: 6, message: '6 digits' }]}>
-                    <Input placeholder="000000" maxLength={6} style={{ width: 140, letterSpacing: 4, textAlign: 'center' }} />
-                  </Form.Item>
-                  <Form.Item>
-                    <Button type="primary" htmlType="submit" loading={loading}>Confirm enablement</Button>
-                  </Form.Item>
-                  <Form.Item>
-                    <Button onClick={() => setTotpSetupState('idle')}>Cancel</Button>
-                  </Form.Item>
-                </Form>
-              </Space>
-            )}
-          </Card>
-        </>
-      )}
     </div>
   )
 }

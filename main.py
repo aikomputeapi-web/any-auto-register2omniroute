@@ -3,7 +3,6 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -98,28 +97,37 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Account Manager", version="1.0.0", lifespan=lifespan)
 
 
+def _cors_origins() -> list[str]:
+    raw = os.getenv("APP_CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return ["*"]
+
+
 @app.middleware("http")
-async def auth_middleware(request: Request, call_next):
+async def proxy_auth_middleware(request: Request, call_next):
+    """Identity is provided by Authelia via Caddy's forward_auth.
+
+    When APP_REQUIRE_PROXY_AUTH is enabled, every /api/* request (except the
+    /api/auth/* status endpoints) must carry the trusted Remote-User header
+    that Caddy copies from Authelia's forward-auth response. Requests that
+    reach the app without it have bypassed the proxy and are rejected.
+    """
     path = request.url.path
-    if path.startswith("/api/auth/") or not path.startswith("/api/"):
+    if not path.startswith("/api/") or path.startswith("/api/auth/"):
         return await call_next(request)
-    from core.config_store import config_store as _cs
-    if not _cs.get("auth_password_hash", ""):
+    if os.getenv("APP_REQUIRE_PROXY_AUTH", "0").lower() not in {"1", "true", "yes"}:
         return await call_next(request)
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        return JSONResponse({"detail": "Not authenticated, please log in first"}, status_code=401)
-    try:
-        from api.auth import verify_token
-        verify_token(auth_header[7:])
-    except HTTPException as e:
-        return JSONResponse({"detail": e.detail}, status_code=e.status_code)
-    return await call_next(request)
+    header_name = os.getenv("APP_TRUSTED_REMOTE_USER_HEADER", "Remote-User")
+    if request.headers.get(header_name, ""):
+        return await call_next(request)
+    return JSONResponse({"detail": "Not authenticated via identity provider"}, status_code=401)
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

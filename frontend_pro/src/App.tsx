@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { App as AntdApp, ConfigProvider, Layout, Menu, Button, Spin } from 'antd'
 import {
@@ -20,28 +20,16 @@ import Proxies from '@/pages/Proxies'
 import Settings from '@/pages/Settings'
 import TaskHistory from '@/pages/TaskHistory'
 import RunningTasks from '@/pages/RunningTasks'
-import Login from '@/pages/Login'
 import { darkTheme, lightTheme } from './theme'
-import { apiFetch, clearToken, getToken } from '@/lib/utils'
+import { apiFetch, AUTH_PORTAL } from '@/lib/utils'
 
 const { Sider, Content } = Layout
 
 function ProtectedLayout() {
-  const navigate = useNavigate()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    fetch('/api/auth/status')
-      .then(r => r.json())
-      .then(s => {
-        const token = getToken()
-        if (s.has_password && !token) {
-          navigate('/login', { replace: true })
-        } else {
-          setReady(true)
-        }
-      })
-      .catch(() => setReady(true))
+    setReady(true)
   }, [])
 
   if (!ready) {
@@ -61,7 +49,6 @@ function AppContent() {
   )
   const [collapsed, setCollapsed] = useState(false)
   const [platforms, setPlatforms] = useState<{ key: string; label: string }[]>([])
-  const [hasPassword, setHasPassword] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -73,10 +60,6 @@ function AppContent() {
     )
     localStorage.setItem('theme', themeMode)
   }, [themeMode])
-
-  useEffect(() => {
-    fetch('/api/auth/status').then(r => r.json()).then(s => setHasPassword(s.has_password)).catch(() => {})
-  }, [])
 
   useEffect(() => {
     apiFetch('/platforms?type=pro')
@@ -210,21 +193,22 @@ function AppContent() {
             >
               {!collapsed && (isLight ? 'Light Mode' : 'Dark Mode')}
             </Button>
-            {hasPassword && (
-              <Button
-                block
-                danger
-                icon={<LogoutOutlined />}
-                onClick={() => { clearToken(); navigate('/login') }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: collapsed ? 'center' : 'space-between',
-                }}
-              >
-                {!collapsed && 'Logout'}
-              </Button>
-            )}
+            <Button
+              block
+              danger
+              icon={<LogoutOutlined />}
+              onClick={() => {
+                const rd = encodeURIComponent(window.location.origin)
+                window.location.href = `${AUTH_PORTAL}/logout?rd=${rd}`
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'space-between',
+              }}
+            >
+              {!collapsed && 'Sign out'}
+            </Button>
           </div>
         </Sider>
         <Content
@@ -255,7 +239,7 @@ export default function App() {
   return (
     <BrowserRouter basename="/pro">
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>

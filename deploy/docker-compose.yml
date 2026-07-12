@@ -27,7 +27,42 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks: [web]
-    depends_on: [any-auto-register]
+    depends_on: [any-auto-register, authelia]
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    restart: unless-stopped
+    environment:
+      # Secrets are injected from deploy/.env (never committed to the image).
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_JWT_SECRET:?missing AUTHELIA_JWT_SECRET}
+      AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET:?missing AUTHELIA_SESSION_SECRET}
+      AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_SECRET:?missing AUTHELIA_STORAGE_SECRET}
+      TZ: ${TZ:-UTC}
+      # --- SMTP for email notifications (password reset / 2FA backup) ---
+      # To enable: fill the AUTHELIA_NOTIFIER_SMTP_* vars in .env AND remove
+      # the `notifier.filesystem` block in authelia/configuration.yml, then
+      # uncomment the AUTHELIA_NOTIFIER_SMTP_* lines below.
+      # AUTHELIA_NOTIFIER_SMTP_HOST: ${AUTHELIA_NOTIFIER_SMTP_HOST:-}
+      # AUTHELIA_NOTIFIER_SMTP_PORT: ${AUTHELIA_NOTIFIER_SMTP_PORT:-587}
+      # AUTHELIA_NOTIFIER_SMTP_USERNAME: ${AUTHELIA_NOTIFIER_SMTP_USERNAME:-}
+      # AUTHELIA_NOTIFIER_SMTP_PASSWORD: ${AUTHELIA_NOTIFIER_SMTP_PASSWORD:-}
+      # AUTHELIA_NOTIFIER_SMTP_SENDER: ${AUTHELIA_NOTIFIER_SMTP_SENDER:-}
+    volumes:
+      - ./authelia:/config
+    networks: [web]
+    expose:
+      - "9091"
+    depends_on: [redis]
+
+  redis:
+    image: redis:7-alpine
+    container_name: authelia-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis_data:/data
+    networks: [web]
 
   any-auto-register:
     build:
@@ -51,6 +86,10 @@ services:
       LOCAL_SOLVER_URL: http://127.0.0.1:8889
       SOLVER_BROWSER_TYPE: ${SOLVER_BROWSER_TYPE:-camoufox}
       PLAYWRIGHT_HEADLESS: ${PLAYWRIGHT_HEADLESS:-}
+      # Identity & CORS (auth is delegated to Authelia via Caddy forward_auth).
+      APP_REQUIRE_PROXY_AUTH: "1"
+      APP_TRUSTED_REMOTE_USER_HEADER: ${APP_TRUSTED_REMOTE_USER_HEADER:-Remote-User}
+      APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-https://nowrouter.info,https://auth.nowrouter.info}
     volumes:
       - ${AAR_DATA:-./data/any-auto-register}:/runtime
       - ${AAR_EXT:-./_ext_targets/any-auto-register}:/_ext_targets
@@ -111,3 +150,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  redis_data:

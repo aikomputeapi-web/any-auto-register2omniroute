@@ -1,5 +1,6 @@
 export const API = '/api'
 export const API_BASE = '/api'
+export const AUTH_PORTAL = 'https://auth.' + (window.location.hostname.replace(/^www\./, ''))
 
 export function getToken(): string {
   return localStorage.getItem('auth_token') || ''
@@ -13,6 +14,11 @@ export function clearToken(): void {
   localStorage.removeItem('auth_token')
 }
 
+export function redirectToAuthPortal(): void {
+  const rd = encodeURIComponent(window.location.origin + window.location.pathname)
+  window.location.href = `${AUTH_PORTAL}/?rd=${rd}`
+}
+
 export async function apiFetch(path: string, opts?: RequestInit) {
   const token = getToken()
   const baseHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -23,10 +29,8 @@ export async function apiFetch(path: string, opts?: RequestInit) {
   })
   if (res.status === 401) {
     clearToken()
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login'
-    }
-    throw new Error('Not authenticated, please log in again')
+    redirectToAuthPortal()
+    throw new Error('Not authenticated, redirecting to login')
   }
   if (!res.ok) {
     const text = await res.text()

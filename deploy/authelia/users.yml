@@ -1,0 +1,10 @@
+---
+users:
+  admin:
+    disabled: false
+    displayname: "Admin"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$4i27zZ9btIpG2GpSx6b1+g$AUMTW2VjvGlAhXAB/Tqedfei1q+rnMdYjy1bz54LM6A"
+    email: admin@nowrouter.info
+    groups:
+      - admins
+      - dev
