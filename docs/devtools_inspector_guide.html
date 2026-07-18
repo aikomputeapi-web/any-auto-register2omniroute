@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevTools Inspector & Auto-Register Guide</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #070a13;
+      --bg-card: rgba(17, 24, 39, 0.7);
+      --bg-code: #0b0f19;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.5);
+      --accent-cyan: #06b6d4;
+      --accent-purple: #8b5cf6;
+      --accent-green: #10b981;
+      --accent-yellow: #f59e0b;
+      --gradient-text: linear-gradient(135deg, #38bdf8 0%, #a855f7 100%);
+      --gradient-primary: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Glow Effect Background */
+    body::before {
+      content: "";
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.08) 0%, rgba(0,0,0,0) 70%);
+      top: -100px;
+      left: -100px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: "";
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.06) 0%, rgba(0,0,0,0) 70%);
+      bottom: -200px;
+      right: -200px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      width: 320px;
+      background: rgba(10, 15, 30, 0.85);
+      border-right: 1px solid var(--border-color);
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      backdrop-filter: blur(15px);
+    }
+
+    .logo {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 2.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo span {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      color: var(--accent-cyan);
+      -webkit-text-fill-color: var(--accent-cyan);
+    }
+
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex-grow: 1;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border: 1px solid transparent;
+    }
+
+    nav a:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+
+    nav a.active {
+      color: #fff;
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.25);
+      box-shadow: 0 4px 20px -2px rgba(59, 130, 246, 0.2);
+    }
+
+    .nav-footer {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    /* Main Content */
+    main {
+      margin-left: 320px;
+      flex-grow: 1;
+      padding: 3rem 4rem;
+      max-width: 1200px;
+    }
+
+    header {
+      margin-bottom: 4rem;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 2.75rem;
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      max-width: 800px;
+    }
+
+    /* Section Styles */
+    section {
+      margin-bottom: 5rem;
+      scroll-margin-top: 3rem;
+    }
+
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.8rem;
+      color: #fff;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    h2::before {
+      content: "";
+      display: inline-block;
+      width: 4px;
+      height: 1.5rem;
+      background: var(--gradient-primary);
+      border-radius: 4px;
+    }
+
+    h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 1.3rem;
+      color: var(--accent-cyan);
+      margin: 2rem 0 1rem 0;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+
+    p strong {
+      color: var(--text-main);
+    }
+
+    /* Grid & Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.75rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(59, 130, 246, 0.2);
+      box-shadow: 0 8px 30px rgba(59, 130, 246, 0.05);
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 1.15rem;
+      color: #fff;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Alert Banners */
+    .alert {
+      background: rgba(59, 130, 246, 0.08);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 12px 12px 0;
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .alert p {
+      margin-bottom: 0;
+      color: #d1d5db;
+    }
+
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.08);
+      border-left-color: var(--accent-yellow);
+    }
+
+    .alert-danger {
+      background: rgba(239, 68, 68, 0.08);
+      border-left-color: #ef4444;
+    }
+
+    /* Code Blocks */
+    .code-container {
+      margin: 1.5rem 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .code-header {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .code-lang {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .code-copy {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .code-copy:hover {
+      color: #fff;
+    }
+
+    pre {
+      background: var(--bg-code);
+      padding: 1.5rem;
+      overflow-x: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.95rem;
+      color: #e5e7eb;
+    }
+
+    /* Syntax Highlighting Classes (Simulated) */
+    .code-keyword { color: #f472b6; font-weight: 500; }
+    .code-string { color: #34d399; }
+    .code-function { color: #60a5fa; }
+    .code-comment { color: #6b7280; font-style: italic; }
+    .code-number { color: #fbbf24; }
+    .code-selector { color: #a78bfa; }
+
+    /* Interactive lists */
+    ul, ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    li strong {
+      color: var(--text-main);
+    }
+
+    /* Responsive Utilities */
+    @media (max-width: 1024px) {
+      aside {
+        display: none;
+      }
+      main {
+        margin-left: 0;
+        padding: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="logo">
+      Any-Auto-Register <span>CDP</span>
+    </div>
+    <nav>
+      <a href="#overview" class="active">Overview</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#setup">Environment Setup</a>
+      <a href="#methodology">Preferred Philosophy</a>
+      <a href="#form-filling">React & JQM Forms</a>
+      <a href="#manual-fallbacks">Manual Interventions</a>
+      <a href="#boilerplate">Script Boilerplate</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </nav>
+    <div class="nav-footer">
+      <p>Developer Reference Manual</p>
+      <p>Generated: June 2026</p>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main>
+    <header>
+      <h1>CDP-Driven Script Development Guide</h1>
+      <p>A comprehensive manual on utilizing the DevTools Inspector bridge alongside Any-Auto-Register to implement highly resilient account registration scripts that effortlessly bypass modern bot detectors.</p>
+    </header>
+
+    <!-- Overview -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>Modern platforms like <strong>Stripe</strong> and financial institutions like <strong>Justice Federal Credit Union (JFCU)</strong> employ aggressive anti-bot protection mechanisms (e.g. Cloudflare Turnstile, hCaptcha, Akamai, and device fingerprinting). Standard automated headless browsers (e.g., vanilla Playwright, Selenium, or Puppeteer) trigger instant alerts due to exposed automation variables, specific browser profiles, and non-human event distributions.</p>
+      
+      <p>To overcome this, our workspace leverages the <strong>DevTools Inspector Project</strong>. This system exposes a local <strong>Chrome DevTools Protocol (CDP)</strong> bridge, enabling python registration scripts to interact directly with a standard, user-profile-backed <strong>headed Chrome browser</strong>. Rather than executing native automation library commands, our automation is executed via raw HTTP requests and direct JavaScript execution.</p>
+
+      <div class="alert">
+        <p><strong>Anti-Bot Bypassing:</strong> Because the Chrome instance is a genuine desktop browser with a real user profile, it maintains natural cookies, Canvas fingerprints, WebGL signatures, and extensions (like CapSolver), rendering typical detection systems completely ineffective.</p>
+      </div>
+    </section>
+
+    <!-- Architecture -->
+    <section id="architecture">
+      <h2>Architecture & Flow</h2>
+      <p>The system connects a lightweight python-based actuator layer directly to a Node.js bridge server, which delegates operations directly to the browser via Websockets. This structure removes any client-side automation library footprint from the host page context.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">
+            <span style="background-color: var(--accent-cyan)"></span>
+            1. Actuator Layer (Python)
+          </div>
+          <p>Registration scripts execute logic in Python. Instead of launching Playwright locally, they perform simple <code>urllib</code> REST calls to the bridge endpoints (e.g., <code>/eval</code>, <code>/page</code>).</p>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            <span style="background-color: var(--accent-purple)"></span>
+            2. CDP Bridge (Node.js)
+          </div>
+          <p>An Express.js server (running at <code>localhost:3005</code>) that maintains a persistent WebSocket connection to Chrome over the Chrome DevTools Protocol.</p>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span style="background-color: var(--accent-green)"></span>
+          Execution Pipeline
+        </div>
+        <p style="margin-bottom: 0;">
+          <strong>Python Script</strong> &rarr; HTTP POST to <code>/eval</code> &rarr; <strong>CDP Bridge</strong> &rarr; WebSocket CDP Protocol &rarr; <strong>Live Chrome Browser</strong> &rarr; Native JavaScript Execution &rarr; Response returned back to Python.
+        </p>
+      </div>
+    </section>
+
+    <!-- Setup -->
+    <section id="setup">
+      <h2>Environment Setup</h2>
+      <p>To configure and launch your workspace in the preferred developer state, follow these startup steps:</p>
+      
+      <h3>1. Configure DevTools Inspector Env</h3>
+      <p>Verify that your <code>devtools_inspector/.env</code> file designates the correct communication ports. The standard configuration uses:</p>
+      
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">File: devtools_inspector/.env</span>
+        </div>
+        <pre>CHROME_HOST=localhost
+CHROME_PORT=9224
+API_PORT=3005
+MAX_BODY_SIZE=1048576
+BUFFER_SIZE=500</pre>
+      </div>
+
+      <h3>2. Launch Remote-Debugging Chrome</h3>
+      <p>Open a terminal, navigate to the inspector folder, and spin up an isolated browser session targeting your registration flow:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">PowerShell / Command Prompt</span>
+        </div>
+        <pre><span class="code-keyword">cd</span> devtools_inspector
+<span class="code-keyword">npm run</span> launch-chrome -- --url https://dashboard.stripe.com/register</pre>
+      </div>
+      <p>This script locates your local Chrome installation and boots it with the flags <code>--remote-debugging-port=9224</code> and a dedicated user data profile path (<code>chrome-profile/</code>), keeping your personal cookies separated.</p>
+
+      <h3>3. Run the Inspector Bridge Server</h3>
+      <p>Open a separate terminal window and launch the Express bridge client:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">PowerShell / Command Prompt</span>
+        </div>
+        <pre><span class="code-keyword">cd</span> devtools_inspector
+<span class="code-keyword">npm start</span></pre>
+      </div>
+      <p>The console will log connection success: <code>[CDP] Connected and listening</code>. You can verify network traffic, logs, and cookie collections live by visiting the DevTools Web Dashboard at <strong><code>http://localhost:3005</code></strong>.</p>
+    </section>
+
+    <!-- Methodology -->
+    <section id="methodology">
+      <h2>Preferred Script Design Philosophy</h2>
+      <p>Our custom approach shifts away from traditional automation paradigms. Follow these primary principles to align with the user's preferred development pattern:</p>
+      
+      <ol>
+        <li>
+          <strong>No Client-Side Automation Drivers:</strong> Your Python registration script must <strong>not</strong> import or instantiate local browser libraries like <code>playwright</code>, <code>selenium</code>, or <code>pyppeteer</code>. All commands must run over the HTTP bridge.
+        </li>
+        <li>
+          <strong>Native JavaScript Actions:</strong> When clicking buttons, toggle switches, or modal elements, do not rely on mouse movement simulation coordinates. Instead, execute <code>element.click()</code> directly in the browser's context via the <code>/eval</code> endpoint. This bypasses structural visibility blocks and reduces anti-bot telemetry checks.
+        </li>
+        <li>
+          <strong>IIFE Scope Insulation:</strong> Raw variable declarations executed multiple times in the global context cause fatal JS engine conflicts. Wrap all JavaScript evaluated inside the page in an Immediately Invoked Function Expression (IIFE):
+          <div class="code-container" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <pre><span class="code-comment">// Correct</span>
+(() => {
+    <span class="code-keyword">const</span> el = document.querySelector(<span class="code-string">'#input-id'</span>);
+    <span class="code-keyword">if</span> (el) el.focus();
+})();</pre>
+          </div>
+        </li>
+        <li>
+          <strong>Manual Solves Over Bottlenecks:</strong> Do not attempt to automate third-party multi-factor authentication (MFA/2FA), complex bank Plaid popups, identity verification uploads, or captchas programmatically. Automatically detect their appearance, pause execution loops, and offer a fallback retry period for human solving.
+        </li>
+      </ol>
+    </section>
+
+    <!-- Form-Filling -->
+    <section id="form-filling">
+      <h2>React & jQuery Mobile Forms Onboarding</h2>
+      <p>Standard input updates via <code>el.value = val</code> often fail in modern web apps. React tracks form inputs internally through state hooks, and jQuery Mobile binds custom UI widgets to raw DOM select values. To ensure your submissions are registered correctly, apply these specialized JavaScript helper methodologies:</p>
+
+      <h3>React-Safe Inputs</h3>
+      <p>To safely input text into React forms, you must call the prototype setter and dispatch bubbling <code>input</code>, <code>change</code>, and <code>blur</code> events so React picks up the state modification:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">JavaScript (React Safe Setter)</span>
+        </div>
+        <pre><span class="code-keyword">function</span> <span class="code-function">fillReactInput</span>(selector, value) {
+    <span class="code-keyword">const</span> el = document.querySelector(selector);
+    <span class="code-keyword">if</span> (!el) <span class="code-keyword">return</span> <span class="code-string">'NOT_FOUND'</span>;
+    el.focus();
+    <span class="code-keyword">try</span> {
+        <span class="code-keyword">const</span> setter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, <span class="code-string">"value"</span>
+        ).set;
+        setter.call(el, value);
+    } <span class="code-keyword">catch</span> (e) {
+        el.value = value;
+    }
+    el.dispatchEvent(<span class="code-keyword">new</span> Event(<span class="code-string">'input'</span>, { bubbles: <span class="code-keyword">true</span> }));
+    el.dispatchEvent(<span class="code-keyword">new</span> Event(<span class="code-string">'change'</span>, { bubbles: <span class="code-keyword">true</span> }));
+    el.dispatchEvent(<span class="code-keyword">new</span> Event(<span class="code-string">'blur'</span>, { bubbles: <span class="code-keyword">true</span> }));
+    <span class="code-keyword">return</span> <span class="code-string">'FILLED'</span>;
+}</pre>
+      </div>
+
+      <h3>jQuery Mobile (JQM) Dropdown Selector</h3>
+      <p>JQM elements require manual refresh calls after selection updates to update their visible custom widgets:</p>
+      
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">JavaScript (JQM Dropdown Setter)</span>
+        </div>
+        <pre><span class="code-keyword">function</span> <span class="code-function">selectJqmDropdown</span>(selector, value) {
+    <span class="code-keyword">const</span> el = document.querySelector(selector);
+    <span class="code-keyword">if</span> (!el) <span class="code-keyword">return</span> <span class="code-string">'NOT_FOUND'</span>;
+    el.value = value;
+    el.dispatchEvent(<span class="code-keyword">new</span> Event(<span class="code-string">'change'</span>, { bubbles: <span class="code-keyword">true</span> }));
+    <span class="code-keyword">if</span> (window.jQuery && window.jQuery.mobile) {
+        <span class="code-keyword">try</span> {
+            window.jQuery(el).selectmenu(<span class="code-string">'refresh'</span>);
+        } <span class="code-keyword">catch</span> (e) {}
+    }
+    <span class="code-keyword">return</span> <span class="code-string">'SELECTED'</span>;
+}</pre>
+      </div>
+
+      <div class="alert alert-warning">
+        <p><strong>Selector Isolation:</strong> When dealing with jQuery Mobile multipage layouts (e.g. Credit Union Loan PQ portals), always restrict your target query selectors to the active container, e.g. <code>.ui-page-active #my-element</code>. Otherwise, scripts will target matching selectors hidden in background views, leading to silent form failures.</p>
+      </div>
+    </section>
+
+    <!-- Manual Interventions -->
+    <section id="manual-fallbacks">
+      <h2>Threshold Detection & Manual Interventions</h2>
+      <p>Do not let your scripts crash when encountering CAPTCHAs, MFA prompts, or file uploads. Instead, programmatically check for verification keywords or specific iframes and implement a wait loop:</p>
+
+      <h3>1. Automated hCaptcha & reCaptcha Checking</h3>
+      <p>Scan the DOM structure for iframe elements loaded from CAPTCHA providers:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">JavaScript</span>
+        </div>
+        <pre><span class="code-keyword">const</span> hasCaptcha = (() => {
+    <span class="code-keyword">const</span> iframes = document.querySelectorAll(<span class="code-string">'iframe'</span>);
+    <span class="code-keyword">for</span> (<span class="code-keyword">const</span> f of iframes) {
+        <span class="code-keyword">if</span> (f.src && (f.src.includes(<span class="code-string">'hcaptcha'</span>) || f.src.includes(<span class="code-string">'recaptcha'</span>))) {
+            <span class="code-keyword">const</span> rect = f.getBoundingClientRect();
+            <span class="code-keyword">const</span> style = window.getComputedStyle(f);
+            <span class="code-keyword">const</span> isVisible = rect.width > <span class="code-number">50</span> && rect.height > <span class="code-number">50</span> && 
+                              style.display !== <span class="code-string">'none'</span> && style.visibility !== <span class="code-string">'hidden'</span>;
+            <span class="code-keyword">if</span> (isVisible) <span class="code-keyword">return</span> <span class="code-keyword">true</span>;
+        }
+    }
+    <span class="code-keyword">return</span> <span class="code-keyword">false</span>;
+})();</pre>
+      </div>
+
+      <h3>2. The Python Wait Loop</h3>
+      <p>Inside your loop state, evaluate if a human action is required. If so, suspend automatic form submission, output a clear warning message to standard output, and loop until the condition resolves or the timeout expires:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">Python Snippet</span>
+        </div>
+        <pre><span class="code-keyword">for</span> wait_step <span class="code-keyword">in</span> <span class="code-function">range</span>(<span class="code-number">36</span>):  <span class="code-comment"># Up to 3 minutes (36 * 5s)</span>
+    has_captcha = bridge_eval(captcha_detection_js)
+    <span class="code-keyword">if</span> has_captcha:
+        <span class="code-function">print</span>(<span class="code-string">"  [!] CAPTCHA Detected — please solve in Chrome window!"</span>)
+        time.sleep(<span class="code-number">5</span>)
+        <span class="code-keyword">continue</span>
+    
+    <span class="code-comment"># Check if page has moved on</span>
+    new_url, _ = get_page_info()
+    <span class="code-keyword">if</span> <span class="code-string">"/register"</span> <span class="code-keyword">not in</span> new_url:
+        <span class="code-function">print</span>(<span class="code-string">"  Captcha solved successfully!"</span>)
+        <span class="code-keyword">break</span>
+    time.sleep(<span class="code-number">5</span>)</pre>
+      </div>
+    </section>
+
+    <!-- Boilerplate -->
+    <section id="boilerplate">
+      <h2>Complete Script Boilerplate</h2>
+      <p>Use the following python script blueprint when creating a new registration script. It establishes a resilient bridge client connection, loads generated mock profiles, sets up proxies, and iterates through onboarding forms:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span class="code-lang">Python Script Blueprint (register_template.py)</span>
+          <button class="code-copy">Copy Blueprint</button>
+        </div>
+        <pre><span class="code-keyword">import</span> os
+<span class="code-keyword">import</span> sys
+<span class="code-keyword">import</span> time
+<span class="code-keyword">import</span> json
+<span class="code-keyword">import</span> re
+<span class="code-keyword">import</span> urllib.request
+<span class="code-keyword">import</span> urllib.error
+
+<span class="code-comment"># 1. Bypass Proxy for Localhost Bridge calls</span>
+os.environ[<span class="code-string">"NO_PROXY"</span>] = <span class="code-string">"localhost,127.0.0.1,"</span> + os.environ.get(<span class="code-string">"NO_PROXY"</span>, <span class="code-string">""</span>)
+os.environ[<span class="code-string">"no_proxy"</span>] = <span class="code-string">"localhost,127.0.0.1,"</span> + os.environ.get(<span class="code-string">"no_proxy"</span>, <span class="code-string">""</span>)
+
+BRIDGE_URL = <span class="code-string">"http://localhost:3005"</span>
+
+<span class="code-keyword">def</span> <span class="code-function">bridge_get</span>(path):
+    <span class="code-keyword">try</span>:
+        req = urllib.request.Request(f<span class="code-string">"{BRIDGE_URL}{path}"</span>)
+        <span class="code-keyword">with</span> urllib.request.urlopen(req, timeout=<span class="code-number">10</span>) <span class="code-keyword">as</span> resp:
+            <span class="code-keyword">return</span> json.loads(resp.read().decode(<span class="code-string">"utf-8"</span>))
+    <span class="code-keyword">except</span> Exception <span class="code-keyword">as</span> e:
+        <span class="code-function">print</span>(f<span class="code-string">"  [!] Bridge GET failed: {e}"</span>)
+        <span class="code-keyword">return</span> <span class="code-keyword">None</span>
+
+<span class="code-keyword">def</span> <span class="code-function">bridge_eval</span>(expression):
+    url = f<span class="code-string">"{BRIDGE_URL}/eval"</span>
+    data = json.dumps({<span class="code-string">"expression"</span>: expression}).encode(<span class="code-string">"utf-8"</span>)
+    <span class="code-keyword">try</span>:
+        req = urllib.request.Request(url, data=data, headers={<span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span>})
+        <span class="code-keyword">with</span> urllib.request.urlopen(req, timeout=<span class="code-number">15</span>) <span class="code-keyword">as</span> resp:
+            res = json.loads(resp.read().decode(<span class="code-string">"utf-8"</span>))
+            <span class="code-keyword">return</span> res.get(<span class="code-string">"result"</span>)
+    <span class="code-keyword">except</span> Exception <span class="code-keyword">as</span> e:
+        <span class="code-function">print</span>(f<span class="code-string">"  [!] Bridge JS evaluation failed: {e}"</span>)
+        <span class="code-keyword">return</span> <span class="code-keyword">None</span>
+
+<span class="code-keyword">def</span> <span class="code-function">fill_field</span>(selector, value):
+    escaped_val = value.replace(<span class="code-string">"\\"</span>, <span class="code-string">"\\\\"</span>).replace(<span class="code-string">"'"</span>, <span class="code-string">"\\'"</span>).replace(<span class="code-string">"\n"</span>, <span class="code-string">"\\n"</span>)
+    js_expr = f<span class="code-string">"""
+    (() => {{
+        const el = document.querySelector('{selector}');
+        if (!el) return 'NOT_FOUND';
+        el.focus();
+        try {{
+            const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            setter.call(el, '{escaped_val}');
+        }} catch(e) {{
+            el.value = '{escaped_val}';
+        }}
+        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+        el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+        return 'FILLED';
+    }})()
+    """</span>
+    <span class="code-keyword">return</span> bridge_eval(js_expr) == <span class="code-string">"FILLED"</span>
+
+<span class="code-keyword">def</span> <span class="code-function">click_element</span>(selector):
+    js_expr = f<span class="code-string">"""
+    (() => {{
+        const el = document.querySelector('{selector}');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'CLICKED';
+    }})()
+    """</span>
+    <span class="code-keyword">return</span> bridge_eval(js_expr) == <span class="code-string">"CLICKED"</span>
+
+<span class="code-keyword">def</span> <span class="code-function">main</span>():
+    <span class="code-comment"># Verify Bridge Status</span>
+    status = bridge_get(<span class="code-string">"/status"</span>)
+    <span class="code-keyword">if</span> <span class="code-keyword">not</span> status <span class="code-keyword">or</span> <span class="code-keyword">not</span> status.get(<span class="code-string">"connected"</span>):
+        <span class="code-function">print</span>(<span class="code-string">"[ERROR] CDP Bridge not connected. Start Chrome first."</span>)
+        sys.exit(<span class="code-number">1</span>)
+    
+    <span class="code-function">print</span>(<span class="code-string">"[SUCCESS] Connected to CDP Chrome instance."</span>)
+    
+    <span class="code-comment"># Initialize form checking loop</span>
+    <span class="code-keyword">for</span> step <span class="code-keyword">in</span> <span class="code-function">range</span>(<span class="code-number">1</span>, <span class="code-number">40</span>):
+        time.sleep(<span class="code-number">3</span>)
+        page_info = bridge_get(<span class="code-string">"/page"</span>)
+        url = page_info.get(<span class="code-string">"url"</span>, <span class="code-string">""</span>)
+        <span class="code-function">print</span>(f<span class="code-string">"Step {step}: {url}"</span>)
+        
+        <span class="code-comment"># Auto fill field matches</span>
+        fill_field(<span class="code-string">"#email"</span>, <span class="code-string">"john.doe@audioplexdesigns.com"</span>)
+        fill_field(<span class="code-string">"#password"</span>, <span class="code-string">"SuperSecure123!"</span>)
+        
+        <span class="code-comment"># Click next triggers</span>
+        click_element(<span class="code-string">"button[type='submit']"</span>)
+
+<span class="code-keyword">if</span> __name__ == <span class="code-string">"__main__"</span>:
+    main()</pre>
+      </div>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section id="troubleshooting">
+      <h2>Troubleshooting Common Roadblocks</h2>
+      
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-title">
+          <span style="background-color: var(--accent-yellow)"></span>
+          1. "Port 9224 / 9222 already in use"
+        </div>
+        <p>
+          <strong>Reason:</strong> An orphaned Chrome instance, Webview2 process, or previous debug run is lingering in the background and holding the debugging port.
+        </p>
+        <p style="margin-bottom: 0;">
+          <strong>Solution:</strong> Kill all active browser tasks in PowerShell via <code>Stop-Process -Name chrome -Force</code>, or change ports in the script and <code>devtools_inspector/.env</code>.
+        </p>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-title">
+          <span style="background-color: var(--accent-yellow)"></span>
+          2. React elements do not update after filling
+        </div>
+        <p>
+          <strong>Reason:</strong> Setting raw <code>element.value</code> bypassing the internal React state listeners.
+        </p>
+        <p style="margin-bottom: 0;">
+          <strong>Solution:</strong> Ensure your <code>fill_field</code> method calls the prototype setter and dispatches the <code>input</code> event as documented in our <a href="#form-filling">React form section</a>.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span style="background-color: var(--accent-yellow)"></span>
+          3. JavaScript evaluates to Null / Errors out
+        </div>
+        <p>
+          <strong>Reason:</strong> Declarations of <code>let</code> or <code>const</code> variables with identical naming across successive <code>/eval</code> requests.
+        </p>
+        <p style="margin-bottom: 0;">
+          <strong>Solution:</strong> Always wrap browser execution snippets inside an Immediately Invoked Function Expression (IIFE) <code>(() => { ... })()</code>.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Simple script to handle navigation active state highlighters
+    const navLinks = document.querySelectorAll('nav a');
+    const sections = document.querySelectorAll('section');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (pageYOffset >= (sectionTop - 150)) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href').slice(1) === current) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

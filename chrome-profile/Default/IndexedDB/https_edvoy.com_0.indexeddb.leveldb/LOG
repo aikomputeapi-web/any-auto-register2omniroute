@@ -1,0 +1,6 @@
+2026/07/05-02:15:20.205 1004 Creating DB c:\Users\Administrator\coding\any-auto-register\chrome-profile\Default\IndexedDB\https_edvoy.com_0.indexeddb.leveldb since it was missing.
+2026/07/05-02:15:20.223 1004 Reusing MANIFEST c:\Users\Administrator\coding\any-auto-register\chrome-profile\Default\IndexedDB\https_edvoy.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/05-02:15:20.330 1004 Level-0 table #5: started
+2026/07/05-02:15:20.342 1004 Level-0 table #5: 1263 bytes OK
+2026/07/05-02:15:20.348 1004 Delete type=0 #3
+2026/07/05-02:15:20.349 1004 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)

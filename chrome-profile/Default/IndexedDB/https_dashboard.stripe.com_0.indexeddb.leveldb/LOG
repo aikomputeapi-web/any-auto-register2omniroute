@@ -1,0 +1,15 @@
+2026/07/05-01:59:24.288 a90c Reusing MANIFEST c:\Users\Administrator\coding\any-auto-register\chrome-profile\Default\IndexedDB\https_dashboard.stripe.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/05-01:59:24.290 a90c Recovering log #82
+2026/07/05-01:59:24.353 a90c Reusing old log c:\Users\Administrator\coding\any-auto-register\chrome-profile\Default\IndexedDB\https_dashboard.stripe.com_0.indexeddb.leveldb/000082.log 
+2026/07/05-01:59:56.417 8a6c Level-0 table #87: started
+2026/07/05-01:59:56.463 8a6c Level-0 table #87: 420323 bytes OK
+2026/07/05-01:59:56.471 8a6c Delete type=0 #82
+2026/07/05-01:59:56.473 8a6c Manual compaction at level-0 from (begin) .. (end); will stop at (end)
+2026/07/05-01:59:56.473 8a6c Manual compaction at level-1 from (begin) .. (end); will stop at '\x00\x01\x01\x02\x01:\x00c\x00r\x00a\x00s\x00h\x00_\x00m\x00o\x00n\x00i\x00t\x00o\x00r\x00_\x00s\x00e\x00s\x00s\x00i\x00o\x00n\x00_\x007\x001\x00f\x003\x004\x00a\x003\x00f\x00-\x003\x008\x007\x00e\x00-\x004\x005\x005\x005\x00-\x00a\x004\x001\x008\x00-\x00c\x005\x002\x009\x00e\x00f\x008\x001\x003\x00e\x003\x00e' @ 758890 : 1
+2026/07/05-01:59:56.474 8a6c Compacting 1@1 + 1@2 files
+2026/07/05-01:59:56.492 8a6c Generated table #88@1: 36 keys, 975 bytes
+2026/07/05-01:59:56.492 8a6c Compacted 1@1 + 1@2 files => 975 bytes
+2026/07/05-01:59:56.495 8a6c compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/07/05-01:59:56.496 8a6c Delete type=2 #84
+2026/07/05-01:59:56.496 8a6c Delete type=2 #87
+2026/07/05-01:59:56.498 8a6c Manual compaction at level-1 from '\x00\x01\x01\x02\x01:\x00c\x00r\x00a\x00s\x00h\x00_\x00m\x00o\x00n\x00i\x00t\x00o\x00r\x00_\x00s\x00e\x00s\x00s\x00i\x00o\x00n\x00_\x007\x001\x00f\x003\x004\x00a\x003\x00f\x00-\x003\x008\x007\x00e\x00-\x004\x005\x005\x005\x00-\x00a\x004\x001\x008\x00-\x00c\x005\x002\x009\x00e\x00f\x008\x001\x003\x00e\x003\x00e' @ 758890 : 1 .. (end); will stop at (end)

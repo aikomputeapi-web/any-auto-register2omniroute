@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 659,
+    "first_name": "Donald",
+    "last_name": "Clark",
+    "address": "18 Alamo Ave",
+    "city": "Richmond",
+    "state": "CA",
+    "zip_code": "94801",
+    "dob": "04/12/1930",
+    "ssn": "410-36-9884"
+  },
+  "email": "donaldclark1927@catchmail.io",
+  "password": "Dvc!06599245",
+  "username": "dvc0659884",
+  "phone": "5107359603",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783432261,
+  "status": "stuck_no_action",
+  "final_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "final_title": ""
+}

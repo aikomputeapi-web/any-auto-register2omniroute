@@ -1,0 +1,204 @@
+[17:30:20] Start registration 1/1 accounts
+[17:30:21] [17:30:21] ============================================================
+[17:30:21] [17:30:21] ChatGPT RT New main link starts
+[17:30:21] [17:30:21] request mode: headed
+[17:30:21] [17:30:21] implementation strategy: Register state machine + OAuth Continue process
+[17:30:21] [17:30:21] ============================================================
+[17:30:21] [17:30:21] 1. Create mailbox...
+[17:30:21] [17:30:21] Creating custom_provider Mail...
+[17:30:22] [GPTMail] Generate mailbox: sellis554@666.783456.freeddns.org
+[17:30:22] [17:30:22] Email created successfully: sellis554@666.783456.freeddns.org
+[17:30:22] [17:30:22] Mail: sellis554@666.783456.freeddns.org
+[17:30:22] [17:30:22] password: !RNRI$kUlsuPG9GK
+[17:30:22] [17:30:22] Registration information: Olivia Davis, Birthday: 1991-11-21
+[17:30:22] [17:30:22] process strategy: The registration stage advances to about_you and then switch to OAuth The process continues with subsequent steps
+[17:30:22] [17:30:22] Verification code waiting strategy: register_wait=600s, register_resend_wait=300s, oauth_wait=read OAuthClient configuration (default600s)
+[17:30:22] [17:30:22] 2. Execute the registration state machine (interrupt Mode: Not submitted during registration phase about_you)...
+[17:30:22] [17:30:22] [Registration link] Register state machine parameters: stop_before_about_you_submission=on, otp_wait_timeout=600s, otp_resend_wait_timeout=300s
+[17:30:22] [17:30:22] [Registration link] access ChatGPT front page...
+[17:30:23] [17:30:23] [Registration link] get CSRF token...
+[17:30:23] [17:30:23] [Registration link] CSRF token: 4d00bc81b8e986d54881...
+[17:30:23] [17:30:23] [Registration link] Submit email: sellis554@666.783456.freeddns.org
+[17:30:24] [17:30:24] [Registration link] Get authorize URL
+[17:30:24] [17:30:24] [Registration link] access authorize URL...
+[17:30:25] [17:30:25] [Registration link] redirect to: https://auth.openai.com/email-verification
+[17:30:25] [17:30:25] [Registration link] Authorize → /email-verification
+[17:30:25] [17:30:25] [Registration link] Registration status starting point: page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:25] [17:30:25] [Registration link] Registration status advancement: step=1 state=page=email_otp_verification method=GET next=https://auth.openai.com/email-verification... seen=1
+[17:30:25] [17:30:25] [Registration link] [stage=otp] page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:25] [17:30:25] [Registration link] Waiting for email verification code...
+[17:30:25] [17:30:25] Waiting for email sellis554@666.783456.freeddns.org verification code (600s)...
+[17:30:29] [GPTMail] Receive verification code: 036473
+[17:30:29] [17:30:29] Successfully obtained verification code: 036473
+[17:30:29] [17:30:29] [Registration link] [stage=otp] verify email otp code=036473
+[17:30:29] [17:30:29] [Registration link] verify OTP code: 036473
+[17:30:30] [17:30:30] [Registration link] Verification successful page=about_you method=GET next=https://auth.openai.com/about-you...
+[17:30:30] [17:30:30] [Registration link] otp/validate current URL: https://auth.openai.com/api/accounts/email-otp/validate
+[17:30:30] [17:30:30] [Registration link] Registration status advancement: step=2 state=page=about_you method=GET next=https://auth.openai.com/about-you... seen=1
+[17:30:30] [17:30:30] [Registration link] [stage=about_you] page=about_you method=GET next=https://auth.openai.com/about-you...
+[17:30:30] [17:30:30] [Registration link] Registration link has arrived about_you,according to interrupt The process stops.Next step is handed over to OAuth New session submission name+Birthday.
+[17:30:30] [17:30:30] The registration state machine has been advanced to about_you, in line with expectations. Next step to enter OAuth Conversation complement
+[17:30:30] [17:30:30] [Login link] Accessed preorder browser context: device_id=b4d243e1-a9da-4859-a80a-7727fa38ade9
+[17:30:30] [17:30:30] Already connected to prequel session/cookie/fingerprint, continue processing OAuth Next steps
+[17:30:30] [17:30:30] 3. Preface to take over session, keep walking OAuth passwordless process
+[17:30:30] [17:30:30] 4. Following the preamble stage cookie / device_id / browser fingerprint
+[17:30:30] [17:30:30] 5. Submit after successful login about_you, and continue workspace/token process
+[17:30:30] [17:30:30] [Login link] start OAuth Login process... (source=post_register_workspace_continue)
+[17:30:30] [17:30:30] [Login link] OAuth Strategy: prefer_passwordless_login=on, allow_phone_verification=off, complete_about_you_if_needed=on, force_new_browser=off, force_password_login=off, force_chatgpt_entry=off, screen_hint=login, stop_after_login=off
+[17:30:30] [17:30:30] [Login link] step1: Bootstrap OAuth session...
+[17:30:31] [17:30:31] [Login link] /oauth/authorize -> 200, redirects=0
+[17:30:31] [17:30:31] [Login link] login_session: Obtained
+[17:30:31] [17:30:31] [Login link] [stage=authorize_continue] email=sellis554@666.783456.freeddns.org
+[17:30:31] [17:30:31] [Login link] step2: POST /api/accounts/authorize/continue
+[17:30:31] [17:30:31] [Login link] authorize_continue: device_id=b4d243e1-a9da-4859-a80a-7727fa38ade9
+[17:30:31] [17:30:31] [Login link] authorize_continue: Sentinel Browser model: headed (requested:false)
+[17:30:31] [17:30:31] [Login link] authorize_continue: Sentinel Browser start up: flow=authorize_continue, url=https://auth.openai.com/log-in
+[17:30:34] [17:30:34] [Login link] authorize_continue: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:35] [17:30:35] [Login link] authorize_continue: Passed Playwright SentinelSDK get token
+[17:30:36] [17:30:36] [Login link] /authorize/continue -> 200
+[17:30:36] [17:30:36] [Login link] authorize_continue response: referer=https://auth.openai.com/log-in current_url=https://auth.openai.com/api/accounts/authorize/continue
+[17:30:36] [17:30:36] [Login link] page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:36] [17:30:36] [Login link] OAuth state starting point: page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:36] [17:30:36] [Login link] state stepping[1/20]: page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:36] [17:30:36] [Login link] [stage=otp] email=sellis554@666.783456.freeddns.org
+[17:30:36] [17:30:36] [Login link] step4: Mailbox detected OTP verify
+[17:30:36] [17:30:36] [Login link] email_otp_validate: device_id=b4d243e1-a9da-4859-a80a-7727fa38ade9
+[17:30:36] [17:30:36] [Login link] email_otp_validate: Sentinel Browser model: headed (requested:false)
+[17:30:36] [17:30:36] [Login link] email_otp_validate: Sentinel Browser start up: flow=email_otp_validate, url=https://auth.openai.com/email-verification
+[17:30:39] [17:30:39] [Login link] email_otp_validate: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:39] [17:30:39] [Login link] email_otp_validate: Passed Playwright SentinelSDK get token
+[17:30:39] [17:30:39] [Login link] OAuth OTP waiting window: total=600s, poll_window=30s, Maximum per round 5 Resend after no response times, up to 3 wheel
+[17:30:39] [17:30:39] [Login link] use wait_for_verification_code Perform blocking method to obtain new verification code...
+[17:30:39] [17:30:39] Waiting for email sellis554@666.783456.freeddns.org verification code (30s)...
+[17:30:40] [GPTMail] Receive verification code: 056819
+[17:30:40] [17:30:40] Successfully obtained verification code: 056819
+[17:30:40] [17:30:40] [Login link] try OTP: 056819
+[17:30:41] [17:30:41] [Login link] /email-otp/validate -> 200
+[17:30:41] [17:30:41] [Login link] OTP Verification passed page=add_phone method=GET next=https://auth.openai.com/add-phone...
+[17:30:41] [17:30:41] [Login link] otp Response details: current_url=https://auth.openai.com/api/accounts/email-otp/validate tried_codes=1
+[17:30:41] [17:30:41] [Login link] state stepping[2/20]: page=add_phone method=GET next=https://auth.openai.com/add-phone...
+[17:30:41] [17:30:41] [Login link] step5: OTP hit later add_phone, first actually visit continue_url Seek re-signing workspace Cookie
+[17:30:41] [17:30:41] [Login link] follow[1] 200 https://auth.openai.com/add-phone
+[17:30:41] [17:30:41] [Login link] state stepping[3/20]: page=add_phone method=GET next=https://auth.openai.com/add-phone...
+[17:30:41] [17:30:41] [Login link] add_phone status response body(raw): {}
+[17:30:41] [17:30:41] [Login link] step5: add_phone No explicit yet workspace clue, try first canonical consent URL rescue
+[17:30:42] [17:30:42] [Login link] [stage=workspace_select] https://auth.openai.com/sign-in-with-chatgpt/codex/consent
+[17:30:42] [17:30:42] [Login link] [stage=workspace_select] session None workspace information
+[17:30:42] [17:30:42] [Login link] step5: canonical consent Still haven't got it workspace/callback ([stage=workspace_select] session None workspace information), restart a new OAuth session + new PKCE
+[17:30:42] [17:30:42] [Login link] start OAuth Login process... (source=post_register_workspace_continue:add_phone_continue)
+[17:30:42] [17:30:42] [Login link] OAuth Strategy: prefer_passwordless_login=on, allow_phone_verification=off, complete_about_you_if_needed=on, force_new_browser=off, force_password_login=off, force_chatgpt_entry=off, screen_hint=login, stop_after_login=off
+[17:30:42] [17:30:42] [Login link] step1: Bootstrap OAuth session...
+[17:30:43] [17:30:43] [Login link] /oauth/authorize -> 200, redirects=0
+[17:30:43] [17:30:43] [Login link] login_session: Obtained
+[17:30:43] [17:30:43] [Login link] [stage=authorize_continue] email=sellis554@666.783456.freeddns.org
+[17:30:43] [17:30:43] [Login link] step2: POST /api/accounts/authorize/continue
+[17:30:43] [17:30:43] [Login link] authorize_continue: device_id=b4d243e1-a9da-4859-a80a-7727fa38ade9
+[17:30:43] [17:30:43] [Login link] authorize_continue: Sentinel Browser model: headed (requested:false)
+[17:30:43] [17:30:43] [Login link] authorize_continue: Sentinel Browser start up: flow=authorize_continue, url=https://auth.openai.com/log-in
+[17:30:45] [17:30:45] [Login link] authorize_continue: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:46] [17:30:46] [Login link] authorize_continue: Passed Playwright SentinelSDK get token
+[17:30:47] [17:30:47] [Login link] /authorize/continue -> 200
+[17:30:47] [17:30:47] [Login link] authorize_continue response: referer=https://auth.openai.com/log-in current_url=https://auth.openai.com/api/accounts/authorize/continue
+[17:30:47] [17:30:47] [Login link] page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:47] [17:30:47] [Login link] OAuth state starting point: page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:47] [17:30:47] [Login link] state stepping[1/20]: page=email_otp_verification method=GET next=https://auth.openai.com/email-verification...
+[17:30:47] [17:30:47] [Login link] [stage=otp] email=sellis554@666.783456.freeddns.org
+[17:30:47] [17:30:47] [Login link] step4: Mailbox detected OTP verify
+[17:30:47] [17:30:47] [Login link] email_otp_validate: device_id=b4d243e1-a9da-4859-a80a-7727fa38ade9
+[17:30:47] [17:30:47] [Login link] email_otp_validate: Sentinel Browser model: headed (requested:false)
+[17:30:47] [17:30:47] [Login link] email_otp_validate: Sentinel Browser start up: flow=email_otp_validate, url=https://auth.openai.com/email-verification
+[17:30:50] [17:30:50] [Login link] email_otp_validate: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:50] [17:30:50] [Login link] email_otp_validate: Passed Playwright SentinelSDK get token
+[17:30:50] [17:30:50] [Login link] OAuth OTP waiting window: total=600s, poll_window=30s, Maximum per round 5 Resend after no response times, up to 3 wheel
+[17:30:50] [17:30:50] [Login link] Recent cache detected OTP, try directly first: 056819 (8sforward)
+[17:30:50] [17:30:50] [Login link] try OTP: 056819
+[17:30:50] [17:30:50] [Login link] /email-otp/validate -> 200
+[17:30:50] [17:30:50] [Login link] OTP Verification passed page=add_phone method=GET next=https://auth.openai.com/add-phone...
+[17:30:50] [17:30:50] [Login link] otp Response details: current_url=https://auth.openai.com/api/accounts/email-otp/validate tried_codes=1
+[17:30:50] [17:30:50] [Login link] state stepping[2/20]: page=add_phone method=GET next=https://auth.openai.com/add-phone...
+[17:30:50] [17:30:50] [Login link] step5: OTP hit later add_phone, first actually visit continue_url Seek re-signing workspace Cookie
+[17:30:51] [17:30:51] [Login link] follow[1] 200 https://auth.openai.com/add-phone
+[17:30:51] [17:30:51] [Login link] state stepping[3/20]: page=add_phone method=GET next=https://auth.openai.com/add-phone...
+[17:30:51] [17:30:51] [Login link] add_phone status response body(raw): {}
+[17:30:51] [17:30:51] [Login link] step5: add_phone No explicit yet workspace clue, try first canonical consent URL rescue
+[17:30:51] [17:30:51] [Login link] [stage=workspace_select] https://auth.openai.com/sign-in-with-chatgpt/codex/consent
+[17:30:51] [17:30:51] [Login link] [stage=workspace_select] session None workspace information
+[17:30:51] [17:30:51] [Login link] passwordless Still stuck on after logging in add_phone, not obtained workspace / callback ([stage=workspace_select] session None workspace information)
+[17:30:51] [17:30:51] OAuth add_phone Block, start parallel OAuth retry(3 Road concurrency)...
+[17:30:51] [17:30:51] add_phone Parallel retry #1/3 start up...
+[17:30:51] [17:30:51] add_phone Parallel retry #2/3 start up...
+[17:30:51] [17:30:51] add_phone Parallel retry #3/3 start up...
+[17:30:51] [17:30:51] [Login link] start OAuth Login process... (source=add_phone_parallel_0)
+[17:30:51] [17:30:51] [Login link] OAuth Strategy: prefer_passwordless_login=on, allow_phone_verification=off, complete_about_you_if_needed=on, force_new_browser=on, force_password_login=off, force_chatgpt_entry=off, screen_hint=login, stop_after_login=off
+[17:30:51] [17:30:51] [Login link] start OAuth Login process... (source=add_phone_parallel_1)
+[17:30:51] [17:30:51] [Login link] OAuth Strategy: prefer_passwordless_login=on, allow_phone_verification=off, complete_about_you_if_needed=on, force_new_browser=on, force_password_login=off, force_chatgpt_entry=off, screen_hint=login, stop_after_login=off
+[17:30:51] [17:30:51] [Login link] force_new_browser: Recreate OAuth session container
+[17:30:51] [17:30:51] [Login link] force_new_browser: new device_id=50c1c502-9fdd-4c1b-8484-b13d74f9c55a
+[17:30:51] [17:30:51] [Login link] step1: Bootstrap OAuth session...
+[17:30:51] [17:30:51] [Login link] force_new_browser: Recreate OAuth session container
+[17:30:51] [17:30:51] [Login link] force_new_browser: new device_id=d57ab126-02ce-4aaf-a4c5-f77da7e9de05
+[17:30:51] [17:30:51] [Login link] step1: Bootstrap OAuth session...
+[17:30:51] [17:30:51] [Login link] start OAuth Login process... (source=add_phone_parallel_2)
+[17:30:51] [17:30:51] [Login link] OAuth Strategy: prefer_passwordless_login=on, allow_phone_verification=off, complete_about_you_if_needed=on, force_new_browser=on, force_password_login=off, force_chatgpt_entry=off, screen_hint=login, stop_after_login=off
+[17:30:51] [17:30:51] [Login link] force_new_browser: Recreate OAuth session container
+[17:30:51] [17:30:51] [Login link] force_new_browser: new device_id=ffc9a13a-a788-46e5-abb8-5088ce541b59
+[17:30:51] [17:30:51] [Login link] step1: Bootstrap OAuth session...
+[17:30:52] [17:30:52] [Login link] /oauth/authorize -> 200, redirects=0
+[17:30:52] [17:30:52] [Login link] login_session: Obtained
+[17:30:52] [17:30:52] [Login link] [stage=authorize_continue] email=sellis554@666.783456.freeddns.org
+[17:30:52] [17:30:52] [Login link] step2: POST /api/accounts/authorize/continue
+[17:30:53] [17:30:53] [Login link] authorize_continue: device_id=50c1c502-9fdd-4c1b-8484-b13d74f9c55a
+[17:30:53] [17:30:53] [Login link] authorize_continue: Sentinel Browser model: headed (requested:false)
+[17:30:53] [17:30:53] [Login link] authorize_continue: Sentinel Browser start up: flow=authorize_continue, url=https://auth.openai.com/log-in
+[17:30:53] [17:30:53] [Login link] /oauth/authorize -> 200, redirects=0
+[17:30:53] [17:30:53] [Login link] login_session: Obtained
+[17:30:53] [17:30:53] [Login link] [stage=authorize_continue] email=sellis554@666.783456.freeddns.org
+[17:30:53] [17:30:53] [Login link] step2: POST /api/accounts/authorize/continue
+[17:30:53] [17:30:53] [Login link] authorize_continue: device_id=d57ab126-02ce-4aaf-a4c5-f77da7e9de05
+[17:30:53] [17:30:53] [Login link] authorize_continue: Sentinel Browser model: headed (requested:false)
+[17:30:53] [17:30:53] [Login link] authorize_continue: Sentinel Browser start up: flow=authorize_continue, url=https://auth.openai.com/log-in
+[17:30:53] [17:30:53] [Login link] /oauth/authorize -> 200, redirects=0
+[17:30:53] [17:30:53] [Login link] login_session: Obtained
+[17:30:53] [17:30:53] [Login link] [stage=authorize_continue] email=sellis554@666.783456.freeddns.org
+[17:30:53] [17:30:53] [Login link] step2: POST /api/accounts/authorize/continue
+[17:30:53] [17:30:53] [Login link] authorize_continue: device_id=ffc9a13a-a788-46e5-abb8-5088ce541b59
+[17:30:53] [17:30:53] [Login link] authorize_continue: Sentinel Browser model: headed (requested:false)
+[17:30:53] [17:30:53] [Login link] authorize_continue: Sentinel Browser start up: flow=authorize_continue, url=https://auth.openai.com/log-in
+[17:30:57] [17:30:57] [Login link] authorize_continue: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:58] [17:30:58] [Login link] authorize_continue: Passed Playwright SentinelSDK get token
+[17:30:58] [17:30:58] [Login link] authorize_continue: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:59] [17:30:59] [Login link] /authorize/continue -> 429
+[17:30:59] [17:30:59] [Login link] authorize_continue response: referer=https://auth.openai.com/log-in current_url=https://auth.openai.com/api/accounts/authorize/continue
+[17:30:59] [17:30:59] [Login link] [stage=authorize_continue] Failed to submit email: 429 - {
+  "error": {
+    "message": "Rate limit exceeded, please try again later.",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+  }
+}
+[17:30:59] [17:30:59] [Login link] authorize_continue: Sentinel Browser success: p=OK t=OK c=OK
+[17:30:59] [17:30:59] [Login link] authorize_continue: Passed Playwright SentinelSDK get token
+[17:31:00] [17:31:00] [Login link] authorize_continue: Passed Playwright SentinelSDK get token
+[17:31:00] [17:31:00] [Login link] /authorize/continue -> 429
+[17:31:00] [17:31:00] [Login link] authorize_continue response: referer=https://auth.openai.com/log-in current_url=https://auth.openai.com/api/accounts/authorize/continue
+[17:31:00] [17:31:00] [Login link] [stage=authorize_continue] Failed to submit email: 429 - {
+  "error": {
+    "message": "Rate limit exceeded, please try again later.",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+  }
+}
+[17:31:00] [17:31:00] [Login link] /authorize/continue -> 429
+[17:31:00] [17:31:00] [Login link] authorize_continue response: referer=https://auth.openai.com/log-in current_url=https://auth.openai.com/api/accounts/authorize/continue
+[17:31:00] [17:31:00] [Login link] [stage=authorize_continue] Failed to submit email: 429 - {
+  "error": {
+    "message": "Rate limit exceeded, please try again later.",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+  }
+}
+[17:31:00] [FAIL] Registration failed: passwordless Still stuck on after logging in add_phone, not obtained workspace / callback ([stage=workspace_select] session None workspace information)
+[17:31:00] Finish: success 0 indivual, jump over 0 indivual, fail 1 indivual                                                                                                                                                                                                                              

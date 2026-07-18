@@ -1,0 +1,98 @@
+GPTMail — How Email Generation + OTP Retrieval Works
+=====================================================
+
+This note explains how GPTMail (mail.chatgpt.org.uk) works under the hood, so
+future agents building registration scripts know which approach to use.
+
+
+## How GPTMail works
+
+GPTMail provides disposable/temporary email addresses via catch-all domains.
+Any email sent to ANY username at one of their controlled domains will land in
+a queryable inbox.  There is no "account creation" — you just make up an
+address and start polling.
+
+
+## Two ways to get an email address
+
+### Method 1: API-generated (uses /api/generate-email)
+    - Calls GET /api/generate-email with your X-API-Key header
+    - The API picks a domain and returns {"data": {"email": "random@some-domain.com"}}
+    - Downside: one API call spent, and you don't control the domain
+
+### Method 2: Self-assembled from DOMAINS.txt (NO API call needed) ← PREFERRED
+    - Pick any domain from DOMAINS.txt (the file lists ~300 known GPTMail domains)
+    - Generate a random username: 6 lowercase letters + 4 digits (e.g. "xkvpqr3847")
+    - Combine: "xkvpqr3847@chosen-domain.org"
+    - The inbox exists automatically — skip straight to checking for emails
+    - Zero API calls wasted on generation
+
+    Code:
+        client = GPTMailClient(api_key="sk-...")
+        email = client.generate_email_from_domains()   # uses DOMAINS.txt
+        # or: email = client.generate_email_from_domains(domains=["example.org", "foo.com"])
+
+
+## Retrieving the OTP / verification code
+
+Both methods use the same retrieval flow:
+
+    1. Snapshot current inbox IDs (to filter old mail):
+           before_ids = client.get_message_ids(email)
+
+    2. Trigger the OTP from whatever service you're registering on
+
+    3. Poll until the code arrives:
+           code = client.wait_for_code(email, before_ids=before_ids, timeout=120)
+
+    Under the hood this does:
+        - GET /api/emails?email=<address>  → list messages
+        - GET /api/email/<message_id>      → fetch full content for new messages
+        - Extract 6-digit code via regex (handles "verification code", "one-time
+          password", bare 6-digit numbers, etc.)
+        - Repeat every 3 seconds until code found or timeout
+
+    Optional parameters:
+        - keyword="AWS"        → only match emails containing this keyword
+        - code_pattern=r"..."  → custom regex for non-standard codes
+        - exclude_codes={"123456"}  → skip previously used codes
+
+
+## API endpoints summary
+
+    Base URL: https://mail.chatgpt.org.uk
+    Auth:     X-API-Key header
+
+    GET  /api/generate-email          → {"data": {"email": "..."}}
+    GET  /api/emails?email=<addr>     → {"data": {"emails": [...]}}
+    GET  /api/email/<id>              → {"data": {"subject": ..., "content": ..., ...}}
+
+
+## Key files
+
+    snippets/gptmail_client.py   — The reusable Python client (self-contained)
+    snippets/DOMAINS.txt         — List of known GPTMail catch-all domains
+    snippets/proxy_pool_client.py — Companion proxy pool for registration scripts
+
+
+## Typical registration script pattern
+
+    from gptmail_client import GPTMailClient
+    from proxy_pool_client import ProxyPool, build_requests_proxy
+
+    # Setup
+    pool = ProxyPool("proxies.json")
+    proxy = pool.get_next(region="US")
+    client = GPTMailClient(api_key="sk-...", proxy=proxy)
+
+    # Generate email (no API call)
+    email = client.generate_email_from_domains()
+    before_ids = client.get_message_ids(email)
+
+    # ... do the registration steps (fill forms, submit, etc.) ...
+
+    # Retrieve OTP
+    code = client.wait_for_code(email, before_ids=before_ids, timeout=120)
+    print(f"Got code: {code}")
+
+    # ... enter code and complete registration ...

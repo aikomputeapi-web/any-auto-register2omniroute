@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 7,
+    "first_name": "William",
+    "last_name": "Duncan",
+    "address": "3261 MADISON",
+    "city": "Alameda",
+    "state": "CA",
+    "zip_code": "94501",
+    "dob": "01/14/1941",
+    "ssn": "558-54-7937"
+  },
+  "email": "williamduncan5937@catchmail.io",
+  "password": "Dvc!00077856",
+  "username": "dvc0007593",
+  "phone": "5108175436",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783440859,
+  "status": "submitted",
+  "final_url": "https://www.opencccapply.net/uPortal/f/u67l1s1000/normal/render.uP#session_state=80632e99-aedc-4827-8abf-7b7c558fc3d6&iss=https%3A%2F%2Faccount.cccmypath.org%2Fauth%2Frealms%2FOpenCCC&code=13b939fb-a722-470f-9929-68833c3b100a.80632e99-aedc-4827-8abf-7b7c558fc3d6.0f004ce4-2c3c-11ec-8d3d-0242ac130003",
+  "final_title": "My Applications - CCCApply"
+}

@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 79,
+    "first_name": "ROBERT",
+    "last_name": "RICHARDSON",
+    "address": "6206 OUTLOOK AVE",
+    "city": "OAKLAND",
+    "state": "CA",
+    "zip_code": "94605",
+    "dob": "09/16/1930",
+    "ssn": "560-34-1280"
+  },
+  "email": "robertrichardson9013@catchmail.io",
+  "password": "Dvc!00798028",
+  "username": "dvc0079771",
+  "phone": "5107955819",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783432114,
+  "status": "stuck_no_action",
+  "final_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "final_title": ""
+}

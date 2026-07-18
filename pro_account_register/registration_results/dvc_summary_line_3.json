@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 3,
+    "first_name": "Kathleen",
+    "last_name": "Moore",
+    "address": "265 GARCIA AVENUE",
+    "city": "San Leandro",
+    "state": "CA",
+    "zip_code": "94577",
+    "dob": "08/02/1937",
+    "ssn": "564-50-0201"
+  },
+  "email": "kathleenmoore8499@catchmail.io",
+  "password": "Dvc!00031758",
+  "username": "dvc0003848",
+  "phone": "5106106587",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783439265,
+  "status": "incomplete",
+  "final_url": "https://account.cccmypath.org/auth/realms/OpenCCC/login-actions/registration?execution=c66d6039-cd40-424d-8fb4-29a488ccd24f&client_id=cccapply&tab_id=p8vP8yOFC7s&client_data=eyJydSI6Imh0dHBzOi8vd3d3Lm9wZW5jY2NhcHBseS5uZXQvdVBvcnRhbC9vcGVuaWRfY29ubmVjdF9sb2dpbj9jY2NNaXNDb2RlPTMxMiZub25DcmVkaXQ9ZmFsc2UmbG9jYWxlPWVuIiwicnQiOiJjb2RlIiwicm0iOiJmcmFnbWVudCJ9",
+  "final_title": "Create Profile | California Community College Technology Center"
+}

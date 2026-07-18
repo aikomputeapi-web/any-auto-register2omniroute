@@ -1,0 +1,591 @@
+# 🔎 HiveMind Reviewer Agent
+# PR code review
+#
+# Trigger: pull_request opened (Created by Coder implementation)
+# Task: Inspect Code, Check Rules, Security Analysis
+
+name: '🔎 Agent: Reviewer (Gemini)'
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  # 🦁 Beast Mode: Push Trigger
+  push:
+    branches: ['**']
+
+concurrency:
+  group: reviewer-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: 'bash'
+
+jobs:
+  check-access:
+    name: '🛡️ Check Access'
+    runs-on: ubuntu-latest
+    outputs:
+      is_trusted: ${{ steps.check.outputs.is_trusted }}
+    steps:
+      - name: Verify Actor
+        id: check
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const author = context.actor;
+            const botWhitelist = ['google-labs-jules[bot]', 'dependabot[bot]', 'github-actions[bot]'];
+            
+            let isTrusted = false;
+            
+            // 1. Check Bot Whitelist
+            if (botWhitelist.includes(author)) {
+              isTrusted = true;
+              console.log(`✅ Bot ${author} is in the whitelist.`);
+            } else {
+              // 2. Pro-active API Check: Check collaborator permission level
+              try {
+                const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  username: author
+                });
+                
+                const level = permission.permission; // 'admin', 'write', 'read', 'none'
+                console.log(`🔍 Actor ${author} has permission level: ${level}`);
+                
+                if (['admin', 'write'].includes(level)) {
+                  isTrusted = true;
+                  console.log(`✅ Actor ${author} is trusted via API (level: ${level})`);
+                }
+              } catch (e) {
+                console.log(`⚠️ API Check failed or actor is not a collaborator: ${e.message}`);
+                // Fallback: Check Repo Owner Handle
+                if (author === context.repo.owner) {
+                  isTrusted = true;
+                  console.log(`✅ Actor ${author} matches repo owner handle.`);
+                }
+              }
+            }
+            
+            console.log(`Final Decision: is_trusted=${isTrusted}`);
+            core.setOutput('is_trusted', String(isTrusted));
+
+  review:
+    name: '📝 Code Review'
+    needs: check-access
+    if: needs.check-access.outputs.is_trusted == 'true'
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write # Required for commit comments
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r .github/requirements.txt
+
+      - name: Get Diff (Smart Switch)
+        id: diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 🛡️ Security: Map inputs to env vars to prevent command injection
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_AFTER: ${{ github.event.after }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" == "pull_request" ]; then
+            echo "📋 PR Mode detected."
+            git fetch origin "$BASE_REF"
+            git diff origin/"$BASE_REF"...HEAD -- . ':(exclude)package-lock.json' ':(exclude)yarn.lock' ':(exclude)*.min.js' ':(exclude)*.map' ':(exclude)dist/' ':(exclude)build/' > coder_changes.diff
+          else
+            echo "🦁 Beast Mode detected (Push)."
+            # Get diff for Push: Current vs Previous commit
+            if [ "$EVENT_BEFORE" == "0000000000000000000000000000000000000000" ]; then
+               git diff HEAD^ HEAD > coder_changes.diff || git diff --cached > coder_changes.diff
+            else
+               git diff "$EVENT_BEFORE" "$EVENT_AFTER" -- . ':(exclude)package-lock.json' ':(exclude)dist/' > coder_changes.diff || git diff HEAD^ HEAD > coder_changes.diff
+            fi
+          fi
+          
+          ls -lh coder_changes.diff
+
+      - name: Check Secrets
+        id: check-secrets
+        run: |
+          if [ -n "${{ secrets.APP_ID }}" ]; then
+            echo "has_app_id=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_app_id=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate App Token (Optional - for custom branding)
+        id: app-token
+        if: steps.check-secrets.outputs.has_app_id == 'true'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      # Use App token if available, otherwise fallback to GITHUB_TOKEN
+      - name: Set Token
+        id: set-token
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "token=${{ steps.app-token.outputs.token }}" >> $GITHUB_OUTPUT
+            echo "Using custom GitHub App token"
+          else
+            echo "token=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_OUTPUT
+            echo "Using default GITHUB_TOKEN"
+          fi
+
+      - name: Notify Review Started (PR Only)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.set-token.outputs.token }}
+          script: |
+            // Find associated issue
+            const prBody = context.payload.pull_request.body || '';
+            const issueMatch = prBody.match(/Fixes #(\d+)/) || prBody.match(/#(\d+)/);
+            const issueNumber = issueMatch ? parseInt(issueMatch[1]) : null;
+            
+            if (issueNumber) {
+              const marker = '<!-- SWARM_STATUS_REPORT -->';
+
+              const table = [
+                '| Agent | Status | Task |',
+                '|-------|--------|------|',
+                '| 🔍 Analyst | ✅ **COMPLETED** | Issue Analysis |',
+                '| 🤖 Coder | ✅ **COMPLETED** | Implementation |',
+                '| 🔎 Reviewer | 🔄 **WORKING** | PR Review |'
+              ].join('\n');
+
+              const taskList = [
+                '### 📝 Task List',
+                '- [x] Issue Analysis (Analyst)',
+                '- [x] Code Changes (Coder)',
+                '- [x] Create PR (Coder)',
+                '- [/] PR Review (Reviewer)'
+              ].join('\n');
+
+              const header = `## 🐝 HiveMind Status Report ${marker}`;
+              const body = `${header}\n\n${table}\n\n${taskList}\n\n> 🔎 Reviewer: PR #${context.payload.pull_request.number} is being analyzed...\n> 🔗 [View PR](${context.payload.pull_request.html_url})`;
+
+              // Search for existing status comment by marker
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 50,
+                sort: 'created',
+                direction: 'desc'
+              });
+              const statusComment = comments.data.find(c => c.body.includes(marker));
+              
+              if (statusComment) {
+                try {
+                  await github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: statusComment.id,
+                    body: body
+                  });
+                } catch (e) {
+                  console.log(`⚠️ Comment update failed, creating new one.`);
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: body
+                  });
+                }
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: body
+                });
+              }
+            }
+
+      - name: Read Swarm Rules
+        id: rules
+        run: |
+          if [ -f .github/swarm_rules.md ]; then
+            content=$(cat .github/swarm_rules.md)
+            echo "RULES<<EOF" >> $GITHUB_ENV
+            echo "$content" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "RULES=No specific rules found." >> $GITHUB_ENV
+          fi
+
+      - name: Run AI Review
+        id: review
+        env:
+          SWARM_MODEL_PROVIDER: ${{ vars.SWARM_MODEL_PROVIDER || 'glm' }}
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # Run swarm_reviewer.py script
+          # Script will read coder_changes.diff and create review_comment.md
+          # It will also write approved=true/false to GITHUB_OUTPUT
+          python .github/scripts/swarm_reviewer.py
+
+      - name: Apply Auto-Labels
+        if: steps.review.outputs.labels != '' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ steps.set-token.outputs.token }}
+          LABELS: ${{ steps.review.outputs.labels }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🏷️ Applying labels: $LABELS"
+          # Loop through comma-separated labels and apply each one individually
+          # This prevents the workflow from failing if a label doesn't exist
+          IFS=',' read -ra LABEL_ARRAY <<< "$LABELS"
+          for label in "${LABEL_ARRAY[@]}"; do
+            label=$(echo "$label" | xargs) # Trim whitespace
+            echo "  → Trying to add label: '$label'"
+            gh pr edit "$PR_NUMBER" --add-label "$label" 2>/dev/null || echo "    ⚠️ Label '$label' not found, skipping."
+          done
+          echo "✅ Label application complete."
+
+      - name: Post Review (PR Mode)
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        with:
+          github-token: ${{ steps.set-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            
+            // Read review result
+            let reviewText = '';
+            try {
+              reviewText = fs.readFileSync('review_comment.md', 'utf8');
+            } catch (e) {
+              reviewText = 'Review result could not be read or script failed.';
+            }
+
+            // Verify approval from script output (from steps/env)
+            // Using steps.review.outputs.approved
+
+            // swarm_reviewer.py GITHUB_OUTPUT'a approved yazıyor, bunu steps objesinden alacağız.
+            const approved = '${{ steps.review.outputs.approved }}' === 'true';
+            const verdict = approved ? '✅ APPROVED' : '❌ REJECTED';
+            
+            // PR'a review yaz
+            if (reviewText.length > 10) {
+                await github.rest.pulls.createReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  event: approved ? 'APPROVE' : 'REQUEST_CHANGES',
+                  body: `## 🔎 Gemini Code Review
+
+                  ${reviewText}
+
+                  ---
+
+                  **Verdict:** ${verdict}
+
+                  ${approved ? '> This PR is ready to merge.' : '> Please fix the issues mentioned above.'}`
+                });
+                // Note: Jules is triggered via REST API in the self-correction loop below
+            }
+            
+            // Update associated issue
+            const prBody = context.payload.pull_request.body || '';
+            const issueMatch = prBody.match(/Fixes #(\d+)/) || prBody.match(/#(\d+)/);
+            const issueNumber = issueMatch ? parseInt(issueMatch[1]) : null;
+            
+            if (issueNumber) {
+              const marker = '<!-- SWARM_STATUS_REPORT -->';
+
+              const table = [
+                '| Agent | Status | Task |',
+                '|-------|--------|------|',
+                '| 🔍 Analyst | ✅ **COMPLETED** | Issue Analysis |',
+                '| 🤖 Coder | ✅ **COMPLETED** | Implementation |',
+                '| 🔎 Reviewer | ✅ **COMPLETED** | PR Review |'
+              ].join('\n');
+
+              const taskList = [
+                '### 📝 Task List',
+                '- [x] Issue Analysis (Analyst)',
+                '- [x] Code Changes (Coder)',
+                '- [x] Create PR (Coder)',
+                '- [x] PR Review (Reviewer)'
+              ].join('\n');
+
+              const header = `## 🐝 HiveMind Status Report ${marker}`;
+              const body = `${header}\n\n${table}\n\n${taskList}\n\n---\n\n**Verdict:** ${verdict}\n\n🔗 [PR #${context.payload.pull_request.number}](${context.payload.pull_request.html_url})\n\n${approved ? '> ✅ **Ready to Merge!** Review passed.' : '> ⚠️ **Changes Needed.** Please address the issues.'}`;
+
+              // Search for existing status comment by marker
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 50,
+                sort: 'created',
+                direction: 'desc'
+              });
+              const statusComment = comments.data.find(c => c.body.includes(marker));
+              
+              if (statusComment) {
+                try {
+                  await github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: statusComment.id,
+                    body: body
+                  });
+                } catch (e) {
+                  console.log(`⚠️ Comment update failed, creating new one.`);
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: body
+                  });
+                }
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: body
+                });
+              }
+
+              // 🔄 SELF-CORRECTION LOOP: Trigger Jules (Google Labs) via REST API
+              if (!approved) {
+                  const MAX_RETRIES = 5;
+                  
+                  if (!reviewText || reviewText.trim().length < 10) {
+                      console.log('⚠️ Review text is too short or empty. Skipping self-correction.');
+                      return;
+                  }
+
+                  // 1. Find existing session ID from PR comments (not Issue)
+                  const prNumber = context.payload.pull_request.number;
+                  const comments = await github.rest.issues.listComments({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prNumber,  // Search PR comments for session ID
+                      per_page: 100
+                  });
+                  
+                  const autoTriggers = comments.data.filter(c => c.body.includes('Reviewer Feedback (Automatic Trigger)')).length;
+                  
+                  // Find Session ID - check multiple sources:
+                  // 1. PR body (Jules writes "for task X" in description)
+                  // 2. Comments: My format <!-- JULES_SESSION_ID: 123 -->
+                  // 3. Comments: Jules' format "for task 123"
+                  let limitReached = autoTriggers >= MAX_RETRIES;
+                  let sessionId = null;
+
+                  // FIRST: Check PR BODY for Jules task ID
+                  const prBody = context.payload.pull_request.body || '';
+                  console.log('📋 PR Body length: ' + prBody.length);
+                  // Handle both plain text and markdown link: "for task 123" or "for task [123](url)"
+                  const prBodyMatch = prBody.match(/for task \[?(\d+)\]?/);
+                  if (prBodyMatch) {
+                      sessionId = prBodyMatch[1];
+                      console.log('🔗 Found Session ID in PR BODY: ' + sessionId);
+                  }
+
+                  // If not in body, check comments
+                  if (!sessionId) {
+                      for (const c of comments.data) {
+                          // Pattern 1: My hidden comment
+                          const myMatch = c.body.match(/<!-- JULES_SESSION_ID: (.+?) -->/);
+                          if (myMatch) {
+                              sessionId = myMatch[1];
+                              console.log('🔗 Found Session ID (my format): ' + sessionId);
+                              break;
+                          }
+                          // Pattern 2: Jules' native format in comment
+                          const julesMatch = c.body.match(/for task \[?(\d+)\]?/);
+                          if (julesMatch) {
+                              sessionId = julesMatch[1];
+                              console.log('🔗 Found Session ID (Jules format in comment): ' + sessionId);
+                              break;
+                          }
+                      }
+                  }
+                  
+                  if (!sessionId) {
+                      console.log('❌ No Session ID found in PR body or comments!');
+                  } else {
+                      console.log('✅ Session ID to use: ' + sessionId);
+                  }
+
+                  if (limitReached) {
+                      console.log('⚠️ Max retries (' + MAX_RETRIES + ') reached. Stopping self-correction loop.');
+                      const issueDetails = await github.rest.issues.get({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: issueNumber
+                      });
+                      const issueAuthor = issueDetails.data.user.login;
+                      
+                      const stopBody = '🛑 **Self-Correction Stopped**\n\n' +
+                          'Result: Rejected ' + MAX_RETRIES + ' times.\n' +
+                          '@' + issueAuthor + ' please check manually.\n' +
+                          '<!-- JULES_SESSION_ID: ' + (sessionId || 'none') + ' -->';
+
+                      await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: issueNumber,
+                          body: stopBody
+                      });
+                      return;
+                  }
+
+                  console.log('🔄 Triggering Jules API (Attempt ' + (autoTriggers + 1) + '/' + MAX_RETRIES + ')...');
+                  
+                  // Prepare Payload
+                  const apiKey = process.env.JULES_API_KEY;
+                  if (!apiKey) {
+                      console.log('❌ Error: JULES_API_KEY environment variable is not set. Cannot trigger self-correction.');
+                      await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: issueNumber,
+                          body: '⚠️ **Self-Correction Failed**: `JULES_API_KEY` is missing.'
+                      });
+                      return;
+                  }
+                  
+                  // Usage of fetch (Node 18+)
+                  try {
+                      let julesResp;
+                      if (sessionId) {
+                          // CONTINUE EXISTING SESSION
+                          console.log('📨 Sending feedback to Session ' + sessionId + '...');
+                          const response = await fetch('https://jules.googleapis.com/v1alpha/sessions/' + sessionId + ':sendMessage', {
+                              method: 'POST',
+                              headers: {
+                                  'Content-Type': 'application/json',
+                                  'X-Goog-Api-Key': apiKey
+                              },
+                              body: JSON.stringify({ prompt: 'Reviewer Feedback:\n\n' + reviewText + '\n\nPlease fix these issues.' })
+                          });
+
+                          if (!response.ok) {
+                              const errorText = await response.text();
+                              throw new Error('Jules API Error (' + response.status + '): ' + errorText);
+                          }
+
+                          julesResp = await response.json();
+                          console.log('✅ Feedback sent to Jules session.');
+                      } else {
+                          // NO SESSION FOUND - STOP (no fallback)
+                          console.log('❌ No Jules Session ID found! Cannot continue session.');
+                          console.log('📋 Checked PR body and comments for patterns: for task X, JULES_SESSION_ID');
+                          await github.rest.issues.createComment({
+                              owner: context.repo.owner,
+                              repo: context.repo.repo,
+                              issue_number: prNumber,
+                              body: '⚠️ **Session Continuity Failed**\n\nCould not find existing Jules session ID in PR body or comments.\n\n**Debug Info:**\n- PR Body checked: Yes\n- Comments checked: Yes\n- Patterns: `for task X`, `<!-- JULES_SESSION_ID: -->`\n\nPlease trigger Jules manually.'
+                          });
+                          return;
+                      }
+
+                      // Post confirmation comment WITH Session ID for next run
+                      const confirmBody = '🤖 **Jules Triggered (REST API)**\n\n' +
+                          'I have communicated the feedback to Jules.\n' +
+                          '**Session ID:** `' + sessionId + '`\n\n' +
+                          '> Loop: ' + (autoTriggers + 1) + '/' + MAX_RETRIES + '\n\n' +
+                          '<!-- JULES_SESSION_ID: ' + sessionId + ' -->\n' +
+                          '<!-- Reviewer Feedback (Automatic Trigger) -->';
+
+                      // Post to PR only (for session continuity)
+                      await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: prNumber,
+                          body: confirmBody
+                      });
+                      
+                  } catch (apiError) {
+                      console.error('❌ Jules REST API Failed:', apiError);
+                      await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: issueNumber,
+                          body: '⚠️ **Self-Correction Failed** during API call.\n\nError: ' + apiError.message
+                      });
+                  }
+              }
+            }
+      - name: Post Review (Beast Mode - Push)
+        # 🛡️ Skip if actor is Jules (handled in PR mode) or if no issues found
+        if: always() && github.event_name == 'push' && github.actor != 'google-labs-jules[bot]'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            let reviewText = '';
+            try {
+              reviewText = fs.readFileSync('review_comment.md', 'utf8');
+            } catch (e) {
+              reviewText = 'Review result could not be read.';
+            }
+
+            const approved = '${{ steps.review.outputs.approved }}' === 'true';
+            const verdict = approved ? '✅ CLEAN' : '❌ ISSUES FOUND';
+            
+            // 1. Post Commit Comment (Always)
+            if (reviewText.length > 10) {
+               await github.rest.repos.createCommitComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  commit_sha: context.sha,
+                  body: `## 🦁 Beast Mode Code Inspector\n\n${reviewText}\n\n---\n\n**Status:** ${verdict}`
+               });
+            }
+
+            // 2. Create Critical Issue (If REJECTED)
+            if (!approved) {
+              const commitSha = context.sha.substring(0, 7);
+              const author = context.payload.pusher.name || context.actor;
+              
+              const title = `🚨 Critical Issue Detected in Commit ${commitSha}`;
+              const body = `### 🛑 Critical Issues Found during Push Analysis\n\n` +
+                           `**Commit:** ${context.sha}\n` +
+                           `**Author:** @${author}\n\n` +
+                           `The **Reviewer Agent** detected critical problems in the recent push. Please address them immediately.\n\n` +
+                           `---\n\n` +
+                           `### 🔎 Review Findings\n\n${reviewText}\n\n` +
+                           `> This issue was automatically created by HiveMind Beast Mode.`;
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['bug', 'critical', 'automated-review'],
+                assignees: [context.actor]
+              });
+              
+              console.log('🚨 Critical Issue created successfully!');
+            }

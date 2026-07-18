@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 697,
+    "first_name": "ANTHONY",
+    "last_name": "BOVASTRO",
+    "address": "31214 TEPIC PL APT 26",
+    "city": "Hayward",
+    "state": "CA",
+    "zip_code": "94544",
+    "dob": "05/10/1957",
+    "ssn": "552-02-7420"
+  },
+  "email": "anthonybovastro7342@catchmail.io",
+  "password": "Dvc!06972438",
+  "username": "dvc0697156",
+  "phone": "5103902683",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783428086,
+  "status": "stuck_no_action",
+  "final_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "final_title": ""
+}

@@ -1,9 +1,11 @@
 """Platform plug-in base class"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional, Tuple
 from enum import Enum
 import os
+import secrets
+import string
 import time
 
 
@@ -33,7 +35,7 @@ class Account:
 class RegisterConfig:
     """Register task configuration"""
     executor_type: str = "protocol"   # protocol | headless | headed
-    captcha_solver: str = "yescaptcha"  # yescaptcha | 2captcha | manual
+    captcha_solver: str = "yescaptcha"  # yescaptcha | capsolver | manual | local_solver
     proxy: Optional[str] = None
     extra: dict = field(default_factory=dict)
 
@@ -43,12 +45,15 @@ class BasePlatform(ABC):
     name: str = ""
     display_name: str = ""
     version: str = "1.0.0"
-    # Executor types supported by subclass declarations, those not listed are automatically downgraded to protocol
+    # Executor types supported by subclass declarations, those not listed are automatically downgraded
     supported_executors: list = ["protocol", "headless", "headed"]
 
     def __init__(self, config: RegisterConfig = None):
         self.config = config or RegisterConfig()
         self._task_control = None
+        # Convention: runtime may also pass mailbox=...; keep attribute present for helpers.
+        if not hasattr(self, "mailbox"):
+            self.mailbox = None
         requested_executor = str(self.config.executor_type or "").strip() or "protocol"
         if requested_executor not in self.supported_executors:
             fallback = (
@@ -73,6 +78,99 @@ class BasePlatform(ABC):
     def check_valid(self, account: Account) -> bool:
         """Check if the account is valid"""
         ...
+
+    # ------------------------------------------------------------------
+    # Convenience helpers (use these in new plugins to avoid boilerplate)
+    # ------------------------------------------------------------------
+
+    def log(self, msg: str) -> None:
+        """Task-aware log. Runtime injects `_log_fn`; falls back to print."""
+        log_fn = getattr(self, "_log_fn", print)
+        prefix = self.display_name or self.name or "platform"
+        log_fn(f"[{prefix}] {msg}")
+
+    @property
+    def wants_headless(self) -> bool:
+        """True unless executor_type is explicitly headed."""
+        return (self.config.executor_type or "headless") != "headed"
+
+    @staticmethod
+    def generate_password(length: int = 16) -> str:
+        alphabet = string.ascii_letters + string.digits
+        return "".join(secrets.choice(alphabet) for _ in range(max(int(length or 16), 8)))
+
+    def prepare_mailbox_otp(
+        self,
+        email: Optional[str] = None,
+        *,
+        code_pattern: Optional[str] = r"(\d{6})",
+        keyword: str = "",
+        require_mailbox: bool = False,
+    ) -> Tuple[str, Optional[Callable[[], Optional[str]]]]:
+        """
+        Resolve email from the injected mailbox and build an OTP callback.
+
+        Returns:
+            (resolved_email, otp_callback_or_None)
+
+        Typical usage in register():
+            email, otp_cb = self.prepare_mailbox_otp(email, require_mailbox=True)
+            ok, info = reg.register(email=email, password=password, otp_callback=otp_cb)
+        """
+        mailbox = getattr(self, "mailbox", None)
+        if mailbox is None:
+            if require_mailbox:
+                raise RuntimeError("Mailbox is required for this platform")
+            return email or "", None
+
+        mail_acct = mailbox.get_email()
+        if not mail_acct:
+            raise RuntimeError("No available email account found")
+
+        resolved_email = email or mail_acct.email
+        self.log(f"Mail: {mail_acct.email}")
+        before_ids = mailbox.get_current_ids(mail_acct)
+        otp_timeout = self.get_mailbox_otp_timeout()
+
+        def otp_cb():
+            self.log("Waiting for verification code...")
+            code = mailbox.wait_for_code(
+                mail_acct,
+                keyword=keyword,
+                timeout=otp_timeout,
+                before_ids=before_ids,
+                code_pattern=code_pattern,
+            )
+            if code:
+                self.log(f"OTP code: {code}")
+            return code
+
+        return resolved_email, otp_cb
+
+    def make_account(
+        self,
+        *,
+        email: str,
+        password: str,
+        token: str = "",
+        status: AccountStatus = AccountStatus.REGISTERED,
+        user_id: str = "",
+        region: str = "",
+        trial_end_time: int = 0,
+        extra: Optional[dict] = None,
+    ) -> Account:
+        """Build a standard Account for this platform."""
+        return Account(
+            platform=self.name,
+            email=email,
+            password=password,
+            token=token or "",
+            status=status,
+            user_id=user_id or "",
+            region=region or "",
+            trial_end_time=trial_end_time or 0,
+            extra=extra or {},
+        )
 
     def get_trial_url(self, account: Account) -> Optional[str]:
         """Generate trial activation link (optional implementation)"""
@@ -123,7 +221,7 @@ class BasePlatform(ABC):
         return default
 
     def _make_executor(self):
-        """according to config Create executor"""
+        """Create executor from config. Call from plugin.py (not core.py). Supports `with`."""
         from .executors.protocol import ProtocolExecutor
         t = self.config.executor_type
         if t == "protocol":
@@ -137,7 +235,7 @@ class BasePlatform(ABC):
         raise ValueError(f"Unknown executor type: {t}")
 
     def _make_captcha(self, **kwargs):
-        """according to config Create a captcha solver"""
+        """Create captcha solver from config. Call from plugin.py (not core.py)."""
         from .base_captcha import YesCaptcha, ManualCaptcha, LocalSolverCaptcha, CapSolver
         from core.config_store import config_store
         t = self.config.captcha_solver

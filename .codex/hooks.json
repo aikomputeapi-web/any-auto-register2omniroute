@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if (-not $env:MC_TASK_ID -or -not $env:MC_API_URL) { exit 0 }; $payload = [Console]::In.ReadToEnd(); $taskId = [System.Uri]::EscapeDataString($env:MC_TASK_ID); $url = \"$($env:MC_API_URL)/api/hooks/codex?taskId=$taskId&hookEvent=UserPromptSubmit\"; $headers = @{ Authorization = \"Bearer $($env:MC_API_TOKEN)\"; \"X-Mission-Control-Runtime\" = \"electron-local\" }; try { Invoke-RestMethod -Method Post -Uri $url -Headers $headers -Body $payload -ContentType \"application/json\" -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {}",
+            "shell": "powershell"
+          }
+        ],
+        "_mcManaged": true
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if (-not $env:MC_TASK_ID -or -not $env:MC_API_URL) { exit 0 }; $payload = [Console]::In.ReadToEnd(); $taskId = [System.Uri]::EscapeDataString($env:MC_TASK_ID); $url = \"$($env:MC_API_URL)/api/hooks/codex?taskId=$taskId&hookEvent=Stop\"; $headers = @{ Authorization = \"Bearer $($env:MC_API_TOKEN)\"; \"X-Mission-Control-Runtime\" = \"electron-local\" }; try { Invoke-RestMethod -Method Post -Uri $url -Headers $headers -Body $payload -ContentType \"application/json\" -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {}",
+            "shell": "powershell"
+          }
+        ],
+        "_mcManaged": true
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if (-not $env:MC_TASK_ID -or -not $env:MC_API_URL) { exit 0 }; $payload = [Console]::In.ReadToEnd(); $taskId = [System.Uri]::EscapeDataString($env:MC_TASK_ID); $url = \"$($env:MC_API_URL)/api/hooks/codex?taskId=$taskId&hookEvent=PermissionRequest\"; $headers = @{ Authorization = \"Bearer $($env:MC_API_TOKEN)\"; \"X-Mission-Control-Runtime\" = \"electron-local\" }; try { Invoke-RestMethod -Method Post -Uri $url -Headers $headers -Body $payload -ContentType \"application/json\" -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {}",
+            "shell": "powershell"
+          }
+        ],
+        "_mcManaged": true
+      }
+    ]
+  }
+}

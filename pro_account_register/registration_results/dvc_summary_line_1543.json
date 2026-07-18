@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 1543,
+    "first_name": "STEVEN",
+    "last_name": "PETIT JEAN",
+    "address": "1090 HYDE ST",
+    "city": "San Leandro",
+    "state": "CA",
+    "zip_code": "94577",
+    "dob": "01/01/1944",
+    "ssn": "261-68-7748"
+  },
+  "email": "stevenpetitjean3291@catchmail.io",
+  "password": "Dvc!15437887",
+  "username": "dvc1543875",
+  "phone": "5109657186",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783371312,
+  "status": "blocked_by_waf",
+  "final_url": "https://account.cccmypath.org/auth/realms/OpenCCC/login-actions/registration?client_id=cccapply&tab_id=ei8a5MPAxgE&client_data=eyJydSI6Imh0dHBzOi8vd3d3Lm9wZW5jY2NhcHBseS5uZXQvdVBvcnRhbC9vcGVuaWRfY29ubmVjdF9sb2dpbj9jY2NNaXNDb2RlPTMxMiZub25DcmVkaXQ9ZmFsc2UmbG9jYWxlPWVuIiwicnQiOiJjb2RlIiwicm0iOiJmcmFnbWVudCJ9",
+  "final_title": "Create Your Account | California Community College Technology Center"
+}

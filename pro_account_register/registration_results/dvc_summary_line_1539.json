@@ -1,0 +1,25 @@
+{
+  "profile": {
+    "line_no": 1539,
+    "first_name": "Joseph",
+    "last_name": "Vierra",
+    "address": "150 Haas 114",
+    "city": "San Leandro",
+    "state": "CA",
+    "zip_code": "94577",
+    "dob": "03/30/1949",
+    "ssn": "568-80-6925"
+  },
+  "email": "josephvierra1566@catchmail.io",
+  "password": "Dvc!15399450",
+  "username": "dvc1539764",
+  "phone": "5105512296",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783395206,
+  "smspool_raw_phone": "19568195005",
+  "smspool_phone": "9568195005",
+  "status": "phone_sms_required",
+  "final_url": "https://account.cccmypath.org/auth/realms/OpenCCC/login-actions/registration?execution=db51dec4-8ed5-435d-83da-607ceee842a4&client_id=cccapply&tab_id=TPV-v2NqjOQ&client_data=eyJydSI6Imh0dHBzOi8vd3d3Lm9wZW5jY2NhcHBseS5uZXQvdVBvcnRhbC9vcGVuaWRfY29ubmVjdF9sb2dpbj9jY2NNaXNDb2RlPTMxMiZub25DcmVkaXQ9ZmFsc2UmbG9jYWxlPWVuIiwicnQiOiJjb2RlIiwicm0iOiJmcmFnbWVudCJ9",
+  "final_title": "Verify Your Account | California Community College Technology Center"
+}

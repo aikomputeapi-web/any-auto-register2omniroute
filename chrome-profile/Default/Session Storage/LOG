@@ -1,0 +1,15 @@
+2026/07/07-09:19:04.892 5dfc Reusing MANIFEST c:\Users\Administrator\coding\any-auto-register\chrome-profile\Default\Session Storage/MANIFEST-000001
+2026/07/07-09:19:04.903 5dfc Recovering log #55
+2026/07/07-09:19:04.916 5dfc Reusing old log c:\Users\Administrator\coding\any-auto-register\chrome-profile\Default\Session Storage/000055.log 
+2026/07/07-10:12:53.930 5dfc Level-0 table #59: started
+2026/07/07-10:12:53.945 5dfc Level-0 table #59: 30670 bytes OK
+2026/07/07-10:12:53.953 5dfc Delete type=0 #55
+2026/07/07-10:12:53.954 5dfc Compacting 4@0 + 1@1 files
+2026/07/07-10:12:53.972 5dfc Generated table #60@0: 238 keys, 80172 bytes
+2026/07/07-10:12:53.972 5dfc Compacted 4@0 + 1@1 files => 80172 bytes
+2026/07/07-10:12:53.976 5dfc compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/07/07-10:12:53.977 5dfc Delete type=2 #49
+2026/07/07-10:12:53.978 5dfc Delete type=2 #51
+2026/07/07-10:12:53.978 5dfc Delete type=2 #54
+2026/07/07-10:12:53.978 5dfc Delete type=2 #56
+2026/07/07-10:12:53.978 5dfc Delete type=2 #59

@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 5,
+    "first_name": "Maurice",
+    "last_name": "Schmaier",
+    "address": "2520 LEIMERT BL",
+    "city": "Oakland",
+    "state": "CA",
+    "zip_code": "94602",
+    "dob": "12/24/1934",
+    "ssn": "145-26-8267"
+  },
+  "email": "mauriceschmaier8799@catchmail.io",
+  "password": "Dvc!00056332",
+  "username": "dvc0005265",
+  "phone": "5103791487",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783439950,
+  "status": "incomplete",
+  "final_url": "https://account.cccmypath.org/auth/realms/OpenCCC/login-actions/registration?execution=c66d6039-cd40-424d-8fb4-29a488ccd24f&client_id=cccapply&tab_id=Dr8N1QmaCMQ&client_data=eyJydSI6Imh0dHBzOi8vd3d3Lm9wZW5jY2NhcHBseS5uZXQvdVBvcnRhbC9vcGVuaWRfY29ubmVjdF9sb2dpbj9jY2NNaXNDb2RlPTMxMiZub25DcmVkaXQ9ZmFsc2UmbG9jYWxlPWVuIiwicnQiOiJjb2RlIiwicm0iOiJmcmFnbWVudCJ9",
+  "final_title": "Create Profile | California Community College Technology Center"
+}

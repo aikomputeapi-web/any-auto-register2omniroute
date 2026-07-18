@@ -1,0 +1,6 @@
+2026/06/20-17:10:46.274 13d80 Reusing MANIFEST C:\Users\Administrator\coding\any-auto-register\chrome-profile\cerebras-cdp\Default\Local Storage\leveldb/MANIFEST-000001
+2026/06/20-17:10:46.300 13d80 Recovering log #16
+2026/06/20-17:10:46.309 13d80 Reusing old log C:\Users\Administrator\coding\any-auto-register\chrome-profile\cerebras-cdp\Default\Local Storage\leveldb/000016.log 
+2026/06/20-17:11:46.470 13d80 Level-0 table #21: started
+2026/06/20-17:11:46.500 13d80 Level-0 table #21: 33242 bytes OK
+2026/06/20-17:11:46.512 13d80 Delete type=0 #16

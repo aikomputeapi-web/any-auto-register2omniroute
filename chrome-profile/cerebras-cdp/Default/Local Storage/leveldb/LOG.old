@@ -1,0 +1,14 @@
+2026/06/20-17:06:51.835 11d74 Reusing MANIFEST C:\Users\Administrator\coding\any-auto-register\chrome-profile\cerebras-cdp\Default\Local Storage\leveldb/MANIFEST-000001
+2026/06/20-17:06:51.853 11d74 Recovering log #13
+2026/06/20-17:06:51.861 11d74 Reusing old log C:\Users\Administrator\coding\any-auto-register\chrome-profile\cerebras-cdp\Default\Local Storage\leveldb/000013.log 
+2026/06/20-17:07:51.888 13e48 Level-0 table #17: started
+2026/06/20-17:07:51.899 13e48 Level-0 table #17: 33527 bytes OK
+2026/06/20-17:07:51.908 13e48 Delete type=0 #13
+2026/06/20-17:07:51.909 11d74 Compacting 4@0 + 0@1 files
+2026/06/20-17:07:51.923 11d74 Generated table #18@0: 36 keys, 57496 bytes
+2026/06/20-17:07:51.924 11d74 Compacted 4@0 + 0@1 files => 57496 bytes
+2026/06/20-17:07:51.929 11d74 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/20-17:07:51.931 11d74 Delete type=2 #7
+2026/06/20-17:07:51.931 11d74 Delete type=2 #11
+2026/06/20-17:07:51.931 11d74 Delete type=2 #14
+2026/06/20-17:07:51.931 11d74 Delete type=2 #17

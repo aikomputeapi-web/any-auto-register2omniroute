@@ -1,0 +1,23 @@
+{
+  "profile": {
+    "line_no": 326,
+    "first_name": "EDWARD",
+    "last_name": "SAMARIN",
+    "address": "1592 GRAFF AVE",
+    "city": "San Leandro",
+    "state": "CA",
+    "zip_code": "94577",
+    "dob": "11/19/1945",
+    "ssn": "556-64-1087"
+  },
+  "email": "edwardsamarin1856@catchmail.io",
+  "password": "Dvc!03263405",
+  "username": "dvc0326398",
+  "phone": "5107766289",
+  "target_url": "https://www.opencccapply.net/gateway/apply?cccMisCode=312",
+  "dry_run": false,
+  "timestamp": 1783429079,
+  "status": "incomplete",
+  "final_url": "https://account.cccmypath.org/auth/realms/OpenCCC/login-actions/registration?execution=c66d6039-cd40-424d-8fb4-29a488ccd24f&client_id=cccapply&tab_id=sJSeVbB-vQI&client_data=eyJydSI6Imh0dHBzOi8vd3d3Lm9wZW5jY2NhcHBseS5uZXQvdVBvcnRhbC9vcGVuaWRfY29ubmVjdF9sb2dpbj9jY2NNaXNDb2RlPTMxMiZub25DcmVkaXQ9ZmFsc2UmbG9jYWxlPWVuIiwicnQiOiJjb2RlIiwicm0iOiJmcmFnbWVudCJ9",
+  "final_title": "Create Profile | California Community College Technology Center"
+}

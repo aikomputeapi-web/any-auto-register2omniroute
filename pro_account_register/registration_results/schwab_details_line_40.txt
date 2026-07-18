@@ -1,0 +1,15 @@
+Charles Schwab Brokerage / Checking Account Details
+==================================================
+Name: Maria Nield
+Address: 17731 MADISON AVENUE, Castro Valley, CA 94546
+DOB: 05/20/1947
+SSN: 559766378
+Email: marianield@audioplexdesigns.com
+Phone: 6692506085
+Username: marianield47
+Password: MariaPass47!
+--------------------------------------------------
+Status: In Progress
+Final URL: https://onboard.schwab.com/hard-stop
+Title: There was a problem - Open an Account | Charles Schwab
+Timestamp: 2026-06-11 21:50:33

@@ -38,7 +38,7 @@ Run the provisioning script on your VPS:
 ssh root@YOUR_VPS_IP
 
 # Download and run the setup script
-curl -fsSL https://raw.githubusercontent.com/aikomputeapi-web/any-auto-register2omniroute/main/deploy/setup-vps.sh | bash
+3
 
 https://github.com/aikomputeapi-web/any-auto-register2omniroute.git
 

@@ -1,0 +1,3 @@
+John|Doe|123 Main St|Springfield|IL|62701|01/15/1990|123-45-6789
+Jane|Smith|456 Oak Ave|Portland|OR|97201|05/20/1985|987-65-4321
+Test|User|789 Pine Rd|Austin|TX|73301|11/30/1988|456-78-9012

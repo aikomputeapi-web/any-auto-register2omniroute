@@ -1,0 +1,42 @@
+{
+   "action": {
+      "default_popup": "index.html"
+   },
+   "background": {
+      "service_worker": "background.js",
+      "type": "module"
+   },
+   "content_scripts": [ {
+      "js": [ "content-script.js" ],
+      "matches": [ "https://*.sodapdf.com/silent-refresh.html*", "https://*.sodapdf.com/*/silent-refresh.html*" ],
+      "run_at": "document_end"
+   }, {
+      "js": [ "pdf-interceptor.js" ],
+      "matches": [ "file:///*.pdf" ],
+      "run_at": "document_end"
+   }, {
+      "js": [ "dom-listener.js" ],
+      "matches": [ "\u003Call_urls>" ],
+      "run_at": "document_end"
+   } ],
+   "description": "Edit and read any PDF files in Chrome. Soda PDF is the ultimate online PDF editor and viewer for any device!",
+   "host_permissions": [ "*://*/*" ],
+   "icons": {
+      "128": "assets/images/logo_128.png",
+      "16": "assets/images/logo_16.png",
+      "19": "assets/images/logo_19.png",
+      "48": "assets/images/logo_48.png"
+   },
+   "incognito": "split",
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAi60wOJlvHvfrbnfJvKjyE/U3SpBTAkz9YCMZDg4nht68Gx1i4DrFKyUbt5juhCAoFjIT0iF78TKVnk+1vhdFbjwxUJBN8+aH/I4UKI422quHIwSw3O2lFge3DUZPIXoijSS2AO6gbz03onbEzPzG5eMwat2mi/fbMfbCcX3JHknV5Cu8qtsOG+XwL1MhNrpB3fWmYwvaPVwspYO/Wb+Fxl4F/guDgAhRehiBG7bvqFkfowoV9Dscz5tNoGrUWVtyyqhU9X3WtOMTzxWajJuxhqNk6PPPlnJp3M8kG7sgshkapWtpFiz0T4HS/hhjyDxXDqdyDeCHOWUcUhVdgtxaZwIDAQAB",
+   "manifest_version": 3,
+   "name": "Soda PDF Viewer: Edit, Convert, Compress PDF files",
+   "permissions": [ "tabs", "cookies", "storage", "webRequest", "webNavigation", "system.display" ],
+   "short_name": "Soda PDF Viewer",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.0.2.91",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "favicon.ico", "open-dialog.html" ]
+   } ]
+}
